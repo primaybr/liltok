@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -33,6 +34,9 @@ func setupAdminTest(t *testing.T) (*chi.Mux, *db.DB, *admin.AdminHandler) {
 	broadcaster := admin.NewBroadcaster()
 
 	handler := admin.NewAdminHandler(cfg, database, led, km, rtr, nil, broadcaster)
+	tempConfigFile := filepath.Join(t.TempDir(), "liltok.yaml")
+	_ = os.WriteFile(tempConfigFile, []byte("providers:\n  openai:\n    api_key: \"\"\n  anthropic:\n    api_key: \"\"\n  nvidianim:\n    api_key: \"\"\n  groq:\n    api_key: \"\"\n  gemini:\n    api_key: \"\"\n  ollama:\n    base_url: \"http://localhost:11434\"\nroutes:\n  default_strategy: \"auto-resilient\"\n"), 0644)
+	handler.SetConfigPath(tempConfigFile)
 
 	r := chi.NewRouter()
 	handler.RegisterRoutes(r)
@@ -241,6 +245,69 @@ func TestAdminRoutes(t *testing.T) {
 	_ = json.Unmarshal(rec2.Body.Bytes(), &data2)
 	if data2.DefaultStrategy != "free-first" {
 		t.Errorf("expected updated strategy free-first, got %s", data2.DefaultStrategy)
+	}
+}
+
+func TestAdminProvidersEndpoints(t *testing.T) {
+	r, db, _ := setupAdminTest(t)
+	defer db.Close()
+
+	// 1. List Providers
+	reqList := httptest.NewRequest("GET", "/api/v1/providers", nil)
+	recList := httptest.NewRecorder()
+	r.ServeHTTP(recList, reqList)
+
+	if recList.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", recList.Code, recList.Body.String())
+	}
+
+	var listData struct {
+		Providers []admin.ProviderSummary `json:"providers"`
+	}
+	_ = json.Unmarshal(recList.Body.Bytes(), &listData)
+	if len(listData.Providers) == 0 {
+		t.Fatalf("expected providers list to not be empty")
+	}
+
+	// 2. Update Providers
+	body := `{"providers":{"groq":{"api_key":"gsk_test_key_1234567890"},"gemini":{"api_key":"gem1,gem2"}}}`
+	reqUp := httptest.NewRequest("POST", "/api/v1/providers", strings.NewReader(body))
+	reqUp.Header.Set("Content-Type", "application/json")
+	recUp := httptest.NewRecorder()
+	r.ServeHTTP(recUp, reqUp)
+
+	if recUp.Code != http.StatusOK {
+		t.Fatalf("expected 200 updating providers, got %d: %s", recUp.Code, recUp.Body.String())
+	}
+
+	// 3. Verify Masked Keys in list
+	reqList2 := httptest.NewRequest("GET", "/api/v1/providers", nil)
+	recList2 := httptest.NewRecorder()
+	r.ServeHTTP(recList2, reqList2)
+
+	var listData2 struct {
+		Providers []admin.ProviderSummary `json:"providers"`
+	}
+	_ = json.Unmarshal(recList2.Body.Bytes(), &listData2)
+	for _, p := range listData2.Providers {
+		if p.Name == "groq" {
+			if !p.HasKey || !strings.Contains(p.APIKeyMasked, "••••••••") {
+				t.Errorf("expected groq key to be masked, got %q", p.APIKeyMasked)
+			}
+		}
+		if p.Name == "gemini" {
+			if p.KeyCount != 2 {
+				t.Errorf("expected 2 gemini keys, got %d", p.KeyCount)
+			}
+		}
+	}
+
+	// 4. Provider Stats
+	reqStats := httptest.NewRequest("GET", "/api/v1/providers/stats", nil)
+	recStats := httptest.NewRecorder()
+	r.ServeHTTP(recStats, reqStats)
+	if recStats.Code != http.StatusOK {
+		t.Fatalf("expected 200 for provider stats, got %d", recStats.Code)
 	}
 }
 

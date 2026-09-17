@@ -135,3 +135,13 @@ func (cb *CircuitBreaker) String() string {
 	defer cb.mu.Unlock()
 	return fmt.Sprintf("[%s] State: %s (Failures: %d)", cb.name, cb.state, cb.consecutiveFailures)
 }
+
+// Reset resets the circuit breaker to closed with zero failures.
+func (cb *CircuitBreaker) Reset() {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+	cb.state = StateClosed
+	cb.consecutiveFailures = 0
+	cb.consecutiveSuccesses = 0
+	cb.currentCooldown = cb.cooldownDuration
+}

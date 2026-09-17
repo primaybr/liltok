@@ -222,3 +222,77 @@ func PersistDefaultStrategy(configPath, strategy string) error {
 
 	return os.WriteFile(expanded, []byte(strings.Join(lines, "\n")), 0644)
 }
+
+// PersistProviders updates provider credentials in the YAML config file while preserving comments.
+func PersistProviders(configPath string, p ProvidersConfig) error {
+	if configPath == "" {
+		configPath = "~/.liltok/liltok.yaml"
+	}
+	expanded := ExpandHomeDir(configPath)
+	data, err := os.ReadFile(expanded)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	inProviders := false
+	currentProvider := ""
+
+	getCreds := func(name string) (ProviderCreds, bool) {
+		switch strings.ToLower(name) {
+		case "openai":
+			return p.OpenAI, true
+		case "anthropic":
+			return p.Anthropic, true
+		case "nvidianim":
+			return p.NVIDIANIM, true
+		case "groq":
+			return p.Groq, true
+		case "gemini":
+			return p.Gemini, true
+		case "ollama":
+			return p.Ollama, true
+		default:
+			return ProviderCreds{}, false
+		}
+	}
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "providers:" {
+			inProviders = true
+			currentProvider = ""
+			continue
+		}
+
+		if inProviders {
+			// Check if we exited providers block (top-level key)
+			if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && trimmed != "" {
+				inProviders = false
+				currentProvider = ""
+				continue
+			}
+
+			// Sub-key under providers (e.g. "  groq:")
+			if strings.HasSuffix(trimmed, ":") && !strings.Contains(trimmed, " ") {
+				currentProvider = strings.TrimSuffix(trimmed, ":")
+				continue
+			}
+
+			if currentProvider != "" {
+				creds, ok := getCreds(currentProvider)
+				if ok {
+					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+					if strings.HasPrefix(trimmed, "api_key:") {
+						lines[i] = fmt.Sprintf("%sapi_key: %q", indent, creds.APIKey)
+					} else if strings.HasPrefix(trimmed, "base_url:") && creds.BaseURL != "" {
+						lines[i] = fmt.Sprintf("%sbase_url: %q", indent, creds.BaseURL)
+					}
+				}
+			}
+		}
+	}
+
+	return os.WriteFile(expanded, []byte(strings.Join(lines, "\n")), 0644)
+}
+

@@ -21,6 +21,7 @@ import (
 // AdminHandler serves REST APIs for the developer dashboard.
 type AdminHandler struct {
 	cfg         *config.Config
+	configPath  string
 	database    *db.DB
 	ledger      *ledger.Ledger
 	keyManager  *ledger.KeyManager
@@ -47,6 +48,11 @@ func NewAdminHandler(cfg *config.Config, database *db.DB, led *ledger.Ledger, km
 	}
 }
 
+// SetConfigPath overrides the config file path (useful for test isolation).
+func (h *AdminHandler) SetConfigPath(path string) {
+	h.configPath = path
+}
+
 // RegisterRoutes registers all admin REST endpoints onto the Chi router.
 func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
@@ -58,6 +64,10 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
 		r.Post("/routes/strategy", h.HandleSetRouteStrategy)
+		r.Get("/providers", h.HandleListProviders)
+		r.Post("/providers", h.HandleUpdateProviders)
+		r.Post("/providers/test", h.HandleTestProvider)
+		r.Get("/providers/stats", h.HandleProviderStats)
 		r.Get("/keys", h.HandleListKeys)
 		r.Post("/keys", h.HandleCreateKey)
 		r.Delete("/keys/{id}", h.HandleRevokeKey)
@@ -355,12 +365,12 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		{
 			"id":          "auto-resilient",
 			"description": "Frontier models with automatic failover to budget and free tiers",
-			"targets":     []string{"anthropic/claude-sonnet-5", "nvidianim/meta/llama-3.3-70b-instruct", "groq/llama-3.3-70b-versatile", "ollama/local"},
+			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "ollama/local"},
 		},
 		{
 			"id":          "free-first",
-			"description": "Free AI coding agents (NVIDIA NIM, Groq, Gemini Free, Ollama) for $0.00 spend",
-			"targets":     []string{"nvidianim/meta/llama-3.3-70b-instruct", "groq/llama-3.3-70b-versatile", "gemini/gemini-1.5-flash", "ollama/local"},
+			"description": "Free AI coding agents (Groq, Gemini Free with 3 keys, NVIDIA NIM, Ollama) for $0.00 spend",
+			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct", "ollama/local"},
 		},
 		{
 			"id":          "premium-only",
@@ -407,7 +417,7 @@ func (h *AdminHandler) HandleSetRouteStrategy(w http.ResponseWriter, r *http.Req
 	}
 	if h.cfg != nil {
 		h.cfg.Routes.DefaultStrategy = strategy
-		_ = config.PersistDefaultStrategy("", strategy)
+		_ = config.PersistDefaultStrategy(h.configPath, strategy)
 	}
 
 	if h.broadcaster != nil {
@@ -495,6 +505,285 @@ func (h *AdminHandler) HandleRevokeKey(w http.ResponseWriter, r *http.Request) {
 		"status":  "revoked",
 		"message": "Key revoked successfully",
 		"id":      keyID,
+	})
+}
+
+// ProviderSummary represents public provider configuration and health details.
+type ProviderSummary struct {
+	Name                string `json:"name"`
+	DisplayName         string `json:"display_name"`
+	Tier                string `json:"tier"`
+	BaseURL             string `json:"base_url"`
+	APIKeyMasked        string `json:"api_key_masked"`
+	KeyCount            int    `json:"key_count"`
+	HasKey              bool   `json:"has_key"`
+	CircuitBreakerState string `json:"circuit_breaker_state"`
+}
+
+func maskKey(k string) string {
+	k = strings.TrimSpace(k)
+	if k == "" {
+		return ""
+	}
+	if strings.Contains(k, ",") {
+		parts := strings.Split(k, ",")
+		var maskedParts []string
+		for _, p := range parts {
+			trimmed := strings.TrimSpace(p)
+			if trimmed != "" {
+				maskedParts = append(maskedParts, maskSingleKey(trimmed))
+			}
+		}
+		return strings.Join(maskedParts, ", ")
+	}
+	return maskSingleKey(k)
+}
+
+func maskSingleKey(k string) string {
+	if len(k) <= 8 {
+		return "••••••••"
+	}
+	return k[:4] + "••••••••" + k[len(k)-4:]
+}
+
+func countKeys(k string) int {
+	k = strings.TrimSpace(k)
+	if k == "" {
+		return 0
+	}
+	parts := strings.FieldsFunc(k, func(r rune) bool {
+		return r == ',' || r == '\n' || r == '\r' || r == ';'
+	})
+	count := 0
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			count++
+		}
+	}
+	if count == 0 && k != "" {
+		return 1
+	}
+	return count
+}
+
+// HandleListProviders reports active provider configuration with masked credentials.
+func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Request) {
+	var providers []ProviderSummary
+
+	getBreakerState := func(name string) string {
+		if h.router != nil {
+			if b, ok := h.router.GetBreaker(name); ok {
+				st, _ := b.State()
+				return string(st)
+			}
+		}
+		return "CLOSED"
+	}
+
+	if h.cfg != nil {
+		p := h.cfg.Providers
+		providers = []ProviderSummary{
+			{
+				Name:                "groq",
+				DisplayName:         "Groq Cloud",
+				Tier:                "free",
+				BaseURL:             p.Groq.BaseURL,
+				APIKeyMasked:        maskKey(p.Groq.APIKey),
+				KeyCount:            countKeys(p.Groq.APIKey),
+				HasKey:              strings.TrimSpace(p.Groq.APIKey) != "",
+				CircuitBreakerState: getBreakerState("groq"),
+			},
+			{
+				Name:                "gemini",
+				DisplayName:         "Google Gemini",
+				Tier:                "free",
+				BaseURL:             p.Gemini.BaseURL,
+				APIKeyMasked:        maskKey(p.Gemini.APIKey),
+				KeyCount:            countKeys(p.Gemini.APIKey),
+				HasKey:              strings.TrimSpace(p.Gemini.APIKey) != "",
+				CircuitBreakerState: getBreakerState("gemini"),
+			},
+			{
+				Name:                "nvidianim",
+				DisplayName:         "NVIDIA NIM",
+				Tier:                "free",
+				BaseURL:             p.NVIDIANIM.BaseURL,
+				APIKeyMasked:        maskKey(p.NVIDIANIM.APIKey),
+				KeyCount:            countKeys(p.NVIDIANIM.APIKey),
+				HasKey:              strings.TrimSpace(p.NVIDIANIM.APIKey) != "",
+				CircuitBreakerState: getBreakerState("nvidianim"),
+			},
+			{
+				Name:                "anthropic",
+				DisplayName:         "Anthropic Claude",
+				Tier:                "premium",
+				BaseURL:             p.Anthropic.BaseURL,
+				APIKeyMasked:        maskKey(p.Anthropic.APIKey),
+				KeyCount:            countKeys(p.Anthropic.APIKey),
+				HasKey:              strings.TrimSpace(p.Anthropic.APIKey) != "",
+				CircuitBreakerState: getBreakerState("anthropic"),
+			},
+			{
+				Name:                "openai",
+				DisplayName:         "OpenAI",
+				Tier:                "premium",
+				BaseURL:             p.OpenAI.BaseURL,
+				APIKeyMasked:        maskKey(p.OpenAI.APIKey),
+				KeyCount:            countKeys(p.OpenAI.APIKey),
+				HasKey:              strings.TrimSpace(p.OpenAI.APIKey) != "",
+				CircuitBreakerState: getBreakerState("openai"),
+			},
+			{
+				Name:                "ollama",
+				DisplayName:         "Ollama Local",
+				Tier:                "free",
+				BaseURL:             p.Ollama.BaseURL,
+				APIKeyMasked:        "",
+				KeyCount:            0,
+				HasKey:              true,
+				CircuitBreakerState: getBreakerState("ollama"),
+			},
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"providers": providers,
+	})
+}
+
+// HandleUpdateProviders applies new credentials to runtime memory and persists to YAML.
+func (h *AdminHandler) HandleUpdateProviders(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Providers map[string]struct {
+			APIKey  *string `json:"api_key,omitempty"`
+			BaseURL *string `json:"base_url,omitempty"`
+		} `json:"providers"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	if h.cfg == nil {
+		writeError(w, http.StatusInternalServerError, "Config unavailable")
+		return
+	}
+
+	for name, item := range req.Providers {
+		name = strings.ToLower(name)
+		var creds *config.ProviderCreds
+		switch name {
+		case "openai":
+			creds = &h.cfg.Providers.OpenAI
+		case "anthropic":
+			creds = &h.cfg.Providers.Anthropic
+		case "nvidianim":
+			creds = &h.cfg.Providers.NVIDIANIM
+		case "groq":
+			creds = &h.cfg.Providers.Groq
+		case "gemini":
+			creds = &h.cfg.Providers.Gemini
+		case "ollama":
+			creds = &h.cfg.Providers.Ollama
+		}
+
+		if creds != nil {
+			if item.APIKey != nil {
+				creds.APIKey = strings.TrimSpace(*item.APIKey)
+			}
+			if item.BaseURL != nil && strings.TrimSpace(*item.BaseURL) != "" {
+				creds.BaseURL = strings.TrimSpace(*item.BaseURL)
+			}
+			if h.router != nil {
+				_ = h.router.UpdateProvider(name, *creds)
+			}
+		}
+	}
+
+	// Persist to YAML
+	_ = config.PersistProviders(h.configPath, h.cfg.Providers)
+
+	if h.broadcaster != nil {
+		h.broadcaster.Broadcast(TelemetryEvent{
+			Type:      "providers_updated",
+			Timestamp: time.Now(),
+			Data: map[string]string{
+				"status": "updated",
+			},
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": "Provider settings saved and applied to runtime successfully",
+	})
+}
+
+// HandleTestProvider runs an active connectivity ping against a named provider.
+func (h *AdminHandler) HandleTestProvider(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Provider string `json:"provider"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Provider == "" {
+		writeError(w, http.StatusBadRequest, "Must specify 'provider'")
+		return
+	}
+
+	if h.router == nil {
+		writeError(w, http.StatusInternalServerError, "Router unavailable")
+		return
+	}
+
+	ok, latencyMs, err := h.router.TestProvider(r.Context(), req.Provider)
+	resp := map[string]interface{}{
+		"provider":   req.Provider,
+		"ok":         ok,
+		"latency_ms": latencyMs,
+	}
+	if err != nil {
+		resp["error"] = err.Error()
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// HandleProviderStats aggregates request metrics and costs per provider.
+func (h *AdminHandler) HandleProviderStats(w http.ResponseWriter, r *http.Request) {
+	type provStat struct {
+		Provider      string  `json:"provider"`
+		TotalReqs     int64   `json:"total_requests"`
+		TotalTokens   int64   `json:"total_tokens"`
+		TotalCostUSD  float64 `json:"total_cost_usd"`
+		TotalSavedUSD float64 `json:"total_saved_usd"`
+		AvgLatencyMs  float64 `json:"avg_latency_ms"`
+	}
+
+	var stats []provStat
+	if h.database != nil {
+		rows, err := h.database.QueryContext(r.Context(), `
+			SELECT provider, 
+			       COUNT(*), 
+			       COALESCE(SUM(prompt_tokens + completion_tokens), 0),
+			       COALESCE(SUM(cost_usd), 0.0),
+			       COALESCE(SUM(saved_usd), 0.0),
+			       COALESCE(AVG(latency_ms), 0.0)
+			FROM request_logs
+			GROUP BY provider
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var s provStat
+				if err := rows.Scan(&s.Provider, &s.TotalReqs, &s.TotalTokens, &s.TotalCostUSD, &s.TotalSavedUSD, &s.AvgLatencyMs); err == nil {
+					stats = append(stats, s)
+				}
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"stats": stats,
 	})
 }
 
