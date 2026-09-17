@@ -64,6 +64,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
 		r.Post("/routes/strategy", h.HandleSetRouteStrategy)
+		r.Post("/routes/reset-breakers", h.HandleResetCircuitBreakers)
 		r.Get("/providers", h.HandleListProviders)
 		r.Post("/providers", h.HandleUpdateProviders)
 		r.Post("/providers/test", h.HandleTestProvider)
@@ -365,12 +366,12 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		{
 			"id":          "auto-resilient",
 			"description": "Frontier models with automatic failover to budget and free tiers",
-			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
+			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-3.6-flash", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
 		},
 		{
 			"id":          "free-first",
 			"description": "Free AI coding agents (Groq, Gemini Free with 3 keys, NVIDIA NIM) for $0.00 spend",
-			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
+			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-3.6-flash", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
 		},
 		{
 			"id":          "premium-only",
@@ -414,6 +415,7 @@ func (h *AdminHandler) HandleSetRouteStrategy(w http.ResponseWriter, r *http.Req
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		h.router.ResetCircuitBreakers()
 	}
 	if h.cfg != nil {
 		h.cfg.Routes.DefaultStrategy = strategy
@@ -433,6 +435,28 @@ func (h *AdminHandler) HandleSetRouteStrategy(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":   "success",
 		"strategy": strategy,
+	})
+}
+
+// HandleResetCircuitBreakers manually resets all circuit breakers to CLOSED.
+func (h *AdminHandler) HandleResetCircuitBreakers(w http.ResponseWriter, r *http.Request) {
+	if h.router != nil {
+		h.router.ResetCircuitBreakers()
+	}
+
+	if h.broadcaster != nil {
+		h.broadcaster.Broadcast(TelemetryEvent{
+			Type:      "breakers_reset",
+			Timestamp: time.Now(),
+			Data: map[string]string{
+				"status": "closed",
+			},
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": "All circuit breakers reset to CLOSED",
 	})
 }
 

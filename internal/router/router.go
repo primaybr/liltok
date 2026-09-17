@@ -87,7 +87,7 @@ func (r *Router) initDefaultRoutes() {
 		Targets: []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		},
 	}
@@ -98,7 +98,7 @@ func (r *Router) initDefaultRoutes() {
 		Strategy: "free_first",
 		Targets: []TargetSpec{
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		},
 	}
@@ -178,7 +178,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		}
 	}
@@ -238,7 +238,9 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			return resp, target.ProviderName, nil
 		}
 
-		cb.RecordFailure()
+		if isCircuitBreakerError(err) {
+			cb.RecordFailure()
+		}
 		lastErr = err
 		telemetry.Log.Warn().
 			Str("failed_provider", target.ProviderName).
@@ -248,6 +250,36 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 
 	return nil, "", fmt.Errorf("all providers in fallback chain failed: %w", lastErr)
 }
+
+// ResetCircuitBreakers resets all circuit breakers to CLOSED.
+func (r *Router) ResetCircuitBreakers() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, cb := range r.breakers {
+		cb.Reset()
+	}
+}
+
+// isCircuitBreakerError returns true if the error indicates a downstream server outage,
+// network timeout, or rate-limit exhaustion that should contribute to tripping the circuit breaker.
+// Client errors (HTTP 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found)
+// are client-side or payload issues, not provider infrastructure outages.
+func isCircuitBreakerError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "status 400") ||
+		strings.Contains(errStr, "error 400") ||
+		strings.Contains(errStr, "status 401") ||
+		strings.Contains(errStr, "status 403") ||
+		strings.Contains(errStr, "status 404") ||
+		strings.Contains(errStr, "invalid_argument") {
+		return false
+	}
+	return true
+}
+
 
 // GetProvider retrieves a registered provider client.
 func (r *Router) GetProvider(name string) (provider.ProviderClient, bool) {
