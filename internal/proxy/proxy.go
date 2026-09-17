@@ -66,13 +66,19 @@ func (p *Proxy) SetBroadcaster(b *admin.Broadcaster) {
 }
 
 func (p *Proxy) recordLog(item *ledger.RequestLog) {
+	if item == nil {
+		return
+	}
+	if item.Timestamp.IsZero() {
+		item.Timestamp = time.Now()
+	}
 	if p.ledger != nil {
 		p.ledger.Record(item)
 	}
 	if p.broadcaster != nil {
 		p.broadcaster.Broadcast(admin.TelemetryEvent{
 			Type:      "request",
-			Timestamp: time.Now(),
+			Timestamp: item.Timestamp,
 			Data:      item,
 		})
 	}
