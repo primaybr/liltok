@@ -57,8 +57,8 @@ func TestRouterTargetResolution(t *testing.T) {
 	if len(opusTargets) < 2 || opusTargets[0].ProviderName != "anthropic" || opusTargets[0].UpstreamModel != "claude-opus-5" {
 		t.Errorf("expected anthropic claude-opus-5, got %v", opusTargets)
 	}
-	if opusTargets[1].UpstreamModel != "meta/llama-3.3-70b-instruct" {
-		t.Errorf("expected llama-3.3 fallback, got %s", opusTargets[1].UpstreamModel)
+	if opusTargets[1].UpstreamModel != "qwen/qwen3.8-27b" {
+		t.Errorf("expected qwen fallback, got %s", opusTargets[1].UpstreamModel)
 	}
 
 	// Test auto-resilient route resolution
@@ -75,8 +75,8 @@ func TestRouterTargetResolution(t *testing.T) {
 
 	// Test free-first route resolution
 	freeTargets := r.ResolveTargets("gpt-4o", "free-first")
-	if len(freeTargets) == 0 || freeTargets[0].ProviderName != "nvidianim" {
-		t.Errorf("expected nvidianim primary for free-first route, got %v", freeTargets)
+	if len(freeTargets) == 0 || freeTargets[0].ProviderName != "groq" {
+		t.Errorf("expected groq primary for free-first route, got %v", freeTargets)
 	}
 }
 
@@ -90,16 +90,16 @@ func TestRouterFailoverExecution(t *testing.T) {
 		fail: true,
 	}
 	secondaryMock := &mockProvider{
-		name: "nvidianim",
+		name: "groq",
 		fail: false,
 		response: &provider.UnifiedChatResponse{
-			ID:      "mock-nim-1",
-			Content: "hello from NVIDIA NIM fallback",
+			ID:      "mock-groq-1",
+			Content: "hello from Groq fallback",
 		},
 	}
 
 	r.providers["anthropic"] = primaryMock
-	r.providers["nvidianim"] = secondaryMock
+	r.providers["groq"] = secondaryMock
 
 	req := &provider.UnifiedChatRequest{
 		Model: "claude-3-5-sonnet-20241022",
@@ -113,11 +113,11 @@ func TestRouterFailoverExecution(t *testing.T) {
 		t.Fatalf("dispatch failed unexpectedly: %v", err)
 	}
 
-	if winningProvider != "nvidianim" {
-		t.Errorf("expected winning provider nvidianim, got %s", winningProvider)
+	if winningProvider != "groq" {
+		t.Errorf("expected winning provider groq, got %s", winningProvider)
 	}
 
-	if resp.Content != "hello from NVIDIA NIM fallback" {
+	if resp.Content != "hello from Groq fallback" {
 		t.Errorf("unexpected content: %s", resp.Content)
 	}
 

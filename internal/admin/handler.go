@@ -365,12 +365,12 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		{
 			"id":          "auto-resilient",
 			"description": "Frontier models with automatic failover to budget and free tiers",
-			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "ollama/local"},
+			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
 		},
 		{
 			"id":          "free-first",
-			"description": "Free AI coding agents (Groq, Gemini Free with 3 keys, NVIDIA NIM, Ollama) for $0.00 spend",
-			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct", "ollama/local"},
+			"description": "Free AI coding agents (Groq, Gemini Free with 3 keys, NVIDIA NIM) for $0.00 spend",
+			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-flash-latest", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
 		},
 		{
 			"id":          "premium-only",
