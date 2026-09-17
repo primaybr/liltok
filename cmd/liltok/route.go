@@ -122,7 +122,7 @@ func newRouteSwitchCommand() *cobra.Command {
 
 			fmt.Printf("Successfully switched active routing priority to: %s\n", strings.ToUpper(strategy))
 			if strategy == "free-first" {
-				fmt.Println("Zero-cost routing active: requests will route to NVIDIA NIM, Groq, Gemini Free, and Ollama ($0.00 spend).")
+				fmt.Println("Zero-cost routing active: requests will route to Groq, Gemini Free, and NVIDIA NIM ($0.00 spend).")
 			}
 			return nil
 		},

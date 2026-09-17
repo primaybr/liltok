@@ -80,7 +80,7 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> NVIDIA NIM -> Groq -> Ollama
+	// 1. auto-resilient: Claude -> Groq -> Gemini Free -> NVIDIA NIM
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
@@ -88,11 +88,11 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
-			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:7b"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		},
 	}
 
-	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> Ollama
+	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM
 	r.routes["free-first"] = Route{
 		ID:       "free-first",
 		Strategy: "free_first",
@@ -100,7 +100,6 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
-			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:7b"},
 		},
 	}
 
@@ -180,6 +179,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		}
 	}
 	if strings.Contains(lowerModel, "llama") || strings.Contains(lowerModel, "free") {
