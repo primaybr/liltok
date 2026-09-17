@@ -38,6 +38,16 @@ func TestGetCuratedPrompts(t *testing.T) {
 	if len(gitOnly) == 0 {
 		t.Errorf("expected non-empty git category")
 	}
+
+	securityOnly := miner.GetCuratedPrompts("security")
+	if len(securityOnly) == 0 {
+		t.Errorf("expected non-empty security category")
+	}
+	for _, p := range securityOnly {
+		if p.Category != "security" {
+			t.Errorf("expected category security, got %s", p.Category)
+		}
+	}
 }
 
 func TestLoadPromptsFromFile(t *testing.T) {
