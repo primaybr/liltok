@@ -82,12 +82,12 @@ func InjectAnthropicCacheControl(payload []byte, minTokens int) ([]byte, bool, e
 		return payload, false, fmt.Errorf("failed to parse anthropic payload: %w", err)
 	}
 
-	// Anthropic strictly limits to at most 4 cache_control blocks across the whole request.
-	existingCount := CountExistingCacheControls(root)
-	if existingCount >= 4 {
+	// If the payload already contains any cache_control blocks (e.g. from Claude Code or Cursor),
+	// preserve the client's explicit caching strategy and TTL configurations without modification.
+	if CountExistingCacheControls(root) > 0 {
 		return payload, false, nil
 	}
-	remainingSlots := 4 - existingCount
+	remainingSlots := 4
 
 	injected := false
 	ephemeralControl := map[string]string{"type": "ephemeral"}

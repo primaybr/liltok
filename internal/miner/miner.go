@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -353,12 +354,46 @@ func (m *CacheMiner) insertDBEntry(ctx context.Context, hash, model, normalizedP
 	_, _ = m.database.ExecContext(ctx, query, hash, model, normalizedPrompt, responsePayload, pTokens, cTokens)
 }
 
+// ExportOptions defines filtering and privacy sanitation options for cache export.
+type ExportOptions struct {
+	MinHits  int
+	Model    string
+	Sanitize bool
+}
+
+var (
+	secretKeyRegex = regexp.MustCompile(`(?i)(sk-[a-zA-Z0-9_\-]{20,}|gsk_[a-zA-Z0-9_\-]{20,}|nvapi-[a-zA-Z0-9_\-]{20,}|Bearer\s+[a-zA-Z0-9_\-\.]{20,})`)
+	homePathRegex  = regexp.MustCompile(`([A-Za-z]:\\[Uu]sers\\[^\s\\/"']+|/Users/[^\s/"']+|/home/[^\s/"']+)`)
+	privateIPRegex = regexp.MustCompile(`\b(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})\b`)
+)
+
+// SanitizeContent scrubs API keys, user home paths, and private IPs from prompt/response payloads.
+func SanitizeContent(input string) string {
+	s := secretKeyRegex.ReplaceAllString(input, "[REDACTED_API_KEY]")
+	s = homePathRegex.ReplaceAllString(s, "/home/dev")
+	s = privateIPRegex.ReplaceAllString(s, "127.0.0.1")
+	return s
+}
+
 // ExportCacheToGz dumps existing cache entries from SQLite into a Gzip-compressed JSON stream.
 func ExportCacheToGz(database *db.DB, writer io.Writer) (int, error) {
-	rows, err := database.QueryContext(context.Background(), `
+	return ExportCacheWithOptions(database, writer, ExportOptions{})
+}
+
+// ExportCacheWithOptions dumps filtered and sanitized cache entries from SQLite into Gzip-compressed JSON.
+func ExportCacheWithOptions(database *db.DB, writer io.Writer, opts ExportOptions) (int, error) {
+	query := `
 		SELECT hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens, ttl_seconds, is_semantic
 		FROM cache_entries
-	`)
+		WHERE hit_count >= ?
+	`
+	args := []interface{}{opts.MinHits}
+	if opts.Model != "" {
+		query += " AND model = ?"
+		args = append(args, opts.Model)
+	}
+
+	rows, err := database.QueryContext(context.Background(), query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to query cache entries for export: %w", err)
 	}
@@ -372,6 +407,12 @@ func ExportCacheToGz(database *db.DB, writer io.Writer) (int, error) {
 		if err := rows.Scan(&item.Hash, &item.Model, &item.NormalizedPrompt, &rawPayload, &item.PromptTokens, &item.CompletionTokens, &item.TTLSeconds, &isSem); err == nil {
 			item.ResponsePayload = string(rawPayload)
 			item.IsSemantic = (isSem == 1)
+
+			if opts.Sanitize {
+				item.NormalizedPrompt = SanitizeContent(item.NormalizedPrompt)
+				item.ResponsePayload = SanitizeContent(item.ResponsePayload)
+			}
+
 			items = append(items, item)
 		}
 	}

@@ -151,3 +151,27 @@ func TestInjectAnthropicCacheControl_MaxLimit(t *testing.T) {
 	}
 }
 
+func TestInjectAnthropicCacheControl_PreserveExisting(t *testing.T) {
+	payloadWithCustomTTL := `{
+		"model": "claude-3-5-sonnet-20241022",
+		"system": [
+			{"type": "text", "text": "system 1", "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+		],
+		"tools": [
+			{"name": "tool1", "description": "desc"}
+		]
+	}`
+
+	modified, injected, err := prefix.InjectAnthropicCacheControl([]byte(payloadWithCustomTTL), 10)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if injected {
+		t.Errorf("Expected injected=false to preserve existing custom cache_control")
+	}
+	if string(modified) != payloadWithCustomTTL {
+		t.Errorf("Payload should remain completely untouched")
+	}
+}
+
+
