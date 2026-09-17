@@ -3,6 +3,7 @@ package tokens
 import (
 	"math"
 	"regexp"
+	"strings"
 	"sync"
 
 	"github.com/primaybr/liltok/internal/db"
@@ -154,6 +155,26 @@ func (pr *PricingRegistry) Calculate(model string, promptTokens, completionToken
 	}
 
 	return round6(costUSD), round6(savedUSD)
+}
+
+// CalculateForRouting computes cost and savings when a requested model is fulfilled by a specific provider.
+// If the fulfilling provider is a free-tier provider (gemini, groq, nvidianim, ollama), actual cost is $0.00
+// and saved USD is the baseline commercial cost of executing that requested model.
+func (pr *PricingRegistry) CalculateForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) (costUSD float64, savedUSD float64) {
+	prov := strings.ToLower(fulfillingProvider)
+	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "free"
+
+	if isFree {
+		costUSD = 0.0
+		pricing := pr.FindPricing(requestedModel)
+		if pricing.Tier != "free" {
+			baselineCost := (float64(promptTokens)*pricing.InputCostPerM + float64(completionTokens)*pricing.OutputCostPerM) / 1_000_000.0
+			savedUSD = baselineCost
+		}
+		return round6(costUSD), round6(savedUSD)
+	}
+
+	return pr.Calculate(requestedModel, promptTokens, completionTokens, cachedTokens, cacheStatus, cacheTier)
 }
 
 func round6(val float64) float64 {

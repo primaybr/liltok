@@ -378,7 +378,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				if cachedTokens > 0 {
 					tier = "TIER2_PREFIX"
 				}
-				costUSD, savedUSD := p.pricingReg.Calculate(modelName, pTokens, cTokens, cachedTokens, "MISS", tier)
+				costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, winningProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 				p.recordLog(&ledger.RequestLog{
 					RequestID:        reqID,
@@ -593,7 +593,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			if cachedTokens > 0 {
 				tier = "TIER2_PREFIX"
 			}
-			costUSD, savedUSD := p.pricingReg.Calculate(modelName, pTokens, cTokens, cachedTokens, "MISS", tier)
+			costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 			p.recordLog(&ledger.RequestLog{
 				RequestID:        reqID,
@@ -647,7 +647,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			if cachedTokens > 0 {
 				tier = "TIER2_PREFIX"
 			}
-			costUSD, savedUSD := p.pricingReg.Calculate(modelName, pTokens, cTokens, cachedTokens, "MISS", tier)
+			costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 			p.recordLog(&ledger.RequestLog{
 				RequestID:        reqID,
