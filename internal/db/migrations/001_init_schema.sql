@@ -130,3 +130,26 @@ VALUES
     ('llama-3.3-70b-versatile', 'groq', 'free', 0.00, 0.00, 0.00),
     ('gemini-1.5-flash.*', 'gemini', 'free', 0.00, 0.00, 0.00),
     ('ollama/.*', 'ollama', 'free', 0.00, 0.00, 0.00);
+
+-- 8. Staged Cache Entries (For Private Moderation & Candidate Curation)
+CREATE TABLE IF NOT EXISTS staged_cache_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_file TEXT,
+    hash TEXT UNIQUE,
+    model TEXT NOT NULL,
+    normalized_prompt TEXT NOT NULL,
+    response_payload BLOB NOT NULL,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    ttl_seconds INTEGER NOT NULL DEFAULT 604800,
+    is_semantic BOOLEAN NOT NULL DEFAULT 0,
+    is_duplicate BOOLEAN NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    staged_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_staged_cache_entries_status
+ON staged_cache_entries (status);
+
+CREATE INDEX IF NOT EXISTS idx_staged_cache_entries_hash
+ON staged_cache_entries (hash);

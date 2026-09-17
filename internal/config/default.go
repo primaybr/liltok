@@ -51,5 +51,10 @@ func DefaultConfig() *Config {
 		Routes: RouteConfig{
 			DefaultStrategy: "auto-resilient",
 		},
+		Maintainer: MaintainerConfig{
+			Enabled:        false,
+			PrivateKeyFile: "~/.liltok/maintainer.key",
+			PublicKey:      "",
+		},
 	}
 }

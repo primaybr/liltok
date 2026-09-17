@@ -45,6 +45,7 @@ cache_export*.json
 corpus_*.json
 *.json.gz
 !internal/db/starter_cache.json.gz
+*.enc
 
 # Logs & Diagnostics
 *.log
