@@ -183,7 +183,7 @@ using HTTP conditional GET (ETag). Merges new entries seamlessly into your local
 				if cfg, err := config.Load(cfgPath); err == nil && cfg.Cache.SyncURL != "" {
 					syncURL = cfg.Cache.SyncURL
 				} else {
-					syncURL = "https://github.com/liltok/liltok/releases/latest/download/starter_cache.json.gz"
+					syncURL = "https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz"
 				}
 			}
 

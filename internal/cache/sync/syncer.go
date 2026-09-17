@@ -35,7 +35,7 @@ func NewCacheSyncer(database *db.DB, syncURL string, client *http.Client) *Cache
 		}
 	}
 	if syncURL == "" {
-		syncURL = "https://github.com/liltok/liltok/releases/latest/download/starter_cache.json.gz"
+		syncURL = "https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz"
 	}
 
 	cs := &CacheSyncer{

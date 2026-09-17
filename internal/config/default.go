@@ -21,7 +21,7 @@ func DefaultConfig() *Config {
 			SemanticThreshold:       0.95,
 			PruneDiffs:              true,
 			AutoSync:                true,
-			SyncURL:                 "https://github.com/liltok/liltok/releases/latest/download/starter_cache.json.gz",
+			SyncURL:                 "https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz",
 			SyncIntervalHours:       24,
 		},
 		Log: LogConfig{
