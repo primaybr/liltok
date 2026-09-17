@@ -134,3 +134,71 @@ func TestGeminiCheckHealth(t *testing.T) {
 		t.Errorf("expected invalid key to fail health check")
 	}
 }
+
+func TestGeminiFunctionCalling(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"candidates": [{
+				"content": {
+					"parts": [{
+						"functionCall": {
+							"name": "SendMessage",
+							"args": {
+								"to": "a139b43b450f80250",
+								"message": "Continue"
+							}
+						}
+					}],
+					"role": "model"
+				},
+				"finishReason": "STOP"
+			}],
+			"usageMetadata": {
+				"promptTokenCount": 50,
+				"candidatesTokenCount": 20,
+				"totalTokenCount": 70
+			}
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter(mockServer.URL, "gem-key")
+
+	req := &provider.UnifiedChatRequest{
+		Model: "gemini-flash-latest",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "Resume agent"},
+		},
+		Tools: []interface{}{
+			map[string]interface{}{
+				"name":        "SendMessage",
+				"description": "Send a message to another agent",
+				"input_schema": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"to":      map[string]interface{}{"type": "string"},
+						"message": map[string]interface{}{"type": "string"},
+					},
+					"required": []string{"to", "message"},
+				},
+			},
+		},
+	}
+
+	resp, err := adapter.SendChat(context.Background(), req)
+	if err != nil {
+		t.Fatalf("send chat with gemini tools failed: %v", err)
+	}
+
+	if len(resp.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(resp.ToolCalls))
+	}
+	if resp.ToolCalls[0].Function.Name != "SendMessage" {
+		t.Errorf("expected function SendMessage, got %s", resp.ToolCalls[0].Function.Name)
+	}
+	if resp.FinishReason != "tool_calls" {
+		t.Errorf("expected finish_reason tool_calls, got %s", resp.FinishReason)
+	}
+}

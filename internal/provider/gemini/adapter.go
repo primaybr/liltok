@@ -188,7 +188,12 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			Candidates []struct {
 				Content struct {
 					Parts []struct {
-						Text string `json:"text"`
+						Text         string `json:"text"`
+						FunctionCall *struct {
+							Name string                 `json:"name"`
+							Args map[string]interface{} `json:"args"`
+							ID   string                 `json:"id"`
+						} `json:"functionCall"`
 					} `json:"parts"`
 					Role string `json:"role"`
 				} `json:"content"`
@@ -207,12 +212,34 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 
 		content := ""
 		finishReason := "stop"
+		var toolCalls []provider.UnifiedToolCall
 		if len(geminiResp.Candidates) > 0 {
 			c := geminiResp.Candidates[0]
 			for _, p := range c.Content.Parts {
-				content += p.Text
+				if p.Text != "" {
+					content += p.Text
+				}
+				if p.FunctionCall != nil {
+					argsBytes, _ := json.Marshal(p.FunctionCall.Args)
+					callID := p.FunctionCall.ID
+					if callID == "" {
+						callID = fmt.Sprintf("call_%x", time.Now().UnixNano())
+					}
+					toolCalls = append(toolCalls, provider.UnifiedToolCall{
+						ID:   callID,
+						Type: "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{
+							Name:      p.FunctionCall.Name,
+							Arguments: string(argsBytes),
+						},
+					})
+					finishReason = "tool_calls"
+				}
 			}
-			if c.FinishReason != "" {
+			if len(toolCalls) == 0 && c.FinishReason != "" {
 				finishReason = strings.ToLower(c.FinishReason)
 			}
 		}
@@ -222,6 +249,7 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			Model:        req.Model,
 			Role:         "assistant",
 			Content:      content,
+			ToolCalls:    toolCalls,
 			FinishReason: finishReason,
 			Usage: provider.UnifiedUsage{
 				PromptTokens:     geminiResp.UsageMetadata.PromptTokenCount,
@@ -276,11 +304,35 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest) ([]byte, error)
 		if m.Role == "assistant" {
 			role = "model"
 		}
+
+		var parts []map[string]interface{}
+		if m.Content != "" {
+			parts = append(parts, map[string]interface{}{
+				"text": m.Content,
+			})
+		}
+		for _, tc := range m.ToolCalls {
+			var args map[string]interface{}
+			_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+			if args == nil {
+				args = map[string]interface{}{}
+			}
+			parts = append(parts, map[string]interface{}{
+				"functionCall": map[string]interface{}{
+					"name": tc.Function.Name,
+					"args": args,
+				},
+			})
+		}
+		if len(parts) == 0 {
+			parts = append(parts, map[string]interface{}{
+				"text": "",
+			})
+		}
+
 		contents = append(contents, map[string]interface{}{
-			"role": role,
-			"parts": []map[string]string{
-				{"text": m.Content},
-			},
+			"role":  role,
+			"parts": parts,
 		})
 	}
 
@@ -310,5 +362,53 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest) ([]byte, error)
 		payload["generationConfig"] = generationConfig
 	}
 
+	if len(req.Tools) > 0 {
+		if gemTools := convertToolsToGemini(req.Tools); gemTools != nil {
+			payload["tools"] = gemTools
+		}
+	}
+
 	return json.Marshal(payload)
+}
+
+func convertToolsToGemini(tools []interface{}) []map[string]interface{} {
+	var decls []map[string]interface{}
+	for _, t := range tools {
+		tMap, ok := t.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := tMap["name"].(string)
+		desc, _ := tMap["description"].(string)
+		var schema interface{}
+
+		if s, ok := tMap["input_schema"]; ok {
+			schema = s
+		} else if fn, ok := tMap["function"].(map[string]interface{}); ok {
+			name, _ = fn["name"].(string)
+			desc, _ = fn["description"].(string)
+			schema = fn["parameters"]
+		}
+
+		if name == "" {
+			continue
+		}
+
+		decl := map[string]interface{}{
+			"name": name,
+		}
+		if desc != "" {
+			decl["description"] = desc
+		}
+		if schema != nil {
+			decl["parameters"] = schema
+		}
+		decls = append(decls, decl)
+	}
+	if len(decls) == 0 {
+		return nil
+	}
+	return []map[string]interface{}{
+		{"functionDeclarations": decls},
+	}
 }

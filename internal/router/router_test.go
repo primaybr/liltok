@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/primaybr/liltok/internal/config"
@@ -220,5 +221,58 @@ func TestTranslatorOpenAIToAnthropicWithToolCalls(t *testing.T) {
 	inputMap, ok := toolBlock["input"].(map[string]interface{})
 	if !ok || inputMap["command"] != "git status" {
 		t.Errorf("expected command 'git status', got %v", inputMap)
+	}
+}
+
+func TestTranslatorOpenAIToAnthropic_TextToolCallFallback(t *testing.T) {
+	tr := NewTranslator()
+	rawText := `I will resume the Task 1 implementer to finish running its tests, commit the changes, and write the report.
+Tool Call: SendMessage({"message":"Continue where you left off. Run the tests to confirm they pass, run the full Widget suite, commit per Step 8 of the brief with the required Co-Authored-By trailer, write the full report to X:\work\www\example\.superpowers\sdd\2026-09-17-feature-overhaul-phase-4\task-1-report.md, and reply with your final status.","summary":"Resume to finish tests, commit, and report","to":"a139b43b450f80250"})`
+
+	oaiResp := &provider.UnifiedChatResponse{
+		ID:           "test-gemini-fallback",
+		Content:      rawText,
+		FinishReason: "stop",
+		Usage: provider.UnifiedUsage{
+			PromptTokens:     30000,
+			CompletionTokens: 150,
+		},
+	}
+
+	anthJSON, err := tr.ConvertOpenAIToAnthropicResponse(oaiResp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("conversion failed: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(anthJSON, &parsed); err != nil {
+		t.Fatalf("invalid json generated: %v", err)
+	}
+
+	if parsed["stop_reason"] != "tool_use" {
+		t.Errorf("expected stop_reason tool_use, got %v", parsed["stop_reason"])
+	}
+
+	contentArr, ok := parsed["content"].([]interface{})
+	if !ok || len(contentArr) != 2 {
+		t.Fatalf("expected 2 content blocks (clean text + tool_use), got %v", contentArr)
+	}
+
+	textBlock := contentArr[0].(map[string]interface{})
+	if textBlock["type"] != "text" || !strings.Contains(textBlock["text"].(string), "I will resume the Task 1 implementer") {
+		t.Errorf("unexpected text block: %v", textBlock)
+	}
+
+	toolBlock := contentArr[1].(map[string]interface{})
+	if toolBlock["type"] != "tool_use" {
+		t.Errorf("expected type tool_use, got %v", toolBlock["type"])
+	}
+	if toolBlock["name"] != "SendMessage" {
+		t.Errorf("expected tool SendMessage, got %v", toolBlock["name"])
+	}
+
+	inputMap, ok := toolBlock["input"].(map[string]interface{})
+	if !ok || inputMap["to"] != "a139b43b450f80250" {
+		t.Errorf("expected input to 'a139b43b450f80250', got %v", inputMap)
 	}
 }
