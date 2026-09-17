@@ -34,6 +34,8 @@ type RequestLog struct {
 type OverviewStats struct {
 	TotalRequests  int64   `json:"total_requests"`
 	TotalHits      int64   `json:"total_hits"`
+	LocalHits      int64   `json:"local_hits"`
+	ModelCacheHits int64   `json:"model_cache_hits"`
 	HitRatePercent float64 `json:"hit_rate_percent"`
 	TotalCostUSD   float64 `json:"total_cost_usd"`
 	TotalSavedUSD  float64 `json:"total_saved_usd"`
@@ -156,21 +158,24 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 		SELECT 
 			COUNT(*),
 			SUM(CASE WHEN cache_status = 'HIT' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN (cache_tier = 'TIER2_PREFIX' OR cached_tokens > 0) AND cache_status != 'HIT' THEN 1 ELSE 0 END),
 			COALESCE(SUM(cost_usd), 0.0),
 			COALESCE(SUM(saved_usd), 0.0),
 			COALESCE(AVG(latency_ms), 0.0)
 		FROM request_logs
 	`)
 
-	var totalHits sqlNullInt64
+	var localHits, modelCacheHits sqlNullInt64
 	var totalCost, totalSaved, avgLatency sqlNullFloat64
 
-	err := row.Scan(&stats.TotalRequests, &totalHits, &totalCost, &totalSaved, &avgLatency)
+	err := row.Scan(&stats.TotalRequests, &localHits, &modelCacheHits, &totalCost, &totalSaved, &avgLatency)
 	if err != nil {
 		return stats, fmt.Errorf("failed to compute overview stats: %w", err)
 	}
 
-	stats.TotalHits = totalHits.Int64
+	stats.LocalHits = localHits.Int64
+	stats.ModelCacheHits = modelCacheHits.Int64
+	stats.TotalHits = stats.LocalHits + stats.ModelCacheHits
 	stats.TotalCostUSD = totalCost.Float64
 	stats.TotalSavedUSD = totalSaved.Float64
 	stats.AvgLatencyMs = avgLatency.Float64

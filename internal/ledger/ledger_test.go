@@ -167,6 +167,23 @@ func TestLedger_RecordAndStats(t *testing.T) {
 		StatusCode:       200,
 	})
 
+	// Record an upstream request that hit model KV-cache
+	led.Record(&ledger.RequestLog{
+		RequestID:        "req_prefix_1",
+		APIKeyID:         key.ID,
+		Model:            "claude-3-5-sonnet-20241022",
+		Provider:         "anthropic",
+		CacheStatus:      "MISS",
+		CacheTier:        "TIER2_PREFIX",
+		PromptTokens:     10000,
+		CompletionTokens: 50,
+		CachedTokens:     9000,
+		LatencyMs:        650,
+		CostUSD:          0.0035,
+		SavedUSD:         0.0243,
+		StatusCode:       200,
+	})
+
 	// Allow background worker to process queue
 	time.Sleep(150 * time.Millisecond)
 
@@ -175,25 +192,34 @@ func TestLedger_RecordAndStats(t *testing.T) {
 		t.Fatalf("failed to get overview stats: %v", err)
 	}
 
-	if stats.TotalRequests != 2 {
-		t.Errorf("expected 2 total requests, got %d", stats.TotalRequests)
+	if stats.TotalRequests != 3 {
+		t.Errorf("expected 3 total requests, got %d", stats.TotalRequests)
 	}
-	if stats.TotalHits != 1 {
-		t.Errorf("expected 1 hit, got %d", stats.TotalHits)
+	if stats.LocalHits != 1 {
+		t.Errorf("expected 1 local hit, got %d", stats.LocalHits)
 	}
-	if stats.HitRatePercent != 50.0 {
-		t.Errorf("expected 50%% hit rate, got %f", stats.HitRatePercent)
+	if stats.ModelCacheHits != 1 {
+		t.Errorf("expected 1 model cache hit, got %d", stats.ModelCacheHits)
 	}
-	if stats.TotalSavedUSD != 0.0045 {
-		t.Errorf("expected $0.0045 saved, got %f", stats.TotalSavedUSD)
+	if stats.TotalHits != 2 {
+		t.Errorf("expected 2 total hits, got %d", stats.TotalHits)
 	}
-	if stats.TotalCostUSD != 0.008 {
-		t.Errorf("expected $0.008 cost, got %f", stats.TotalCostUSD)
+	expectedHitRate := (2.0 / 3.0) * 100.0
+	if stats.HitRatePercent < expectedHitRate-0.1 || stats.HitRatePercent > expectedHitRate+0.1 {
+		t.Errorf("expected ~%.2f%% hit rate, got %f", expectedHitRate, stats.HitRatePercent)
+	}
+	expectedSaved := 0.0045 + 0.0243
+	if stats.TotalSavedUSD < expectedSaved-0.0001 || stats.TotalSavedUSD > expectedSaved+0.0001 {
+		t.Errorf("expected $%.4f saved, got %f", expectedSaved, stats.TotalSavedUSD)
+	}
+	expectedCost := 0.008 + 0.0035
+	if stats.TotalCostUSD < expectedCost-0.0001 || stats.TotalCostUSD > expectedCost+0.0001 {
+		t.Errorf("expected $%.4f cost, got %f", expectedCost, stats.TotalCostUSD)
 	}
 
 	// Verify key spend was updated
 	updatedKey, _ := km.ValidateKey(context.Background(), rawKey)
-	if updatedKey.CurrentSpendUSD != 0.008 {
-		t.Errorf("expected key current spend $0.008, got %f", updatedKey.CurrentSpendUSD)
+	if updatedKey.CurrentSpendUSD < expectedCost-0.0001 || updatedKey.CurrentSpendUSD > expectedCost+0.0001 {
+		t.Errorf("expected key current spend $%.4f, got %f", expectedCost, updatedKey.CurrentSpendUSD)
 	}
 }

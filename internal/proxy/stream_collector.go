@@ -9,13 +9,15 @@ import (
 
 // AnthropicStreamCollector accumulates streaming SSE events into a spec-compliant Anthropic Message object.
 type AnthropicStreamCollector struct {
-	msgID        string
-	model        string
-	stopReason   string
-	inputTokens  int
-	outputTokens int
-	blocks       []*anthropicCollectedBlock
-	blockIndex   map[int]*anthropicCollectedBlock
+	msgID                    string
+	model                    string
+	stopReason               string
+	inputTokens              int
+	outputTokens             int
+	cacheReadInputTokens     int
+	cacheCreationInputTokens int
+	blocks                   []*anthropicCollectedBlock
+	blockIndex               map[int]*anthropicCollectedBlock
 }
 
 type anthropicCollectedBlock struct {
@@ -48,8 +50,10 @@ func (c *AnthropicStreamCollector) FeedLine(data string) {
 			ID    string `json:"id"`
 			Model string `json:"model"`
 			Usage struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
 			} `json:"usage"`
 		} `json:"message"`
 		ContentBlock struct {
@@ -87,6 +91,12 @@ func (c *AnthropicStreamCollector) FeedLine(data string) {
 		}
 		if raw.Message.Usage.OutputTokens > 0 {
 			c.outputTokens = raw.Message.Usage.OutputTokens
+		}
+		if raw.Message.Usage.CacheReadInputTokens > 0 {
+			c.cacheReadInputTokens = raw.Message.Usage.CacheReadInputTokens
+		}
+		if raw.Message.Usage.CacheCreationInputTokens > 0 {
+			c.cacheCreationInputTokens = raw.Message.Usage.CacheCreationInputTokens
 		}
 
 	case "content_block_start":
@@ -205,8 +215,10 @@ func (c *AnthropicStreamCollector) BuildMessage(defaultModel string) ([]byte, in
 		"stop_reason":   stopReason,
 		"stop_sequence": nil,
 		"usage": map[string]interface{}{
-			"input_tokens":  c.inputTokens,
-			"output_tokens": c.outputTokens,
+			"input_tokens":                c.inputTokens,
+			"output_tokens":               c.outputTokens,
+			"cache_read_input_tokens":     c.cacheReadInputTokens,
+			"cache_creation_input_tokens": c.cacheCreationInputTokens,
 		},
 	}
 
@@ -216,9 +228,12 @@ func (c *AnthropicStreamCollector) BuildMessage(defaultModel string) ([]byte, in
 
 // OpenAIStreamCollector accumulates streaming SSE chunks into a standard ChatCompletion JSON object.
 type OpenAIStreamCollector struct {
-	id          string
-	model       string
-	accumulated strings.Builder
+	id           string
+	model        string
+	accumulated  strings.Builder
+	promptTokens int
+	compTokens   int
+	cachedTokens int
 }
 
 func NewOpenAIStreamCollector() *OpenAIStreamCollector {
@@ -238,6 +253,13 @@ func (c *OpenAIStreamCollector) FeedLine(data string) {
 				Content string `json:"content"`
 			} `json:"delta"`
 		} `json:"choices"`
+		Usage *struct {
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+		} `json:"usage"`
 	}
 
 	if err := json.Unmarshal([]byte(data), &chunkObj); err == nil {
@@ -249,6 +271,17 @@ func (c *OpenAIStreamCollector) FeedLine(data string) {
 		}
 		if len(chunkObj.Choices) > 0 {
 			c.accumulated.WriteString(chunkObj.Choices[0].Delta.Content)
+		}
+		if chunkObj.Usage != nil {
+			if chunkObj.Usage.PromptTokens > 0 {
+				c.promptTokens = chunkObj.Usage.PromptTokens
+			}
+			if chunkObj.Usage.CompletionTokens > 0 {
+				c.compTokens = chunkObj.Usage.CompletionTokens
+			}
+			if chunkObj.Usage.PromptTokensDetails.CachedTokens > 0 {
+				c.cachedTokens = chunkObj.Usage.PromptTokensDetails.CachedTokens
+			}
 		}
 	}
 }
@@ -267,7 +300,7 @@ func (c *OpenAIStreamCollector) BuildCompletion(defaultModel string) []byte {
 		model = defaultModel
 	}
 
-	payload, _ := json.Marshal(map[string]interface{}{
+	payloadMap := map[string]interface{}{
 		"id":     id,
 		"object": "chat.completion",
 		"model":  model,
@@ -281,6 +314,18 @@ func (c *OpenAIStreamCollector) BuildCompletion(defaultModel string) []byte {
 				"finish_reason": "stop",
 			},
 		},
-	})
+	}
+
+	if c.promptTokens > 0 || c.compTokens > 0 {
+		payloadMap["usage"] = map[string]interface{}{
+			"prompt_tokens":     c.promptTokens,
+			"completion_tokens": c.compTokens,
+			"prompt_tokens_details": map[string]interface{}{
+				"cached_tokens": c.cachedTokens,
+			},
+		}
+	}
+
+	payload, _ := json.Marshal(payloadMap)
 	return payload
 }
