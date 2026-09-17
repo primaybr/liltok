@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -131,6 +133,18 @@ func TestAdminCacheOperations(t *testing.T) {
 
 	if recPurge.Code != http.StatusOK {
 		t.Fatalf("expected 200 purging cache, got %d", recPurge.Code)
+	}
+
+	// 4. Pack starter cache
+	targetGz := filepath.Join(t.TempDir(), "packed_starter.json.gz")
+	packBody := fmt.Sprintf(`{"target_path": %q, "sanitize": true, "min_hits": 0}`, targetGz)
+	reqPack := httptest.NewRequest("POST", "/api/v1/cache/pack", strings.NewReader(packBody))
+	reqPack.Header.Set("Content-Type", "application/json")
+	recPack := httptest.NewRecorder()
+	r.ServeHTTP(recPack, reqPack)
+
+	if recPack.Code != http.StatusOK {
+		t.Fatalf("expected 200 packing starter cache, got %d: %s", recPack.Code, recPack.Body.String())
 	}
 }
 

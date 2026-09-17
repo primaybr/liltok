@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -363,7 +365,7 @@ type ExportOptions struct {
 
 var (
 	secretKeyRegex = regexp.MustCompile(`(?i)(sk-[a-zA-Z0-9_\-]{20,}|gsk_[a-zA-Z0-9_\-]{20,}|nvapi-[a-zA-Z0-9_\-]{20,}|Bearer\s+[a-zA-Z0-9_\-\.]{20,})`)
-	homePathRegex  = regexp.MustCompile(`([A-Za-z]:\\[Uu]sers\\[^\s\\/"']+|/Users/[^\s/"']+|/home/[^\s/"']+)`)
+	homePathRegex  = regexp.MustCompile(`(?i)([A-Za-z]:[\\/]+users[\\/]+[^\s\\/"',;:]+|/users/[^\s/"',;:]+|/home/[^\s/"',;:]+)`)
 	privateIPRegex = regexp.MustCompile(`\b(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})\b`)
 )
 
@@ -490,4 +492,118 @@ func ImportCacheFromGz(database *db.DB, reader io.Reader) (int, error) {
 	}
 
 	return afterCount - beforeCount, nil
+}
+
+// PackOptions defines configuration for merging and packaging the starter cache.
+type PackOptions struct {
+	MinHits        int
+	MaxPromptBytes int // Maximum prompt byte length to include in starter pack (default 65536)
+	Sanitize       bool
+}
+
+// PackResult summarizes the merge and packaging output.
+type PackResult struct {
+	TotalEntries    int    `json:"total_entries"`
+	ExistingEntries int    `json:"existing_entries"`
+	MergedFromDB    int    `json:"merged_from_db"`
+	SizeBytes       int    `json:"size_bytes"`
+	TargetPath      string `json:"target_path"`
+}
+
+// PackStarterCache merges existing starter pack entries with entries from SQLite database,
+// applies automated privacy sanitization, deduplicates by SHA-256 hash, and writes directly to targetGzPath.
+func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*PackResult, error) {
+	itemsMap := make(map[string]CacheExportItem)
+
+	// 1. Read existing starter pack entries if archive already exists
+	if _, err := os.Stat(targetGzPath); err == nil {
+		if data, err := os.ReadFile(targetGzPath); err == nil {
+			if gzReader, err := gzip.NewReader(bytes.NewReader(data)); err == nil {
+				var existing []CacheExportItem
+				if err := json.NewDecoder(gzReader).Decode(&existing); err == nil {
+					for _, it := range existing {
+						itemsMap[it.Hash] = it
+					}
+				}
+				_ = gzReader.Close()
+			}
+		}
+	}
+	existingCount := len(itemsMap)
+	mergedFromDB := 0
+
+	// 2. Extract and sanitize entries from local database
+	if database != nil {
+		maxBytes := opts.MaxPromptBytes
+		if maxBytes == 0 {
+			maxBytes = 65536 // 64KB default to keep binary compact and skip session transcript dumps
+		}
+
+		rows, err := database.QueryContext(context.Background(), `
+			SELECT hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens, ttl_seconds, is_semantic
+			FROM cache_entries
+			WHERE hit_count >= ?
+		`, opts.MinHits)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query database cache entries: %w", err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var it CacheExportItem
+			var rawPayload []byte
+			var isSem int
+			if err := rows.Scan(&it.Hash, &it.Model, &it.NormalizedPrompt, &rawPayload, &it.PromptTokens, &it.CompletionTokens, &it.TTLSeconds, &isSem); err == nil {
+				if maxBytes > 0 && len(it.NormalizedPrompt) > maxBytes {
+					continue
+				}
+
+				it.ResponsePayload = string(rawPayload)
+				it.IsSemantic = (isSem == 1)
+
+				if opts.Sanitize {
+					it.NormalizedPrompt = SanitizeContent(it.NormalizedPrompt)
+					it.ResponsePayload = SanitizeContent(it.ResponsePayload)
+				}
+
+				if _, exists := itemsMap[it.Hash]; !exists {
+					mergedFromDB++
+				}
+				itemsMap[it.Hash] = it
+			}
+		}
+	}
+
+	// 3. Flatten map into list
+	var finalItems []CacheExportItem
+	for _, it := range itemsMap {
+		finalItems = append(finalItems, it)
+	}
+
+	// 4. Encode to gzip
+	var buf bytes.Buffer
+	gzWriter := gzip.NewWriter(&buf)
+	if err := json.NewEncoder(gzWriter).Encode(finalItems); err != nil {
+		_ = gzWriter.Close()
+		return nil, fmt.Errorf("failed to encode starter pack json: %w", err)
+	}
+	if err := gzWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close gzip writer: %w", err)
+	}
+
+	// 5. Ensure parent directory exists and write archive
+	if err := os.MkdirAll(filepath.Dir(targetGzPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create directory for %s: %w", targetGzPath, err)
+	}
+	if err := os.WriteFile(targetGzPath, buf.Bytes(), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write %s: %w", targetGzPath, err)
+	}
+
+	return &PackResult{
+		TotalEntries:    len(finalItems),
+		ExistingEntries: existingCount,
+		MergedFromDB:    mergedFromDB,
+		SizeBytes:       buf.Len(),
+		TargetPath:      targetGzPath,
+	}, nil
 }

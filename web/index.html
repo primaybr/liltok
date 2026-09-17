@@ -159,6 +159,7 @@
             <p style="font-size: 13px; color: var(--muted);">Local L1/L2 Cache Store (~/.liltok/liltok.db). Upstream Model KV-Cache is maintained on provider GPU clusters.</p>
           </div>
           <div style="display: flex; gap: 8px;">
+            <button class="btn" style="background: var(--accent); color: #000; font-weight: 600;" onclick="openPackModal()">Merge &amp; Pack to Starter</button>
             <button class="btn btn-secondary" onclick="loadCacheEntries()">Refresh</button>
             <button class="btn btn-danger" onclick="purgeAllCache()">Flush Entire Cache</button>
           </div>
@@ -255,6 +256,49 @@
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
         <button class="btn btn-secondary" onclick="closeKeyModal()">Cancel</button>
         <button class="btn" onclick="submitCreateKey()">Generate Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PACK STARTER MODAL -->
+  <div id="pack-modal" class="modal">
+    <div class="modal-card">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+        <span class="badge badge-hit-exact" style="background: rgba(16, 185, 129, 0.2);">Starter Cache Pack</span>
+        <h3 style="font-size: 18px; font-weight: 600;">Merge Local DB into Seed Pack</h3>
+      </div>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+        Extracts active cache entries from your local SQLite database (<code style="font-family: var(--mono); color: #93c5fd;">~/.liltok/liltok.db</code>), scrubs personal paths and credentials, and merges them into <code style="font-family: var(--mono); color: #93c5fd;">internal/db/starter_cache.json.gz</code> for public releases.
+      </p>
+      
+      <div class="form-group" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; border: 1px solid var(--border);">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+          <input type="checkbox" id="pack-sanitize-checkbox" checked style="accent-color: var(--accent);" />
+          <span style="font-weight: 600; color: #fff;">Automated Privacy Sanitization (Recommended)</span>
+        </label>
+        <p style="font-size: 12px; color: var(--muted); margin-top: 6px; padding-left: 24px;">
+          Automatically scrubs personal home paths, API keys, and private IPs before bundling.
+        </p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+        <div class="form-group">
+          <label class="form-label">Min Hits Filter</label>
+          <input id="pack-min-hits-input" type="number" class="form-input" value="0" min="0" />
+          <span style="font-size: 11px; color: var(--muted);">0 includes all successful queries</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Max Prompt Bytes</label>
+          <input id="pack-max-bytes-input" type="number" class="form-input" value="65536" />
+          <span style="font-size: 11px; color: var(--muted);">Filters out massive session transcripts</span>
+        </div>
+      </div>
+
+      <div id="pack-status-area" style="display: none; margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 13px;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-secondary" onclick="closePackModal()">Close</button>
+        <button id="pack-submit-btn" class="btn" style="background: var(--accent); color: #000; font-weight: 600;" onclick="submitPackStarter()">Merge &amp; Pack Now</button>
       </div>
     </div>
   </div>
@@ -453,6 +497,62 @@
         loadKeys();
       } else {
         alert('Failed to create key');
+      }
+    }
+
+    function openPackModal() {
+      const area = document.getElementById('pack-status-area');
+      area.style.display = 'none';
+      area.innerText = '';
+      document.getElementById('pack-modal').classList.add('show');
+    }
+
+    function closePackModal() {
+      document.getElementById('pack-modal').classList.remove('show');
+    }
+
+    async function submitPackStarter() {
+      const btn = document.getElementById('pack-submit-btn');
+      const area = document.getElementById('pack-status-area');
+      const sanitize = document.getElementById('pack-sanitize-checkbox').checked;
+      const minHits = parseInt(document.getElementById('pack-min-hits-input').value) || 0;
+      const maxBytes = parseInt(document.getElementById('pack-max-bytes-input').value) || 65536;
+
+      btn.disabled = true;
+      btn.innerText = 'Packing...';
+      area.style.display = 'block';
+      area.style.background = 'rgba(59, 130, 246, 0.15)';
+      area.style.color = '#93c5fd';
+      area.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+      area.innerText = 'Extracting, sanitizing, and merging local database entries...';
+
+      try {
+        const res = await fetch('/api/v1/cache/pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sanitize: sanitize,
+            min_hits: minHits,
+            max_prompt_bytes: maxBytes
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to pack starter cache');
+        }
+
+        area.style.background = 'rgba(16, 185, 129, 0.15)';
+        area.style.color = '#a7f3d0';
+        area.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        area.innerHTML = `<strong>Success!</strong> Merged <strong>${data.merged_from_db}</strong> database entries into <strong>${data.total_entries}</strong> total starter entries (${(data.size_bytes / 1024).toFixed(1)} KB gz). Saved to <code>${data.target_path}</code>.`;
+      } catch (err) {
+        area.style.background = 'rgba(239, 68, 68, 0.15)';
+        area.style.color = '#fca5a5';
+        area.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        area.innerText = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Merge & Pack Now';
       }
     }
 

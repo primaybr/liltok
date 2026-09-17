@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/liltok/liltok/internal/cache"
+	"github.com/liltok/liltok/internal/db"
 	"github.com/liltok/liltok/internal/miner"
 )
 
@@ -25,6 +28,13 @@ type StarterItem struct {
 }
 
 func main() {
+	fromDB := flag.String("from-db", "", "Path to source SQLite database to merge (optional, e.g. ~/.liltok/liltok.db)")
+	outPath := flag.String("out", filepath.Join("internal", "db", "starter_cache.json.gz"), "Target starter cache archive path")
+	sanitize := flag.Bool("sanitize", true, "Automatically scrub personal home paths, API keys, and private IPs")
+	minHits := flag.Int("min-hits", 0, "Minimum hits required for imported database entries")
+	maxPromptBytes := flag.Int("max-prompt-bytes", 65536, "Maximum prompt byte length to include (default 65536, 0 = unlimited)")
+	flag.Parse()
+
 	prompts := miner.GetCuratedPrompts("all")
 	models := []string{"claude-3-5-sonnet-20241022", "claude-opus-5", "gpt-4o"}
 
@@ -125,9 +135,71 @@ func main() {
 		}
 	}
 
+	itemsMap := make(map[string]StarterItem)
+	for _, item := range starterItems {
+		itemsMap[item.Hash] = item
+	}
+
+	if *fromDB != "" {
+		dbPath := *fromDB
+		if strings.HasPrefix(dbPath, "~") {
+			if home, err := os.UserHomeDir(); err == nil {
+				dbPath = filepath.Join(home, dbPath[1:])
+			}
+		}
+
+		database, err := db.Open(dbPath)
+		if err != nil {
+			fmt.Printf("Warning: failed to open source database %s: %v\n", dbPath, err)
+		} else {
+			defer database.Close()
+
+			rows, err := database.Query(`
+				SELECT hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens, ttl_seconds, is_semantic
+				FROM cache_entries
+				WHERE hit_count >= ?
+			`, *minHits)
+			if err != nil {
+				fmt.Printf("Warning: failed to query cache entries: %v\n", err)
+			} else {
+				defer rows.Close()
+				dbMerged := 0
+				for rows.Next() {
+					var item StarterItem
+					var rawPayload []byte
+					var isSem int
+					if err := rows.Scan(&item.Hash, &item.Model, &item.NormalizedPrompt, &rawPayload, &item.PromptTokens, &item.CompletionTokens, &item.TTLSeconds, &isSem); err == nil {
+						if *maxPromptBytes > 0 && len(item.NormalizedPrompt) > *maxPromptBytes {
+							continue
+						}
+
+						item.ResponsePayload = string(rawPayload)
+						item.IsSemantic = (isSem == 1)
+
+						if *sanitize {
+							item.NormalizedPrompt = miner.SanitizeContent(item.NormalizedPrompt)
+							item.ResponsePayload = miner.SanitizeContent(item.ResponsePayload)
+						}
+
+						if _, exists := itemsMap[item.Hash]; !exists {
+							dbMerged++
+						}
+						itemsMap[item.Hash] = item
+					}
+				}
+				fmt.Printf("Merged %d entries from database %s (Total unique: %d)\n", dbMerged, dbPath, len(itemsMap))
+			}
+		}
+	}
+
+	var finalItems []StarterItem
+	for _, item := range itemsMap {
+		finalItems = append(finalItems, item)
+	}
+
 	var buf bytes.Buffer
 	gzWriter := gzip.NewWriter(&buf)
-	if err := json.NewEncoder(gzWriter).Encode(starterItems); err != nil {
+	if err := json.NewEncoder(gzWriter).Encode(finalItems); err != nil {
 		fmt.Printf("Failed to encode: %v\n", err)
 		os.Exit(1)
 	}
@@ -136,14 +208,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	targetPath := filepath.Join("internal", "db", "starter_cache.json.gz")
-	if err := os.WriteFile(targetPath, buf.Bytes(), 0644); err != nil {
-		fmt.Printf("Failed to write %s: %v\n", targetPath, err)
+	if err := os.MkdirAll(filepath.Dir(*outPath), 0755); err != nil {
+		fmt.Printf("Failed to create parent directory for %s: %v\n", *outPath, err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(*outPath, buf.Bytes(), 0644); err != nil {
+		fmt.Printf("Failed to write %s: %v\n", *outPath, err)
 		os.Exit(1)
 	}
 
 	fmt.Printf("Successfully generated %d starter cache entries into %s (%d bytes gz)\n",
-		len(starterItems), targetPath, buf.Len())
+		len(finalItems), *outPath, buf.Len())
 }
 
 func generateCanonicalAnswer(p miner.PromptItem) string {
