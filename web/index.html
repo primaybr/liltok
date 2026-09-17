@@ -335,61 +335,93 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- PROVIDERS & SETTINGS TAB -->
-  <div id="tab-providers" class="tab-content">
-    <div style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(56,189,248,0.05) 100%); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 18px 20px; margin-bottom: 20px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div>
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-            <span class="badge badge-hit-exact" style="background: rgba(16,185,129,0.2);">Zero-Touch YAML</span>
-            <h2 style="font-size: 18px; font-weight: 700;">Upstream AI Providers &amp; Monitoring</h2>
+    <!-- PROVIDERS & SETTINGS TAB -->
+    <div id="tab-providers" class="tab-content">
+      <!-- Header Card -->
+      <div class="card" style="margin-bottom: 20px; border-left: 4px solid var(--accent);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <h3 style="font-size: 16px; font-weight: 600; margin: 0;">Upstream Providers &amp; Monitoring</h3>
+              <span class="badge badge-hit-exact" style="font-size: 10px;">Zero-Touch Config</span>
+            </div>
+            <span style="font-size: 13px; color: var(--muted);">Configure API keys, base URLs, and multi-key quota rotation without touching config files. Changes persist instantly.</span>
           </div>
-          <p style="font-size: 13px; color: var(--muted); margin: 0;">
-            Manage API keys, endpoints, and multi-key quota rotation without touching config files. Keys are applied immediately to runtime memory and persisted safely.
-          </p>
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn" style="background: var(--card); border: 1px solid var(--border); font-size: 12px;" onclick="testAllProviders()">Test All Connections</button>
-          <button class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px;" onclick="loadProviders()">Refresh Status</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="testAllProviders()">Test All Connections</button>
+            <button class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px;" onclick="loadProviders()">Refresh Status</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Provider Configuration Cards Grid -->
-    <div id="provider-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px;">
-      <!-- Dynamically rendered via loadProviders() -->
-    </div>
-
-    <!-- Provider Traffic and Latency Telemetry -->
-    <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-        <div>
-          <h3 style="font-size: 16px; font-weight: 600;">Provider Traffic &amp; Reliability Telemetry</h3>
-          <span style="font-size: 12px; color: var(--muted);">Real-time metrics, costs, and circuit states by provider</span>
+      <!-- Quick Stats Grid matching Overview and Moderator Studio -->
+      <div class="grid-stats" style="margin-bottom: 20px;">
+        <div class="card">
+          <div class="card-title">Configured Providers</div>
+          <div class="card-value" id="prov-stat-configured" style="color: #34d399;">0 / 0</div>
+          <div class="card-sub" id="prov-stat-configured-sub">Upstream credentials active</div>
         </div>
-        <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="loadProviderStats()">Refresh Metrics</button>
+        <div class="card">
+          <div class="card-title">Circuit Breakers</div>
+          <div class="card-value" id="prov-stat-breakers" style="color: #38bdf8;">All Healthy</div>
+          <div class="card-sub">Automatic failover ready</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Multi-Key Pool</div>
+          <div class="card-value" id="prov-stat-keys" style="color: #c084fc;">3 Keys Pool</div>
+          <div class="card-sub">Gemini 3x rate limit capacity</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Routing Priority</div>
+          <div class="card-value" id="prov-stat-strategy" style="color: #34d399; font-size: 20px; text-transform: uppercase;">FREE-FIRST</div>
+          <div class="card-sub">Targeting $0.00 cloud endpoints</div>
+        </div>
       </div>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th>Status</th>
-              <th>Requests Handled</th>
-              <th>Total Tokens</th>
-              <th>Gross Spend</th>
-              <th>Dollars Saved</th>
-              <th>Avg Latency</th>
-            </tr>
-          </thead>
-          <tbody id="provider-stats-table-body">
-            <tr>
-              <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading provider telemetry...</td>
-            </tr>
-          </tbody>
-        </table>
+
+      <!-- Provider Configuration Cards -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Provider Configurations</h3>
+            <span style="font-size: 12px; color: var(--muted);">Authentication keys, base URLs, and failover status</span>
+          </div>
+          <span class="badge badge-hit-exact" style="font-size: 11px;">Active Upstream Roster</span>
+        </div>
+        <div id="provider-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px;">
+          <!-- Dynamically rendered via loadProviders() -->
+        </div>
+      </div>
+
+      <!-- Provider Traffic and Latency Telemetry -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Provider Traffic &amp; Reliability Telemetry</h3>
+            <span style="font-size: 12px; color: var(--muted);">Real-time metrics, costs, and circuit states by provider</span>
+          </div>
+          <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="loadProviderStats()">Refresh Metrics</button>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Status</th>
+                <th>Requests Handled</th>
+                <th>Total Tokens</th>
+                <th>Gross Spend</th>
+                <th>Dollars Saved</th>
+                <th>Avg Latency</th>
+              </tr>
+            </thead>
+            <tbody id="provider-stats-table-body">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading provider telemetry...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -796,6 +828,10 @@
           badge.innerText = 'AUTO-RESILIENT';
         }
       }
+      const provStatStrategy = document.getElementById('prov-stat-strategy');
+      if (provStatStrategy) {
+        provStatStrategy.innerText = strategy.toUpperCase();
+      }
     }
 
     async function loadRoutes() {
@@ -1107,6 +1143,38 @@
         const data = await res.json();
         currentProvidersData = data.providers || [];
         renderProviderCards(currentProvidersData);
+
+        // Update provider summary stat cards
+        const configuredCount = currentProvidersData.filter(p => p.has_key || p.name === 'ollama').length;
+        const totalCount = currentProvidersData.length;
+        const statConfigured = document.getElementById('prov-stat-configured');
+        if (statConfigured) {
+          statConfigured.innerText = `${configuredCount} / ${totalCount}`;
+        }
+        
+        const openBreakers = currentProvidersData.filter(p => p.circuit_breaker_state === 'OPEN').length;
+        const statBreakers = document.getElementById('prov-stat-breakers');
+        if (statBreakers) {
+          if (openBreakers === 0) {
+            statBreakers.style.color = '#34d399';
+            statBreakers.innerText = 'All Healthy';
+          } else {
+            statBreakers.style.color = '#f87171';
+            statBreakers.innerText = `${openBreakers} Open`;
+          }
+        }
+
+        const geminiProv = currentProvidersData.find(p => p.name === 'gemini');
+        const statKeys = document.getElementById('prov-stat-keys');
+        if (statKeys) {
+          statKeys.innerText = geminiProv && geminiProv.key_count > 1 ? `${geminiProv.key_count} Keys Pool` : 'Single Key';
+        }
+
+        const statStrategy = document.getElementById('prov-stat-strategy');
+        const headerSelect = document.getElementById('header-strategy-select');
+        if (statStrategy && headerSelect) {
+          statStrategy.innerText = headerSelect.value.toUpperCase();
+        }
       } catch (e) {}
     }
 
@@ -1135,45 +1203,47 @@
         }
 
         return `
-          <div class="card" id="card-prov-${p.name}" style="position: relative; border-color: ${p.has_key || isOllama ? 'var(--border)' : 'rgba(239,68,68,0.3)'};">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-              <div>
-                <div style="display: flex; align-items: center;">
-                  <h4 style="font-size: 15px; font-weight: 700; margin: 0;">${p.display_name}</h4>
-                  ${multiBadge}
+          <div style="background: var(--bg); border: 1px solid ${p.has_key || isOllama ? 'var(--border)' : 'rgba(239,68,68,0.3)'}; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                <div>
+                  <div style="display: flex; align-items: center;">
+                    <h4 style="font-size: 15px; font-weight: 700; margin: 0;">${p.display_name}</h4>
+                    ${multiBadge}
+                  </div>
+                  <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; margin-top: 2px;">Tier: ${p.tier}</div>
                 </div>
-                <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; margin-top: 2px;">Tier: ${p.tier}</div>
+                <div>${statusBadge}</div>
               </div>
-              <div>${statusBadge}</div>
-            </div>
 
-            ${!isOllama ? `
-            <div class="form-group" style="margin-bottom: 10px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <label class="form-label" style="margin: 0;">API Key</label>
-                <button type="button" id="btn-toggle-${p.name}" onclick="toggleKeyVisibility('${p.name}')" style="background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0;">Show</button>
+              ${!isOllama ? `
+              <div class="form-group" style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label class="form-label" style="margin: 0;">API Key</label>
+                  <button type="button" id="btn-toggle-${p.name}" onclick="toggleKeyVisibility('${p.name}')" style="background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0; font-weight: 600;">Show</button>
+                </div>
+                <input id="key-input-${p.name}" type="password" class="form-input" placeholder="${p.has_key ? p.api_key_masked : 'Enter API Key...'}" value="" data-has-key="${p.has_key}" style="font-family: var(--mono); font-size: 12px;" />
+                <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">${keyHint}</div>
               </div>
-              <input id="key-input-${p.name}" type="password" class="form-input" placeholder="${p.has_key ? p.api_key_masked : 'Enter API Key...'}" value="" data-has-key="${p.has_key}" style="font-family: var(--mono); font-size: 12px;" />
-              <div style="font-size: 10px; color: var(--muted); margin-top: 3px;">${keyHint}</div>
-            </div>
-            ` : `
-            <div style="padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border); font-size: 12px; color: var(--muted); margin-bottom: 10px;">
-              Local offline inference engine running on your hardware. Zero keys and zero network costs.
-            </div>
-            `}
+              ` : `
+              <div style="padding: 12px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border); font-size: 12px; color: var(--muted); margin-bottom: 12px;">
+                Local offline inference engine running on your hardware. Zero keys and zero network costs.
+              </div>
+              `}
 
-            <div class="form-group" style="margin-bottom: 14px;">
-              <label class="form-label" style="margin-bottom: 4px;">Base URL</label>
-              <input id="url-input-${p.name}" type="text" class="form-input" value="${escapeHTML(p.base_url)}" style="font-family: var(--mono); font-size: 12px;" />
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label class="form-label" style="margin-bottom: 6px;">Base URL</label>
+                <input id="url-input-${p.name}" type="text" class="form-input" value="${escapeHTML(p.base_url)}" style="font-family: var(--mono); font-size: 12px;" />
+              </div>
+
+              <div id="test-result-${p.name}" style="display: none; font-size: 12px; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; font-family: var(--mono);"></div>
             </div>
 
-            <div id="test-result-${p.name}" style="display: none; font-size: 12px; margin-bottom: 10px; padding: 6px 10px; border-radius: 4px;"></div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; pt: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
-              <button id="btn-test-${p.name}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="testProviderConnection('${p.name}')">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 14px; margin-top: 6px; border-top: 1px solid var(--border);">
+              <button id="btn-test-${p.name}" class="btn btn-secondary" style="font-size: 12px; padding: 6px 14px;" onclick="testProviderConnection('${p.name}')">
                 Test Connection
               </button>
-              <button id="btn-save-${p.name}" class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px; padding: 5px 14px;" onclick="saveProvider('${p.name}')">
+              <button id="btn-save-${p.name}" class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px; padding: 6px 16px;" onclick="saveProvider('${p.name}')">
                 Save
               </button>
             </div>
