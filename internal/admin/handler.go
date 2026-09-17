@@ -145,7 +145,7 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.SavedUSD,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
-			l.Timestamp, _ = time.Parse(time.RFC3339, ts)
+			l.Timestamp = parseLogTimestamp(ts)
 			logs = append(logs, &l)
 		}
 	}
@@ -383,3 +383,18 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 		"error": msg,
 	})
 }
+
+func parseLogTimestamp(ts string) time.Time {
+	formats := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05Z07:00",
+		"2006-01-02 15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, ts); err == nil {
+			return t
+		}
+	}
+	return time.Now()
+}
+

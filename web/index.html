@@ -300,23 +300,19 @@
       } catch (e) {}
     }
 
-    async function loadRecentLogs() {
-      try {
-        const res = await fetch('/api/v1/logs?limit=30');
-        if (!res.ok) return;
-        const data = await res.json();
-        const tbody = document.getElementById('logs-tbody');
-        if (!data.logs || data.logs.length === 0) return;
-        tbody.innerHTML = '';
-        data.logs.forEach(l => appendLogRow(l, false));
-      } catch (e) {}
-    }
-
-    function appendLogRow(l, flash = true) {
-      const tbody = document.getElementById('logs-tbody');
+    function createLogRow(l, flash = true) {
       const tr = document.createElement('tr');
       if (flash && l.cache_status === 'HIT') tr.className = 'flash';
-      const timeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+      let dateObj = null;
+      if (l.timestamp) {
+        dateObj = new Date(l.timestamp);
+        if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) {
+          dateObj = new Date();
+        }
+      } else {
+        dateObj = new Date();
+      }
+      const timeStr = dateObj.toLocaleTimeString();
       tr.innerHTML = `
         <td style="color: var(--muted);">${timeStr}</td>
         <td>${l.request_id ? l.request_id.slice(-8) : '-'}</td>
@@ -328,7 +324,30 @@
         <td style="color: #34d399;">${formatCurrency(l.saved_usd)}</td>
         <td>${l.latency_ms}ms</td>
       `;
+      return tr;
+    }
+
+    async function loadRecentLogs() {
+      try {
+        const res = await fetch('/api/v1/logs?limit=50');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('logs-tbody');
+        if (!data.logs || data.logs.length === 0) return;
+        tbody.innerHTML = '';
+        data.logs.forEach(l => {
+          tbody.appendChild(createLogRow(l, false));
+        });
+      } catch (e) {}
+    }
+
+    function prependLiveLogRow(l) {
+      const tbody = document.getElementById('logs-tbody');
+      const tr = createLogRow(l, true);
       tbody.prepend(tr);
+      if (tbody.children.length > 100) {
+        tbody.removeChild(tbody.lastChild);
+      }
     }
 
     async function loadCacheEntries() {
@@ -470,7 +489,7 @@
         try {
           const ev = JSON.parse(e.data);
           if (ev.type === 'request') {
-            appendLogRow(ev.data, true);
+            prependLiveLogRow(ev.data);
             loadOverview();
           }
         } catch (err) {}

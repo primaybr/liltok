@@ -99,15 +99,19 @@ func (l *Ledger) persistLog(item *RequestLog) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	if item.Timestamp.IsZero() {
+		item.Timestamp = time.Now()
+	}
+
 	_, err := l.db.ExecContext(ctx, `
 		INSERT INTO request_logs (
 			request_id, timestamp, api_key_id, model, provider,
 			cache_status, cache_tier, prompt_tokens, completion_tokens,
 			cached_tokens, latency_ms, cost_usd, saved_usd,
 			status_code, error_message
-		) VALUES (?, CURRENT_TIMESTAMP, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		item.RequestID, item.APIKeyID, item.Model, item.Provider,
+		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.Provider,
 		item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
 		item.CachedTokens, item.LatencyMs, item.CostUSD, item.SavedUSD,
 		item.StatusCode, item.ErrorMessage,
