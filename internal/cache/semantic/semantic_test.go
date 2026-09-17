@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liltok/liltok/internal/cache/semantic"
+	"github.com/primaybr/liltok/internal/cache/semantic"
 )
 
 func TestGuardrails(t *testing.T) {

@@ -1,19 +1,21 @@
 package admin
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/liltok/liltok/internal/cache"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/ledger"
-	"github.com/liltok/liltok/internal/miner"
-	"github.com/liltok/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/miner"
+	"github.com/primaybr/liltok/internal/router"
 )
 
 // AdminHandler serves REST APIs for the developer dashboard.
@@ -55,6 +57,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/cache/purge", h.HandlePurgeCache)
 		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
+		r.Post("/routes/strategy", h.HandleSetRouteStrategy)
 		r.Get("/keys", h.HandleListKeys)
 		r.Post("/keys", h.HandleCreateKey)
 		r.Delete("/keys/{id}", h.HandleRevokeKey)
@@ -178,12 +181,26 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.database.QueryContext(r.Context(), `
-		SELECT hash, model, normalized_prompt, hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic
-		FROM cache_entries
-		ORDER BY last_accessed_at DESC
-		LIMIT 100
-	`)
+	query := r.URL.Query().Get("q")
+	var rows *sql.Rows
+	var err error
+
+	if query != "" {
+		rows, err = h.database.QueryContext(r.Context(), `
+			SELECT hash, model, normalized_prompt, hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic
+			FROM cache_entries
+			WHERE normalized_prompt LIKE ?
+			ORDER BY hit_count DESC
+			LIMIT 100
+		`, "%"+query+"%")
+	} else {
+		rows, err = h.database.QueryContext(r.Context(), `
+			SELECT hash, model, normalized_prompt, hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic
+			FROM cache_entries
+			ORDER BY last_accessed_at DESC
+			LIMIT 100
+		`)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -338,7 +355,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		{
 			"id":          "auto-resilient",
 			"description": "Frontier models with automatic failover to budget and free tiers",
-			"targets":     []string{"anthropic/claude-3-5-sonnet", "nvidianim/meta/llama-3.3-70b-instruct", "groq/llama-3.3-70b-versatile", "ollama/local"},
+			"targets":     []string{"anthropic/claude-sonnet-5", "nvidianim/meta/llama-3.3-70b-instruct", "groq/llama-3.3-70b-versatile", "ollama/local"},
 		},
 		{
 			"id":          "free-first",
@@ -347,15 +364,65 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			"id":          "premium-only",
-			"description": "Frontier intelligence models (Claude 3.5 Sonnet, GPT-4o) with prompt caching",
-			"targets":     []string{"anthropic/claude-3-5-sonnet", "openai/gpt-4o"},
+			"description": "Frontier intelligence models (Claude Opus 5, GPT-4o) with prompt caching",
+			"targets":     []string{"anthropic/claude-opus-5", "openai/gpt-4o"},
 		},
 	}
 
+	defaultStrategy := "auto-resilient"
+	if h.router != nil {
+		defaultStrategy = h.router.DefaultStrategy()
+	} else if h.cfg != nil && h.cfg.Routes.DefaultStrategy != "" {
+		defaultStrategy = h.cfg.Routes.DefaultStrategy
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"default_strategy": h.cfg.Routes.DefaultStrategy,
+		"default_strategy": defaultStrategy,
 		"routes":           routes,
 		"circuit_breakers": breakers,
+	})
+}
+
+// HandleSetRouteStrategy dynamically updates the default routing strategy and persists it.
+func (h *AdminHandler) HandleSetRouteStrategy(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Strategy string `json:"strategy"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	strategy := strings.ToLower(strings.TrimSpace(req.Strategy))
+	if strategy != "auto-resilient" && strategy != "free-first" && strategy != "premium-only" {
+		writeError(w, http.StatusBadRequest, "Strategy must be one of: auto-resilient, free-first, premium-only")
+		return
+	}
+
+	if h.router != nil {
+		if err := h.router.SetDefaultStrategy(strategy); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	if h.cfg != nil {
+		h.cfg.Routes.DefaultStrategy = strategy
+		_ = config.PersistDefaultStrategy("", strategy)
+	}
+
+	if h.broadcaster != nil {
+		h.broadcaster.Broadcast(TelemetryEvent{
+			Type:      "strategy_change",
+			Timestamp: time.Now(),
+			Data: map[string]string{
+				"strategy": strategy,
+			},
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":   "success",
+		"strategy": strategy,
 	})
 }
 

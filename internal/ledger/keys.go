@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 var (

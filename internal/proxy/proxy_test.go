@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liltok/liltok/internal/cache/exact"
-	"github.com/liltok/liltok/internal/cache/semantic"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/ledger"
-	"github.com/liltok/liltok/internal/router"
-	"github.com/liltok/liltok/internal/server/middleware"
-	"github.com/liltok/liltok/internal/tokens"
+	"github.com/primaybr/liltok/internal/cache/exact"
+	"github.com/primaybr/liltok/internal/cache/semantic"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/server/middleware"
+	"github.com/primaybr/liltok/internal/tokens"
 )
 
 func TestProxyOpenAIChatCompletions(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/miner"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/miner"
 )
 
 func TestCacheMiner_MockExecution(t *testing.T) {

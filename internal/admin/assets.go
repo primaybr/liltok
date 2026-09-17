@@ -4,7 +4,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/liltok/liltok/web"
+	"github.com/primaybr/liltok/web"
 )
 
 // ServeDashboard serves the embedded Single Page Application (SPA) dashboard.

@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/metrics"
-	"github.com/liltok/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/metrics"
+	"github.com/primaybr/liltok/internal/router"
 )
 
 func TestPrometheusExporter(t *testing.T) {

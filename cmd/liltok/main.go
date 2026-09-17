@@ -11,17 +11,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/liltok/liltok/internal/admin"
-	"github.com/liltok/liltok/internal/cache/exact"
-	"github.com/liltok/liltok/internal/cache/semantic"
-	cachesync "github.com/liltok/liltok/internal/cache/sync"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/ledger"
-	"github.com/liltok/liltok/internal/router"
-	"github.com/liltok/liltok/internal/server"
-	"github.com/liltok/liltok/internal/telemetry"
-	"github.com/liltok/liltok/internal/tokens"
+	"github.com/primaybr/liltok/internal/admin"
+	"github.com/primaybr/liltok/internal/cache/exact"
+	"github.com/primaybr/liltok/internal/cache/semantic"
+	cachesync "github.com/primaybr/liltok/internal/cache/sync"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/server"
+	"github.com/primaybr/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/tokens"
 	"github.com/spf13/cobra"
 )
 
@@ -264,7 +264,7 @@ routes:
 		},
 	}
 
-	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand())
+	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand(), newRouteCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

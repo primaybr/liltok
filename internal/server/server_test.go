@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liltok/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/config"
 )
 
 func TestServerHealthz(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 // DefaultSemanticThreshold is the minimum cosine similarity required for a Tier-3 hit.

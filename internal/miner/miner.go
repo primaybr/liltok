@@ -16,10 +16,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/liltok/liltok/internal/cache"
-	"github.com/liltok/liltok/internal/cache/semantic"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/cache/semantic"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 // MinerConfig contains execution parameters for the free-tier cache miner.
@@ -72,7 +72,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		cfg.RateLimitRPM = 30
 	}
 	if len(cfg.TargetModels) == 0 {
-		cfg.TargetModels = []string{"claude-3-5-sonnet-20241022", "gpt-4o", "claude-opus-5"}
+		cfg.TargetModels = []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
 	}
 
 	// Resolve provider defaults
@@ -82,7 +82,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 			cfg.BaseURL = "https://integrate.api.nvidia.com/v1"
 		}
 		if cfg.Model == "" {
-			cfg.Model = "meta/llama-3.1-70b-instruct"
+			cfg.Model = "meta/llama-3.3-70b-instruct"
 		}
 	case "ollama":
 		if cfg.BaseURL == "" {

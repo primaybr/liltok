@@ -1,4 +1,4 @@
-module github.com/liltok/liltok
+module github.com/primaybr/liltok
 
 go 1.27.0
 

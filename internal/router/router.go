@@ -6,12 +6,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/provider"
-	"github.com/liltok/liltok/internal/provider/anthropic"
-	"github.com/liltok/liltok/internal/provider/gemini"
-	"github.com/liltok/liltok/internal/provider/openai"
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/provider/anthropic"
+	"github.com/primaybr/liltok/internal/provider/gemini"
+	"github.com/primaybr/liltok/internal/provider/openai"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 // TargetSpec defines a provider and specific upstream model in a fallback chain.
@@ -79,13 +79,13 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> DeepSeek -> NVIDIA NIM -> Ollama
+	// 1. auto-resilient: Claude -> NVIDIA NIM -> Groq -> Ollama
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
 		Targets: []TargetSpec{
-			{ProviderName: "anthropic", UpstreamModel: "claude-3-5-sonnet-20241022"},
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.1-70b-instruct"},
+			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
 			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
 			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:32b"},
 		},
@@ -96,7 +96,7 @@ func (r *Router) initDefaultRoutes() {
 		ID:       "free-first",
 		Strategy: "free_first",
 		Targets: []TargetSpec{
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.1-70b-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
 			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-1.5-flash"},
 			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:32b"},
@@ -108,10 +108,35 @@ func (r *Router) initDefaultRoutes() {
 		ID:       "premium-only",
 		Strategy: "fallback",
 		Targets: []TargetSpec{
-			{ProviderName: "anthropic", UpstreamModel: "claude-3-5-sonnet-20241022"},
+			{ProviderName: "anthropic", UpstreamModel: "claude-opus-5"},
 			{ProviderName: "openai", UpstreamModel: "gpt-4o"},
 		},
 	}
+}
+
+// DefaultStrategy returns the active default routing strategy.
+func (r *Router) DefaultStrategy() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.cfg != nil && r.cfg.Routes.DefaultStrategy != "" {
+		return r.cfg.Routes.DefaultStrategy
+	}
+	return "auto-resilient"
+}
+
+// SetDefaultStrategy dynamically updates the default routing strategy.
+func (r *Router) SetDefaultStrategy(strategy string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.routes[strategy]; !exists {
+		return fmt.Errorf("unknown routing strategy: %q", strategy)
+	}
+
+	if r.cfg != nil {
+		r.cfg.Routes.DefaultStrategy = strategy
+	}
+	return nil
 }
 
 // ResolveTargets determines the ordered target list based on requested model and route alias.
@@ -126,18 +151,33 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		}
 	}
 
-	// 2. Check if requested model matches a route name (e.g. "free-first")
+	// 2. Check if requested model matches a route name (e.g. "free-first", "premium-only", "auto-resilient")
 	if route, exists := r.routes[requestedModel]; exists {
 		return route.Targets
 	}
 
-	// 3. Specific model matching heuristics
+	strategy := "auto-resilient"
+	if r.cfg != nil && r.cfg.Routes.DefaultStrategy != "" {
+		strategy = r.cfg.Routes.DefaultStrategy
+	}
+
+	// 3. If default strategy is explicitly free-first, always use free-first targets to reduce token consumption
+	if strategy == "free-first" {
+		return r.routes["free-first"].Targets
+	}
+
+	// 4. If default strategy is premium-only, return premium-only targets
+	if strategy == "premium-only" {
+		return r.routes["premium-only"].Targets
+	}
+
+	// 5. Specific model matching heuristics for auto-resilient mode
 	lowerModel := strings.ToLower(requestedModel)
 	if strings.Contains(lowerModel, "claude") {
-		// Target Anthropic first, fallback to auto-resilient
+		// Target Anthropic first, fallback to free targets
 		return []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.1-70b-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
 			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
 		}
 	}
@@ -145,10 +185,10 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return r.routes["free-first"].Targets
 	}
 
-	// 4. Default to OpenAI target + fallback
+	// 6. Default to OpenAI target + fallback
 	return []TargetSpec{
 		{ProviderName: "openai", UpstreamModel: requestedModel},
-		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.1-70b-instruct"},
+		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
 	}
 }
 

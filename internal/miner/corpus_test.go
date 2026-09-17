@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/liltok/liltok/internal/miner"
+	"github.com/primaybr/liltok/internal/miner"
 )
 
 func TestGetCuratedPrompts(t *testing.T) {

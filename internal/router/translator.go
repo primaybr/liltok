@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/liltok/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/provider"
 )
 
 // Translator provides cross-protocol conversions between Anthropic Messages API and OpenAI ChatCompletions.

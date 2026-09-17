@@ -10,11 +10,11 @@ import (
 	"text/tabwriter"
 	"time"
 
-	cachesync "github.com/liltok/liltok/internal/cache/sync"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/crypto"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/miner"
+	cachesync "github.com/primaybr/liltok/internal/cache/sync"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/crypto"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/miner"
 	"github.com/spf13/cobra"
 )
 
