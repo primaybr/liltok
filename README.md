@@ -71,7 +71,7 @@
 
 ### 1. Download or Build
 
-Download pre-compiled standalone static binaries from `bin/` or build from source:
+Download pre-compiled standalone static binaries from [GitHub Releases](https://github.com/liltok/liltok/releases) or build from source:
 
 ```bash
 # Build natively (requires Go 1.22+)
@@ -160,6 +160,44 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
+### Model Context Protocol (MCP) Integration (`liltok mcp`)
+
+Liltok includes a native JSON-RPC 2.0 Model Context Protocol (MCP) server running over standard I/O (`stdio`). This allows AI coding agents (such as Google Antigravity, Claude Code, and Cursor) to connect directly to Liltok:
+- `liltok_ask`: Query Liltok with automated multi-tier caching and resilient provider failover.
+- `liltok_cache_search`: Search local cached responses by query string without calling upstream models.
+- `liltok_stats`: Fetch real-time token savings, cache hit ratios, and quota usage.
+
+#### Configuration Examples
+
+**Claude Desktop / Claude Code (`claude_desktop_config.json`):**
+```json
+{
+  "mcpServers": {
+    "liltok": {
+      "command": "liltok",
+      "args": ["mcp", "--gateway-url", "http://localhost:8080"]
+    }
+  }
+}
+```
+
+**Cursor MCP Configuration:**
+Add a new MCP server in Cursor settings:
+- **Type**: `command`
+- **Command**: `liltok mcp --gateway-url http://localhost:8080`
+
+**Google Antigravity / Gemini CLI (`mcp_servers`):**
+```json
+{
+  "mcpServers": {
+    "liltok": {
+      "command": "liltok",
+      "args": ["mcp", "--gateway-url", "http://localhost:8080"]
+    }
+  }
+}
+```
+
 ---
 
 ## CLI Reference
@@ -188,10 +226,47 @@ liltok cache stats
 # List recent cached prompt entries with preview
 liltok cache list
 
+# Seed embedded starter cache into local database
+liltok cache seed
+
+# Synchronize local cache with latest community pack over-the-air (ETag-based)
+liltok cache update
+
+# Export sanitized cache entries for sharing or backup
+liltok cache export --out community_pack.json.gz --min-hits 2 --sanitize
+
+# Import an external cache pack into local SQLite
+liltok cache import community_pack.json.gz
+
+# Merge local mined entries into the release starter pack
+liltok cache pack --min-hits 1 --sanitize
+
 # Purge cache entries
 liltok cache purge --hash <sha256-hash>
 liltok cache purge --all
 ```
+
+---
+
+## Zero-Cold-Start Starter Pack & Community Cache Sharing
+
+Liltok eliminates cold-start latency and enables zero-cost distributed caching without requiring hosted servers or cloud database subscriptions:
+
+### Embedded Zero-Cold-Start Starter Pack
+Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On initial startup or when running `liltok cache seed`, Liltok automatically unpacks hundreds of pre-mined canonical responses for standard programming idioms, common syntax errors, and framework patterns. Developers experience instant 0ms responses from the very first query.
+
+### Over-The-Air (OTA) Updates via GitHub Releases CDN
+Run `liltok cache update` to pull the latest community-verified cache pack:
+- Connects directly to GitHub Releases (`https://github.com/liltok/liltok/releases/latest/download/starter_cache.json.gz`).
+- Employs HTTP `ETag` and `If-None-Match` conditional requests. If your cache is current, GitHub returns `304 Not Modified` consuming zero unnecessary bandwidth.
+- When an update is available, new entries are merged directly into local SQLite using canonical deduplication.
+
+### Privacy-Preserving Mining & Packaging
+Developers can contribute to or package their own cache packs:
+- **CLI Packing**: `liltok cache pack --sanitize` mines entries from local `liltok.db`, deduplicates against existing packs, and writes an updated `starter_cache.json.gz`.
+- **Automated Privacy Sanitization**: The sanitization engine automatically scrubs developer home paths (e.g. `/Users/username` or `C:\Users\username`), API keys (`sk-...`, `nvapi-...`, `gsk_...`), and private IPv4 addresses.
+- **Web Dashboard**: Use the **"Merge & Pack to Starter"** button on the Cache Explorer tab (`http://localhost:8080/dashboard`) to review and merge cache entries interactively.
+
 
 ---
 
@@ -200,7 +275,10 @@ liltok cache purge --all
 ### Web Dashboard (`http://localhost:8080/dashboard`)
 Open `http://localhost:8080/dashboard` in any browser:
 - **Live Stream**: Real-time request visualizer with green-flash animations on cache hits.
-- **Cache Explorer**: Browse cached prompts, view hit counts, inspect TTLs, and evict individual keys.
+- **Cache Hit Differentiation**:
+  - **`LOCAL EXACT`**: Instant 0ms cache hits served directly from Liltok's in-memory L1 LRU or local SQLite WAL. True $0.00 cost and zero network roundtrip.
+  - **`MODEL KV-CACHE`**: Upstream provider prompt cache hits (e.g. Anthropic Prompt Caching or OpenAI Cached Tokens). Served by the upstream provider at discounted pricing, tracked distinctly in dashboard telemetry and savings calculations.
+- **Cache Explorer**: Browse cached prompts, view hit counts, inspect TTLs, and evict individual keys. Includes the one-click **"Merge & Pack to Starter"** pipeline.
 - **Key Manager**: UI to create virtual keys, set budgets, and monitor monthly spend.
 - **Breaker Health Grid**: Live status cards for upstream providers (`CLOSED`, `HALF-OPEN`, `OPEN`).
 
@@ -228,18 +306,6 @@ Micro-benchmark results executed on Go 1.22+ (`Intel i7-8750H @ 2.20GHz`):
 | **Semantic Embedder** | Fast local stop-word vector embedding | **6.2 \mu\text{s/op}** ($> 160\text{k ops/sec}$) | $1.7\text{ KB/op}$ (6 allocs) |
 | **Cosine Similarity**| 256-dimensional vector dot product | **591 ns/op** ($> 1.6\text{M ops/sec}$) | **0 B/op** (0 allocs) |
 | **Pricing Engine** | Dynamic cost & savings calculation | **213 ns/op** ($> 4.6\text{M ops/sec}$) | **0 B/op** (0 allocs) |
-
----
-
-## Architecture Documentation Suite
-
-For deep architectural specifications, refer to the [`docs/`](docs/) directory:
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): Complete milestone specification (M0 to M6).
-- [`docs/SRS.md`](docs/SRS.md): Software Requirements, APIs, SQLite schemas.
-- [`docs/BRD.md`](docs/BRD.md): Business requirements and token economics.
-- [`docs/PRD.md`](docs/PRD.md): Product requirements and Gherkin user stories.
-- [`docs/FRD.md`](docs/FRD.md): Multi-tier caching and reverse proxy specifications.
-- [`docs/DESIGN_PRINCIPLE.md`](docs/DESIGN_PRINCIPLE.md): Architectural latency budget and UI design.
 
 ---
 
