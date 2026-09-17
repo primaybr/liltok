@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liltok - AI Gateway & Router</title>
+  <style>
+    :root {
+      --bg: #09090b;
+      --card: #18181b;
+      --border: #27272a;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #10b981;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: var(--bg); color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 24px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+    .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 20px; letter-spacing: -0.5px; }
+    .logo-badge { background: #047857; color: #a7f3d0; font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+    .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    .tab-btn { background: none; border: none; color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .tab-btn.active { background: var(--card); color: var(--text); }
+    .tab-btn:hover:not(.active) { color: var(--text); }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+    .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
+    .card-value { font-size: 28px; font-weight: 700; font-family: var(--mono); }
+    .card-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; font-family: var(--mono); }
+    .badge-hit-exact { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-hit-sem { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-hit-prefix { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-miss { background: rgba(113, 113, 122, 0.15); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.3); }
+    .badge-open { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: 12px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
+    td { padding: 12px; font-size: 13px; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+    tr.flash { animation: flashGreen 1.5s ease-out; }
+    @keyframes flashGreen {
+      0% { background-color: rgba(16, 185, 129, 0.3); }
+      100% { background-color: transparent; }
+    }
+    .btn { background: var(--accent); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-danger { background: #e11d48; color: #fff; }
+    .btn:hover { opacity: 0.9; }
+    .table-container { overflow-x: auto; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+    .modal.show { display: flex; }
+    .modal-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; width: 480px; padding: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .form-input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
+        <span>liltok</span>
+        <span class="logo-badge">Gateway</span>
+      </div>
+      <div class="header-right">
+        <span><span class="status-dot"></span> Live Telemetry</span>
+        <span id="uptime-label">Uptime: 0s</span>
+        <a href="/metrics" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">/metrics</a>
+      </div>
+    </header>
+
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('overview')">Overview & Live Feed</button>
+      <button class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
+      <button class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
+      <button class="tab-btn" onclick="switchTab('routes')">Routes & Circuit Breakers</button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="grid-stats">
+        <div class="card">
+          <div class="card-title">Total Requests</div>
+          <div class="card-value" id="stat-requests">0</div>
+          <div class="card-sub" id="stat-latency">Avg Latency: 0ms</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cache Hit Rate</div>
+          <div class="card-value" id="stat-hitrate" style="color: #34d399;">0.0%</div>
+          <div class="card-sub" id="stat-hits">0 Hits / 0 Misses</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Total Dollars Saved</div>
+          <div class="card-value" id="stat-saved" style="color: #34d399;">$0.0000</div>
+          <div class="card-sub">Eliminated upstream fees</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Gross Spend</div>
+          <div class="card-value" id="stat-spend">$0.0000</div>
+          <div class="card-sub" id="stat-entries">0 Cache Entries</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h3 style="font-size: 16px; font-weight: 600;">Live Inference Stream</h3>
+          <span style="font-size: 12px; color: var(--muted);">Real-time SSE event feed</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Request ID</th>
+                <th>Model</th>
+                <th>Provider</th>
+                <th>Cache Status</th>
+                <th>Prompt / Comp Tokens</th>
+                <th>Cost</th>
+                <th>Saved</th>
+                <th>Latency</th>
+              </tr>
+            </thead>
+            <tbody id="logs-tbody">
+              <tr><td colspan="9" style="text-align: center; color: var(--muted);">Listening for inference requests...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CACHE TAB -->
+    <div id="tab-cache" class="tab-content">
+      <div class="card" style="margin-bottom: 16px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(24, 24, 27, 1) 100%); border-color: rgba(16, 185, 129, 0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="badge badge-hit-exact" style="background: rgba(16, 185, 129, 0.2);">Zero-Cold-Start Active</span>
+              <span style="font-size: 13px; font-weight: 600; color: #a7f3d0;">Pre-Bundled Starter Pack Embedded</span>
+            </div>
+            <p style="font-size: 13px; color: var(--muted);">162 canonical coding idioms, compiler error diagnostics, and git workflows pre-seeded for day-one 0ms cache hits.</p>
+          </div>
+          <div style="font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
+            <span style="color: var(--muted);">$</span> <span style="color: var(--accent);">liltok mine</span> <span style="color: #93c5fd;">--provider groq --category all</span>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Active Cache Entries</h3>
+            <p style="font-size: 13px; color: var(--muted);">Browse and manage Tier-1 and Tier-3 cached entries</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="loadCacheEntries()">Refresh</button>
+            <button class="btn btn-danger" onclick="purgeAllCache()">Flush Entire Cache</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Hash</th>
+                <th>Model</th>
+                <th>Prompt Preview</th>
+                <th>Type</th>
+                <th>Hits</th>
+                <th>Last Accessed</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="cache-tbody">
+              <tr><td colspan="7" style="text-align: center; color: var(--muted);">Loading cache...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- KEYS TAB -->
+    <div id="tab-keys" class="tab-content">
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Virtual API Keys</h3>
+            <p style="font-size: 13px; color: var(--muted);">Manage client virtual tokens, rate limits, and spend caps</p>
+          </div>
+          <button class="btn" onclick="openKeyModal()">+ Create Virtual Key</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Key ID</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Current Spend</th>
+                <th>Monthly Budget</th>
+                <th>RPM</th>
+                <th>TPM</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="keys-tbody">
+              <tr><td colspan="8" style="text-align: center; color: var(--muted);">Loading keys...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTES TAB -->
+    <div id="tab-routes" class="tab-content">
+      <div class="grid-stats" id="circuit-breakers-grid"></div>
+      <div class="card">
+        <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Routing Profiles</h3>
+        <div id="routes-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE KEY MODAL -->
+  <div id="key-modal" class="modal">
+    <div class="modal-card">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Create Virtual API Key</h3>
+      <div class="form-group">
+        <label class="form-label">Key Name</label>
+        <input id="key-name-input" class="form-input" placeholder="e.g. cursor-dev" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monthly Spend Budget ($ USD, 0 for unlimited)</label>
+        <input id="key-budget-input" type="number" step="0.5" class="form-input" value="25.00" />
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div class="form-group">
+          <label class="form-label">RPM Limit</label>
+          <input id="key-rpm-input" type="number" class="form-input" value="60" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">TPM Limit</label>
+          <input id="key-tpm-input" type="number" class="form-input" value="100000" />
+        </div>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-secondary" onclick="closeKeyModal()">Cancel</button>
+        <button class="btn" onclick="submitCreateKey()">Generate Key</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'cache') loadCacheEntries();
+      if (name === 'keys') loadKeys();
+      if (name === 'routes') loadRoutes();
+    }
+
+    function formatCurrency(val) {
+      return '$' + (Number(val) || 0).toFixed(4);
+    }
+
+    function getTierBadge(status, tier) {
+      if (status === 'HIT') {
+        if (tier === 'TIER1_EXACT') return '<span class="badge badge-hit-exact">EXACT HIT</span>';
+        if (tier === 'TIER3_SEMANTIC') return '<span class="badge badge-hit-sem">SEMANTIC HIT</span>';
+        if (tier === 'TIER2_PREFIX') return '<span class="badge badge-hit-prefix">PREFIX HIT</span>';
+        return '<span class="badge badge-hit-exact">HIT</span>';
+      }
+      return '<span class="badge badge-miss">MISS</span>';
+    }
+
+    async function loadOverview() {
+      try {
+        const res = await fetch('/api/v1/overview');
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('stat-requests').innerText = data.total_requests;
+        document.getElementById('stat-latency').innerText = `Avg Latency: ${data.avg_latency_ms.toFixed(1)}ms`;
+        document.getElementById('stat-hitrate').innerText = `${data.hit_rate_percent.toFixed(1)}%`;
+        document.getElementById('stat-hits').innerText = `${data.total_hits} Hits / ${data.total_requests - data.total_hits} Misses`;
+        document.getElementById('stat-saved').innerText = formatCurrency(data.total_saved_usd);
+        document.getElementById('stat-spend').innerText = formatCurrency(data.total_cost_usd);
+        document.getElementById('stat-entries').innerText = `${data.cache_entries} Cache Entries`;
+        document.getElementById('uptime-label').innerText = `Uptime: ${data.uptime_seconds}s`;
+      } catch (e) {}
+    }
+
+    async function loadRecentLogs() {
+      try {
+        const res = await fetch('/api/v1/logs?limit=30');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('logs-tbody');
+        if (!data.logs || data.logs.length === 0) return;
+        tbody.innerHTML = '';
+        data.logs.forEach(l => appendLogRow(l, false));
+      } catch (e) {}
+    }
+
+    function appendLogRow(l, flash = true) {
+      const tbody = document.getElementById('logs-tbody');
+      const tr = document.createElement('tr');
+      if (flash && l.cache_status === 'HIT') tr.className = 'flash';
+      const timeStr = l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+      tr.innerHTML = `
+        <td style="color: var(--muted);">${timeStr}</td>
+        <td>${l.request_id ? l.request_id.slice(-8) : '-'}</td>
+        <td style="font-weight: 600;">${l.model}</td>
+        <td>${l.provider}</td>
+        <td>${getTierBadge(l.cache_status, l.cache_tier)}</td>
+        <td>${l.prompt_tokens} / ${l.completion_tokens}</td>
+        <td>${formatCurrency(l.cost_usd)}</td>
+        <td style="color: #34d399;">${formatCurrency(l.saved_usd)}</td>
+        <td>${l.latency_ms}ms</td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    async function loadCacheEntries() {
+      try {
+        const res = await fetch('/api/v1/cache');
+        if (!res.ok) return;
+        const items = await res.json();
+        const tbody = document.getElementById('cache-tbody');
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">Cache is empty</td></tr>';
+          return;
+        }
+        tbody.innerHTML = items.map(i => `
+          <tr>
+            <td>${i.hash.slice(0, 12)}...</td>
+            <td style="font-weight: 600;">${i.model}</td>
+            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${i.prompt_preview}</td>
+            <td>${i.is_semantic ? '<span class="badge badge-hit-sem">SEMANTIC</span>' : '<span class="badge badge-hit-exact">EXACT</span>'}</td>
+            <td>${i.hit_count}</td>
+            <td style="color: var(--muted);">${new Date(i.last_accessed_at).toLocaleTimeString()}</td>
+            <td><button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="deleteCacheEntry('${i.hash}')">Purge</button></td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function deleteCacheEntry(hash) {
+      if (!confirm('Purge cache entry ' + hash.slice(0, 12) + '?')) return;
+      await fetch('/api/v1/cache/' + hash, { method: 'DELETE' });
+      loadCacheEntries();
+      loadOverview();
+    }
+
+    async function purgeAllCache() {
+      if (!confirm('Flush ENTIRE cache?')) return;
+      await fetch('/api/v1/cache/purge?all=true', { method: 'POST' });
+      loadCacheEntries();
+      loadOverview();
+    }
+
+    async function loadKeys() {
+      try {
+        const res = await fetch('/api/v1/keys');
+        if (!res.ok) return;
+        const keys = await res.json();
+        const tbody = document.getElementById('keys-tbody');
+        if (keys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted);">No keys found</td></tr>';
+          return;
+        }
+        tbody.innerHTML = keys.map(k => `
+          <tr>
+            <td>${k.id}</td>
+            <td style="font-weight: 600;">${k.name}</td>
+            <td>${k.is_active ? '<span class="badge badge-hit-exact">ACTIVE</span>' : '<span class="badge badge-miss">REVOKED</span>'}</td>
+            <td>${formatCurrency(k.current_spend_usd)}</td>
+            <td>${k.monthly_budget_usd > 0 ? '$' + k.monthly_budget_usd.toFixed(2) : 'UNLIMITED'}</td>
+            <td>${k.rpm_limit}</td>
+            <td>${k.tpm_limit}</td>
+            <td>${k.is_active ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="revokeKey('${k.id}')">Revoke</button>` : '-'}</td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
+    async function revokeKey(id) {
+      if (!confirm('Revoke key ' + id + '?')) return;
+      await fetch('/api/v1/keys/' + id, { method: 'DELETE' });
+      loadKeys();
+    }
+
+    function openKeyModal() {
+      document.getElementById('key-modal').classList.add('show');
+    }
+    function closeKeyModal() {
+      document.getElementById('key-modal').classList.remove('show');
+    }
+
+    async function submitCreateKey() {
+      const name = document.getElementById('key-name-input').value;
+      const budget = parseFloat(document.getElementById('key-budget-input').value) || 0;
+      const rpm = parseInt(document.getElementById('key-rpm-input').value) || 60;
+      const tpm = parseInt(document.getElementById('key-tpm-input').value) || 100000;
+
+      const res = await fetch('/api/v1/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, budget, rpm, tpm })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        alert('Created Virtual Key! Secret: ' + data.secret_key + '\n\nSave this key; it will not be displayed again!');
+        closeKeyModal();
+        loadKeys();
+      } else {
+        alert('Failed to create key');
+      }
+    }
+
+    async function loadRoutes() {
+      try {
+        const res = await fetch('/api/v1/routes');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        // Breakers
+        const breakersGrid = document.getElementById('circuit-breakers-grid');
+        breakersGrid.innerHTML = data.circuit_breakers.map(cb => {
+          let badge = '<span class="badge badge-hit-exact">CLOSED (HEALTHY)</span>';
+          if (cb.state === 'OPEN') badge = '<span class="badge badge-open">OPEN (TRIPPED)</span>';
+          else if (cb.state === 'HALF-OPEN') badge = '<span class="badge badge-hit-prefix">HALF-OPEN (PROBING)</span>';
+          return `
+            <div class="card">
+              <div class="card-title">${cb.provider} Breaker</div>
+              <div style="margin-top: 8px;">${badge}</div>
+            </div>
+          `;
+        }).join('');
+
+        // Profiles
+        const routesContainer = document.getElementById('routes-container');
+        routesContainer.innerHTML = data.routes.map(r => `
+          <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-weight: 600; font-size: 15px;">${r.id}</span>
+              ${r.id === data.default_strategy ? '<span class="badge badge-hit-exact">DEFAULT STRATEGY</span>' : ''}
+            </div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 6px;">${r.description}</div>
+            <div style="font-family: var(--mono); font-size: 12px; color: var(--accent);">Target Chain: ${r.targets.join(' -> ')}</div>
+          </div>
+        `).join('');
+      } catch (e) {}
+    }
+
+    // Connect Live Telemetry SSE Feed
+    function initSSE() {
+      const source = new EventSource('/api/v1/events');
+      source.onmessage = (e) => {
+        try {
+          const ev = JSON.parse(e.data);
+          if (ev.type === 'request') {
+            appendLogRow(ev.data, true);
+            loadOverview();
+          }
+        } catch (err) {}
+      };
+      source.onerror = () => {
+        setTimeout(initSSE, 5000);
+      };
+    }
+
+    // Initialize
+    loadOverview();
+    loadRecentLogs();
+    initSSE();
+    setInterval(loadOverview, 5000);
+  </script>
+</body>
+</html>
