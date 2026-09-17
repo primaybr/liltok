@@ -161,8 +161,16 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		Choices []struct {
 			Index   int `json:"index"`
 			Message struct {
-				Role    string `json:"role"`
-				Content string `json:"content"`
+				Role      string `json:"role"`
+				Content   string `json:"content"`
+				ToolCalls []struct {
+					ID       string `json:"id"`
+					Type     string `json:"type"`
+					Function struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
 			} `json:"message"`
 			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
@@ -180,10 +188,25 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	content := ""
 	role := "assistant"
 	finishReason := "stop"
+	var toolCalls []provider.UnifiedToolCall
 	if len(oaiResp.Choices) > 0 {
-		content = oaiResp.Choices[0].Message.Content
-		role = oaiResp.Choices[0].Message.Role
-		finishReason = oaiResp.Choices[0].FinishReason
+		c := oaiResp.Choices[0]
+		content = c.Message.Content
+		role = c.Message.Role
+		finishReason = c.FinishReason
+		for _, tc := range c.Message.ToolCalls {
+			toolCalls = append(toolCalls, provider.UnifiedToolCall{
+				ID:   tc.ID,
+				Type: tc.Type,
+				Function: struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				}{
+					Name:      tc.Function.Name,
+					Arguments: tc.Function.Arguments,
+				},
+			})
+		}
 	}
 
 	return &provider.UnifiedChatResponse{
@@ -191,6 +214,7 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		Model:        oaiResp.Model,
 		Role:         role,
 		Content:      content,
+		ToolCalls:    toolCalls,
 		FinishReason: finishReason,
 		Usage: provider.UnifiedUsage{
 			PromptTokens:     oaiResp.Usage.PromptTokens,
@@ -333,11 +357,72 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 		payload["max_tokens"] = req.MaxTokens
 	}
 	if len(req.Tools) > 0 {
-		payload["tools"] = req.Tools
+		payload["tools"] = convertToolsToOpenAI(req.Tools)
 	}
 	if req.ToolChoice != nil {
-		payload["tool_choice"] = req.ToolChoice
+		payload["tool_choice"] = convertToolChoiceToOpenAI(req.ToolChoice)
 	}
 
 	return json.Marshal(payload)
+}
+
+func convertToolsToOpenAI(tools []interface{}) []interface{} {
+	out := make([]interface{}, 0, len(tools))
+	for _, t := range tools {
+		tMap, ok := t.(map[string]interface{})
+		if !ok {
+			out = append(out, t)
+			continue
+		}
+		// If already in OpenAI format with type "function" and "function" map
+		if _, hasFunc := tMap["function"]; hasFunc {
+			out = append(out, t)
+			continue
+		}
+		// Anthropic schema: {name: "...", description: "...", input_schema: {...}}
+		name, _ := tMap["name"].(string)
+		desc, _ := tMap["description"].(string)
+		schema := tMap["input_schema"]
+		if schema == nil {
+			schema = map[string]interface{}{
+				"type": "object",
+			}
+		}
+		fnMap := map[string]interface{}{
+			"name":       name,
+			"parameters": schema,
+		}
+		if desc != "" {
+			fnMap["description"] = desc
+		}
+		out = append(out, map[string]interface{}{
+			"type":     "function",
+			"function": fnMap,
+		})
+	}
+	return out
+}
+
+func convertToolChoiceToOpenAI(choice interface{}) interface{} {
+	cMap, ok := choice.(map[string]interface{})
+	if !ok {
+		return choice
+	}
+	tType, _ := cMap["type"].(string)
+	switch tType {
+	case "auto":
+		return "auto"
+	case "any":
+		return "required"
+	case "tool":
+		name, _ := cMap["name"].(string)
+		return map[string]interface{}{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name": name,
+			},
+		}
+	default:
+		return choice
+	}
 }

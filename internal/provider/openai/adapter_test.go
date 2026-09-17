@@ -86,3 +86,72 @@ func TestOpenAIAdapterStreamChat(t *testing.T) {
 		t.Errorf("failed to receive expected streamed chunk")
 	}
 }
+
+func TestAnthropicToolConversion(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"id": "chatcmpl-tool",
+			"model": "qwen/qwen3.8-27b",
+			"choices": [{
+				"index": 0,
+				"message": {
+					"role": "assistant",
+					"content": "Running command",
+					"tool_calls": [{
+						"id": "call_abc123",
+						"type": "function",
+						"function": {
+							"name": "Bash",
+							"arguments": "{\"command\":\"ls\"}"
+						}
+					}]
+				},
+				"finish_reason": "tool_calls"
+			}],
+			"usage": {"prompt_tokens": 15, "completion_tokens": 10, "total_tokens": 25}
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter("groq", provider.TierFree, mockServer.URL, "test-key")
+
+	req := &provider.UnifiedChatRequest{
+		Model:             "qwen/qwen3.8-27b",
+		IsAnthropicSource: true,
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "List directory"},
+		},
+		Tools: []interface{}{
+			map[string]interface{}{
+				"name":        "Bash",
+				"description": "Execute shell command",
+				"input_schema": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"command": map[string]interface{}{"type": "string"},
+					},
+				},
+			},
+		},
+		ToolChoice: map[string]interface{}{
+			"type": "auto",
+		},
+	}
+
+	resp, err := adapter.SendChat(context.Background(), req)
+	if err != nil {
+		t.Fatalf("send chat with tools failed: %v", err)
+	}
+
+	if len(resp.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(resp.ToolCalls))
+	}
+	if resp.ToolCalls[0].Function.Name != "Bash" {
+		t.Errorf("expected tool Bash, got %s", resp.ToolCalls[0].Function.Name)
+	}
+	if resp.FinishReason != "tool_calls" {
+		t.Errorf("expected finish reason tool_calls, got %s", resp.FinishReason)
+	}
+}

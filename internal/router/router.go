@@ -196,9 +196,25 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 // DispatchChat executes non-streaming chat with automatic failover across target specifications.
 func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequest, routeAlias string) (*provider.UnifiedChatResponse, string, error) {
 	targets := r.ResolveTargets(req.Model, routeAlias)
+	approxTokens := len(req.RawPayload) / 4
+	if approxTokens == 0 {
+		promptChars := len(req.SystemPrompt)
+		for _, m := range req.Messages {
+			promptChars += len(m.Content)
+		}
+		approxTokens = promptChars / 4
+	}
 
 	var lastErr error
 	for _, target := range targets {
+		if approxTokens > 25000 && (target.ProviderName == "groq" || target.ProviderName == "nvidianim") {
+			telemetry.Log.Debug().
+				Str("provider", target.ProviderName).
+				Int("approx_tokens", approxTokens).
+				Msg("Prompt exceeds provider context window; bypassing to large-context target")
+			continue
+		}
+
 		p, exists := r.providers[target.ProviderName]
 		if !exists {
 			continue
