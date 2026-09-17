@@ -115,3 +115,27 @@ func TestPricingRegistry_DBLoad(t *testing.T) {
 		t.Errorf("Expected seeded pricing from DB, got %+v", p)
 	}
 }
+
+func TestPricingRegistry_CalculateForRouting(t *testing.T) {
+	reg := tokens.NewPricingRegistry(nil)
+
+	// claude-sonnet-5 routed to gemini (free tier)
+	// 29,975 prompt tokens + 113 completion tokens
+	cost, saved := reg.CalculateForRouting("claude-sonnet-5", "gemini", 29_975, 113, 0, "MISS", "NONE")
+	if cost != 0.0 {
+		t.Errorf("Expected $0.00 cost when fulfilled by gemini, got %f", cost)
+	}
+	// Expected saved: (29975 * 3.00 + 113 * 15.00) / 1,000,000 = 0.089925 + 0.001695 = 0.09162
+	if saved != 0.09162 {
+		t.Errorf("Expected $0.09162 saved when fulfilled by free tier, got %f", saved)
+	}
+
+	// claude-sonnet-5 served by anthropic (paid tier)
+	costPaid, savedPaid := reg.CalculateForRouting("claude-sonnet-5", "anthropic", 29_975, 113, 0, "MISS", "NONE")
+	if costPaid != 0.09162 {
+		t.Errorf("Expected $0.09162 cost when fulfilled by anthropic, got %f", costPaid)
+	}
+	if savedPaid != 0.0 {
+		t.Errorf("Expected $0.00 saved when fulfilled by anthropic without cache, got %f", savedPaid)
+	}
+}
