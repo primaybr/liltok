@@ -59,6 +59,14 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/keys", h.HandleCreateKey)
 		r.Delete("/keys/{id}", h.HandleRevokeKey)
 		r.Get("/events", h.broadcaster.ServeHTTP)
+
+		// Maintainer Moderation Endpoints
+		r.Get("/moderate/status", h.HandleModerateStatus)
+		r.Post("/moderate/upload", h.HandleModerateUpload)
+		r.Get("/moderate/entries", h.HandleModerateEntries)
+		r.Post("/moderate/approve", h.HandleModerateApprove)
+		r.Post("/moderate/reject", h.HandleModerateReject)
+		r.Delete("/moderate/clear", h.HandleModerateClear)
 	})
 }
 
@@ -100,6 +108,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		"avg_latency_ms":   overview.AvgLatencyMs,
 		"cache_entries":    totalEntries,
 		"active_listeners": h.broadcaster.ClientCount(),
+		"maintainer_mode":  h.cfg != nil && h.cfg.Maintainer.Enabled,
 	}
 
 	writeJSON(w, http.StatusOK, resp)

@@ -264,7 +264,7 @@ routes:
 		},
 	}
 
-	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand())
+	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

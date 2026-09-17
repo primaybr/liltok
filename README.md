@@ -235,6 +235,12 @@ liltok cache update
 # Export sanitized cache entries for sharing or backup
 liltok cache export --out community_pack.json.gz --min-hits 2 --sanitize
 
+# Export encrypted pack for maintainer (X25519 + AES-256-GCM)
+liltok cache export --encrypt --pubkey <ltpub_...> --out submission.enc
+
+# Decrypt an encrypted submission using maintainer private key
+liltok cache decrypt submission.enc --out decrypted.json.gz
+
 # Import an external cache pack into local SQLite
 liltok cache import community_pack.json.gz
 
@@ -244,6 +250,13 @@ liltok cache pack --min-hits 1 --sanitize
 # Purge cache entries
 liltok cache purge --hash <sha256-hash>
 liltok cache purge --all
+```
+
+### Maintainer Operations (`liltok maintainer`)
+
+```bash
+# Generate X25519 asymmetric key pair for private cache submissions
+liltok maintainer keygen --out ~/.liltok/maintainer.key
 ```
 
 ---
@@ -267,6 +280,11 @@ Developers can contribute to or package their own cache packs:
 - **Automated Privacy Sanitization**: The sanitization engine automatically scrubs developer home paths (e.g. `/Users/username` or `C:\Users\username`), API keys (`sk-...`, `nvapi-...`, `gsk_...`), and private IPv4 addresses.
 - **Web Dashboard**: Use the **"Merge & Pack to Starter"** button on the Cache Explorer tab (`http://localhost:8080/dashboard`) to review and merge cache entries interactively.
 
+### Zero-Server Private Submissions via Asymmetric Encryption
+To receive candidate cache packs privately without exposing prompts to the public web or renting servers:
+- **Client-Side Encryption**: Contributors export their cache using `liltok cache export --encrypt --pubkey <ltpub_...> --out submission.enc`.
+- **Pure Go Standard Library Cryptography**: Payloads are encrypted using X25519 ECDH key agreement and AES-256-GCM authenticated encryption. The ciphertext cannot be inspected by anyone other than the maintainer holding the private key.
+- **Private Moderator Studio**: Maintainers running with `maintainer.enabled: true` in `liltok.yaml` unlock the hidden **Moderator Studio** inside the local dashboard. Drag-and-drop `.enc` envelopes to decrypt, evaluate candidate prompts and responses, inspect deduplication flags, and merge approved entries directly into your local database.
 
 ---
 
@@ -281,6 +299,7 @@ Open `http://localhost:8080/dashboard` in any browser:
 - **Cache Explorer**: Browse cached prompts, view hit counts, inspect TTLs, and evict individual keys. Includes the one-click **"Merge & Pack to Starter"** pipeline.
 - **Key Manager**: UI to create virtual keys, set budgets, and monitor monthly spend.
 - **Breaker Health Grid**: Live status cards for upstream providers (`CLOSED`, `HALF-OPEN`, `OPEN`).
+- **Moderator Studio (Maintainer Only)**: Hidden by default; unlocks when `maintainer.enabled: true` is configured in `liltok.yaml`. Drag-and-drop encrypted `.enc` packs, review candidates, and merge approved queries into your local SQLite store.
 
 ### Prometheus / OpenMetrics (`GET /metrics`)
 Scrape metrics directly for Prometheus or Grafana dashboards:

@@ -64,14 +64,22 @@ type RouteConfig struct {
 	DefaultStrategy string `yaml:"default_strategy"` // "auto-resilient", "free-first", "premium-only"
 }
 
+// MaintainerConfig controls local moderation and encrypted cache curation settings.
+type MaintainerConfig struct {
+	Enabled        bool   `yaml:"enabled"`
+	PrivateKeyFile string `yaml:"private_key_file"`
+	PublicKey      string `yaml:"public_key"`
+}
+
 // Config represents the complete runtime configuration of Liltok.
 type Config struct {
-	Server    ServerConfig    `yaml:"server"`
-	Storage   StorageConfig   `yaml:"storage"`
-	Cache     CacheConfig     `yaml:"cache"`
-	Log       LogConfig       `yaml:"log"`
-	Providers ProvidersConfig `yaml:"providers"`
-	Routes    RouteConfig     `yaml:"routes"`
+	Server     ServerConfig     `yaml:"server"`
+	Storage    StorageConfig    `yaml:"storage"`
+	Cache      CacheConfig      `yaml:"cache"`
+	Log        LogConfig        `yaml:"log"`
+	Providers  ProvidersConfig  `yaml:"providers"`
+	Routes     RouteConfig      `yaml:"routes"`
+	Maintainer MaintainerConfig `yaml:"maintainer"`
 }
 
 // Load loads configuration by cascading Defaults -> Config File (if exists) -> Environment Variables.
@@ -93,8 +101,9 @@ func Load(configPath string) (*Config, error) {
 	// Apply environment variable overrides
 	applyEnvOverrides(cfg)
 
-	// Expand home directory in DBPath
+	// Expand home directory in DBPath and Maintainer Key
 	cfg.Storage.DBPath = expandHomeDir(cfg.Storage.DBPath)
+	cfg.Maintainer.PrivateKeyFile = expandHomeDir(cfg.Maintainer.PrivateKeyFile)
 
 	return cfg, nil
 }
@@ -149,6 +158,15 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("LILTOK_AUTO_SYNC"); v != "" {
 		cfg.Cache.AutoSync = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_MAINTAINER_MODE"); v != "" {
+		cfg.Maintainer.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_MAINTAINER_KEY_FILE"); v != "" {
+		cfg.Maintainer.PrivateKeyFile = v
+	}
+	if v := os.Getenv("LILTOK_MAINTAINER_PUBKEY"); v != "" {
+		cfg.Maintainer.PublicKey = v
 	}
 }
 

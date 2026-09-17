@@ -81,6 +81,7 @@
       <button class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
       <button class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
       <button class="tab-btn" onclick="switchTab('routes')">Routes & Circuit Breakers</button>
+      <button id="tab-btn-moderate" class="tab-btn" style="display: none; border: 1px dashed #f59e0b; color: #fbbf24;" onclick="switchTab('moderate')">Moderator Studio <span id="moderate-badge" class="badge" style="background: rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 10px; margin-left: 4px;">0</span></button>
     </div>
 
     <!-- OVERVIEW TAB -->
@@ -229,6 +230,116 @@
         <div id="routes-container"></div>
       </div>
     </div>
+
+    <!-- MODERATOR TAB -->
+    <div id="tab-moderate" class="tab-content">
+      <div class="grid-stats" style="margin-bottom: 20px;">
+        <div class="card">
+          <div class="card-title">Maintainer Mode</div>
+          <div class="card-value" style="color: #fbbf24; font-size: 20px;">Active</div>
+          <div class="card-sub" id="mod-key-status">Key: Loading...</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Pending Moderation</div>
+          <div class="card-value" id="mod-pending-count" style="color: #60a5fa;">0</div>
+          <div class="card-sub">Candidate prompt-response pairs</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Approved &amp; Merged</div>
+          <div class="card-value" id="mod-approved-count" style="color: #34d399;">0</div>
+          <div class="card-sub">Active in your local database</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Rejected / Discarded</div>
+          <div class="card-value" id="mod-rejected-count" style="color: #f87171;">0</div>
+          <div class="card-sub">Excluded from local and seed pack</div>
+        </div>
+      </div>
+
+      <!-- INGESTION DROPZONE CARD -->
+      <div class="card" style="margin-bottom: 20px; border: 1px dashed var(--border); background: rgba(255,255,255,0.01);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div>
+            <h3 style="font-size: 15px; font-weight: 600; color: #fff;">Candidate Cache Ingestion</h3>
+            <span style="font-size: 12px; color: var(--muted);">Upload encrypted packs (.enc) or standard packs (.json.gz) for local evaluation</span>
+          </div>
+          <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Asymmetric X25519 Decryption</span>
+        </div>
+
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <input type="file" id="mod-file-input" accept=".enc,.gz,.json" class="form-input" style="flex: 1;" />
+          <button id="mod-upload-btn" class="btn" style="background: #f59e0b; color: #000; font-weight: 600;" onclick="uploadCandidateFile()">Decrypt &amp; Stage</button>
+        </div>
+        <div id="mod-upload-status" style="display: none; margin-top: 12px; padding: 10px 12px; border-radius: 6px; font-size: 13px;"></div>
+      </div>
+
+      <!-- REVIEW TABLE CARD -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Staged Candidates Review</h3>
+            <span style="font-size: 12px; color: var(--muted);">Approve candidate entries to merge them directly into your local database</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" style="background: #10b981; color: #000; font-weight: 600;" onclick="approveSelectedEntries()">Approve Selected</button>
+            <button class="btn btn-secondary" onclick="approveAllCleanEntries()">Approve All Clean</button>
+            <button class="btn btn-danger" onclick="rejectSelectedEntries()">Reject Selected</button>
+            <button class="btn btn-secondary" onclick="clearModerateQueue()">Clear Queue</button>
+          </div>
+        </div>
+
+        <div id="mod-merge-banner" style="display: none; margin-bottom: 16px; padding: 12px 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 6px; color: #34d399; font-size: 13px;"></div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px;"><input type="checkbox" id="mod-select-all" onclick="toggleSelectAllMod(this)" /></th>
+                <th>Model</th>
+                <th>Tokens</th>
+                <th>Safety &amp; Status</th>
+                <th>Normalized Prompt</th>
+                <th>Response Snippet</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="moderate-tbody">
+              <tr>
+                <td colspan="7" style="text-align: center; color: var(--muted); padding: 32px;">No staged entries in queue. Drop an encrypted or gzip cache pack above to begin review.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODERATOR DETAIL MODAL -->
+  <div id="mod-detail-modal" class="modal">
+    <div class="modal-card" style="width: 700px; max-width: 90vw;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="mod-modal-model" class="badge badge-hit-exact">Model</span>
+          <h3 id="mod-modal-title" style="font-size: 16px; font-weight: 600;">Candidate Entry Detail</h3>
+        </div>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="closeModDetailModal()">X</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Normalized Prompt</label>
+        <div id="mod-modal-prompt" style="font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border); max-height: 180px; overflow-y: auto; white-space: pre-wrap;"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Response Payload</label>
+        <div id="mod-modal-response" style="font-family: var(--mono); font-size: 12px; background: var(--bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border); max-height: 250px; overflow-y: auto; white-space: pre-wrap;"></div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+        <button class="btn btn-secondary" onclick="closeModDetailModal()">Close</button>
+        <button id="mod-modal-approve-btn" class="btn" style="background: #10b981; color: #000; font-weight: 600;">Approve &amp; Merge</button>
+      </div>
+    </div>
   </div>
 
   <!-- CREATE KEY MODAL -->
@@ -312,6 +423,10 @@
       if (name === 'cache') loadCacheEntries();
       if (name === 'keys') loadKeys();
       if (name === 'routes') loadRoutes();
+      if (name === 'moderate') {
+        loadModerateStatus();
+        loadModerateEntries();
+      }
     }
 
     function formatCurrency(val) {
@@ -335,6 +450,11 @@
         const res = await fetch('/api/v1/overview');
         if (!res.ok) return;
         const data = await res.json();
+        if (data.maintainer_mode) {
+          const modBtn = document.getElementById('tab-btn-moderate');
+          if (modBtn) modBtn.style.display = 'inline-block';
+          loadModerateStatus();
+        }
         document.getElementById('stat-requests').innerText = data.total_requests;
         document.getElementById('stat-latency').innerText = `Avg Latency: ${data.avg_latency_ms.toFixed(1)}ms`;
         document.getElementById('stat-hitrate').innerText = `${data.hit_rate_percent.toFixed(1)}%`;
@@ -606,6 +726,235 @@
       source.onerror = () => {
         setTimeout(initSSE, 5000);
       };
+    }
+
+    // MODERATOR STUDIO FUNCTIONS
+    let currentStagedEntries = [];
+
+    async function loadModerateStatus() {
+      try {
+        const res = await fetch('/api/v1/moderate/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.enabled) return;
+
+        const keyText = data.has_key ? 'Configured (Active)' : 'Missing Private Key';
+        document.getElementById('mod-key-status').innerText = `Key: ${keyText}`;
+        document.getElementById('mod-pending-count').innerText = data.pending_count || 0;
+        document.getElementById('mod-approved-count').innerText = data.approved_count || 0;
+        document.getElementById('mod-rejected-count').innerText = data.rejected_count || 0;
+        document.getElementById('moderate-badge').innerText = data.pending_count || 0;
+      } catch (e) {}
+    }
+
+    async function loadModerateEntries() {
+      try {
+        const res = await fetch('/api/v1/moderate/entries?status=pending&limit=100');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentStagedEntries = data.entries || [];
+        renderModerateTable(currentStagedEntries);
+      } catch (e) {}
+    }
+
+    function renderModerateTable(entries) {
+      const tbody = document.getElementById('moderate-tbody');
+      if (!entries || entries.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 32px;">No staged entries in queue. Drop an encrypted or gzip cache pack above to begin review.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = entries.map(e => {
+        const dupBadge = e.is_duplicate 
+          ? '<span class="badge" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5;">DUPLICATE HASH</span>' 
+          : '<span class="badge badge-hit-exact">NEW CANDIDATE</span>';
+        
+        const promptSnippet = escapeHTML(e.normalized_prompt.substring(0, 90)) + (e.normalized_prompt.length > 90 ? '...' : '');
+        const respSnippet = escapeHTML(e.response_payload.substring(0, 90)) + (e.response_payload.length > 90 ? '...' : '');
+
+        return `
+          <tr>
+            <td><input type="checkbox" class="mod-entry-checkbox" data-id="${e.id}" data-dup="${e.is_duplicate ? '1' : '0'}" /></td>
+            <td><span class="badge badge-hit-prefix">${escapeHTML(e.model)}</span></td>
+            <td style="font-family: var(--mono); font-size: 11px;">${e.prompt_tokens} in / ${e.completion_tokens} out</td>
+            <td>${dupBadge}</td>
+            <td style="font-family: var(--mono); font-size: 11px; cursor: pointer; color: #93c5fd;" onclick="openModDetail(${e.id})">${promptSnippet}</td>
+            <td style="font-family: var(--mono); font-size: 11px; cursor: pointer;" onclick="openModDetail(${e.id})">${respSnippet}</td>
+            <td>
+              <button class="btn" style="padding: 2px 8px; font-size: 11px; background: #10b981; color: #000; margin-right: 4px;" onclick="approveSingleEntry(${e.id})">Approve</button>
+              <button class="btn btn-danger" style="padding: 2px 8px; font-size: 11px;" onclick="rejectSingleEntry(${e.id})">Reject</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function toggleSelectAllMod(master) {
+      document.querySelectorAll('.mod-entry-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    async function uploadCandidateFile() {
+      const input = document.getElementById('mod-file-input');
+      if (!input.files || input.files.length === 0) {
+        alert('Please select an encrypted (.enc) or gzip (.json.gz) cache pack.');
+        return;
+      }
+
+      const file = input.files[0];
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const statusArea = document.getElementById('mod-upload-status');
+      const btn = document.getElementById('mod-upload-btn');
+      btn.disabled = true;
+      btn.innerText = 'Decrypting & Staging...';
+      statusArea.style.display = 'block';
+      statusArea.style.background = 'rgba(245, 158, 11, 0.1)';
+      statusArea.style.color = '#fbbf24';
+      statusArea.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+      statusArea.innerText = 'Uploading and decrypting payload...';
+
+      try {
+        const res = await fetch('/api/v1/moderate/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Upload failed');
+        }
+
+        statusArea.style.background = 'rgba(16, 185, 129, 0.1)';
+        statusArea.style.color = '#34d399';
+        statusArea.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        statusArea.innerText = `Successfully staged ${data.staged_count} candidates (${data.duplicates} existing duplicates flagged) from ${data.filename}!`;
+        input.value = '';
+        loadModerateStatus();
+        loadModerateEntries();
+      } catch (err) {
+        statusArea.style.background = 'rgba(239, 68, 68, 0.1)';
+        statusArea.style.color = '#fca5a5';
+        statusArea.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        statusArea.innerText = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Decrypt & Stage';
+      }
+    }
+
+    async function approveSelectedEntries() {
+      const checked = Array.from(document.querySelectorAll('.mod-entry-checkbox:checked')).map(cb => Number(cb.dataset.id));
+      if (checked.length === 0) {
+        alert('Please select at least one entry to approve.');
+        return;
+      }
+      await submitApproval(checked);
+    }
+
+    async function approveAllCleanEntries() {
+      const cleanIDs = currentStagedEntries.filter(e => !e.is_duplicate).map(e => e.id);
+      if (cleanIDs.length === 0) {
+        alert('No clean (non-duplicate) entries found in current queue.');
+        return;
+      }
+      await submitApproval(cleanIDs);
+    }
+
+    async function approveSingleEntry(id) {
+      await submitApproval([id]);
+    }
+
+    async function submitApproval(ids) {
+      try {
+        const res = await fetch('/api/v1/moderate/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Approval failed');
+
+        const banner = document.getElementById('mod-merge-banner');
+        banner.style.display = 'block';
+        banner.innerText = `Approved and merged ${data.approved_count} entries into your local database! You immediately get 0ms hits during your coding sessions.`;
+        setTimeout(() => { banner.style.display = 'none'; }, 8000);
+
+        loadModerateStatus();
+        loadModerateEntries();
+        loadOverview();
+      } catch (e) {
+        alert('Approval failed: ' + e.message);
+      }
+    }
+
+    async function rejectSingleEntry(id) {
+      await submitRejection([id]);
+    }
+
+    async function rejectSelectedEntries() {
+      const checked = Array.from(document.querySelectorAll('.mod-entry-checkbox:checked')).map(cb => Number(cb.dataset.id));
+      if (checked.length === 0) {
+        alert('Please select at least one entry to reject.');
+        return;
+      }
+      await submitRejection(checked);
+    }
+
+    async function submitRejection(ids) {
+      try {
+        const res = await fetch('/api/v1/moderate/reject', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: ids })
+        });
+        if (!res.ok) throw new Error('Rejection failed');
+        loadModerateStatus();
+        loadModerateEntries();
+      } catch (e) {
+        alert('Rejection failed: ' + e.message);
+      }
+    }
+
+    async function clearModerateQueue() {
+      if (!confirm('Clear all entries from the staging queue?')) return;
+      try {
+        await fetch('/api/v1/moderate/clear', { method: 'DELETE' });
+        loadModerateStatus();
+        loadModerateEntries();
+      } catch (e) {}
+    }
+
+    function openModDetail(id) {
+      const entry = currentStagedEntries.find(e => e.id === id);
+      if (!entry) return;
+
+      document.getElementById('mod-modal-model').innerText = entry.model;
+      document.getElementById('mod-modal-title').innerText = `Candidate #${entry.id} (${entry.prompt_tokens} in / ${entry.completion_tokens} out)`;
+      document.getElementById('mod-modal-prompt').innerText = entry.normalized_prompt;
+      document.getElementById('mod-modal-response').innerText = entry.response_payload;
+      
+      const approveBtn = document.getElementById('mod-modal-approve-btn');
+      approveBtn.onclick = async () => {
+        await submitApproval([entry.id]);
+        closeModDetailModal();
+      };
+
+      document.getElementById('mod-detail-modal').classList.add('show');
+    }
+
+    function closeModDetailModal() {
+      document.getElementById('mod-detail-modal').classList.remove('show');
+    }
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
     }
 
     // Initialize

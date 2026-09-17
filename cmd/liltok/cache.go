@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	cachesync "github.com/liltok/liltok/internal/cache/sync"
 	"github.com/liltok/liltok/internal/config"
+	"github.com/liltok/liltok/internal/crypto"
 	"github.com/liltok/liltok/internal/db"
 	"github.com/liltok/liltok/internal/miner"
 	"github.com/spf13/cobra"
@@ -231,16 +234,25 @@ using HTTP conditional GET (ETag). Merges new entries seamlessly into your local
 		exportMinHits  int
 		exportModel    string
 		exportSanitize bool
+		exportEncrypt  bool
+		exportPubKey   string
 	)
 
 	exportCmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export sanitized local cache entries for community sharing or backup",
-		Long: `Exports high-value cache entries to a compressed .json.gz file.
-With --sanitize, private API keys, user home directory paths, and private IPs are scrubbed automatically.`,
+		Long: `Exports high-value cache entries to a compressed .json.gz file or encrypted .enc envelope.
+With --sanitize, private API keys, user home directory paths, and private IPs are scrubbed automatically.
+With --encrypt, the pack is encrypted with the maintainer public key using X25519 ECDH + AES-256-GCM.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if exportOut == "" {
-				exportOut = "community_cache_pack.json.gz"
+			if exportEncrypt && exportOut == "community_cache_pack.json.gz" {
+				exportOut = "cache_submission.enc"
+			} else if exportOut == "" {
+				if exportEncrypt {
+					exportOut = "cache_submission.enc"
+				} else {
+					exportOut = "community_cache_pack.json.gz"
+				}
 			}
 
 			dbPath := resolveDBPath()
@@ -250,21 +262,50 @@ With --sanitize, private API keys, user home directory paths, and private IPs ar
 			}
 			defer database.Close()
 
-			outFile, err := os.Create(exportOut)
-			if err != nil {
-				return fmt.Errorf("failed to create output file %s: %w", exportOut, err)
-			}
-			defer outFile.Close()
-
 			opts := miner.ExportOptions{
 				MinHits:  exportMinHits,
 				Model:    exportModel,
 				Sanitize: exportSanitize,
 			}
 
-			count, err := miner.ExportCacheWithOptions(database, outFile, opts)
+			var gzBuf bytes.Buffer
+			count, err := miner.ExportCacheWithOptions(database, &gzBuf, opts)
 			if err != nil {
 				return fmt.Errorf("export failed: %w", err)
+			}
+
+			if exportEncrypt {
+				pubKeyStr := exportPubKey
+				if pubKeyStr == "" {
+					home, _ := os.UserHomeDir()
+					cfgPath := filepath.Join(home, ".liltok", "liltok.yaml")
+					if cfg, err := config.Load(cfgPath); err == nil && cfg.Maintainer.PublicKey != "" {
+						pubKeyStr = cfg.Maintainer.PublicKey
+					} else if crypto.DefaultMaintainerPublicKey != "" {
+						pubKeyStr = crypto.DefaultMaintainerPublicKey
+					}
+				}
+				if pubKeyStr == "" {
+					return fmt.Errorf("maintainer public key required for encryption: specify --pubkey or configure maintainer.public_key in liltok.yaml")
+				}
+
+				pubKey, err := crypto.ParsePublicKey(pubKeyStr)
+				if err != nil {
+					return fmt.Errorf("invalid maintainer public key: %w", err)
+				}
+
+				encryptedEnvelope, err := crypto.EncryptPayload(pubKey, gzBuf.Bytes())
+				if err != nil {
+					return fmt.Errorf("encryption failed: %w", err)
+				}
+
+				if err := os.WriteFile(exportOut, encryptedEnvelope, 0644); err != nil {
+					return fmt.Errorf("failed to write encrypted output %s: %w", exportOut, err)
+				}
+			} else {
+				if err := os.WriteFile(exportOut, gzBuf.Bytes(), 0644); err != nil {
+					return fmt.Errorf("failed to write output file %s: %w", exportOut, err)
+				}
 			}
 
 			fmt.Println("==================================================================")
@@ -273,14 +314,80 @@ With --sanitize, private API keys, user home directory paths, and private IPs ar
 			fmt.Printf(" Exported Entries:  %d\n", count)
 			fmt.Printf(" Min Hits Filter:   %d\n", exportMinHits)
 			fmt.Printf(" Privacy Sanitized: %v\n", exportSanitize)
+			fmt.Printf(" Encrypted:         %v\n", exportEncrypt)
+			if exportEncrypt {
+				fmt.Println(" Note:              Payload is encrypted for the repository maintainer.")
+			}
 			fmt.Println("==================================================================")
 			return nil
 		},
 	}
-	exportCmd.Flags().StringVarP(&exportOut, "out", "o", "community_cache_pack.json.gz", "Output gzip file path")
+	exportCmd.Flags().StringVarP(&exportOut, "out", "o", "community_cache_pack.json.gz", "Output file path (.json.gz or .enc)")
 	exportCmd.Flags().IntVar(&exportMinHits, "min-hits", 0, "Minimum hits required for export")
 	exportCmd.Flags().StringVar(&exportModel, "model", "", "Filter entries by model name")
 	exportCmd.Flags().BoolVar(&exportSanitize, "sanitize", true, "Scrub API keys, personal paths, and private IPs")
+	exportCmd.Flags().BoolVar(&exportEncrypt, "encrypt", false, "Encrypt output with maintainer public key (X25519 + AES-GCM)")
+	exportCmd.Flags().StringVar(&exportPubKey, "pubkey", "", "Maintainer public key for encryption (ltpub_...)")
+
+	var (
+		decryptIn  string
+		decryptOut string
+		decryptKey string
+	)
+	decryptCmd := &cobra.Command{
+		Use:   "decrypt [file.enc]",
+		Short: "Decrypt an encrypted cache submission using maintainer private key",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			inPath := decryptIn
+			if inPath == "" && len(args) > 0 {
+				inPath = args[0]
+			}
+			if inPath == "" {
+				return fmt.Errorf("must specify input .enc file via argument or --in")
+			}
+			if decryptOut == "" {
+				decryptOut = strings.TrimSuffix(inPath, ".enc") + ".json.gz"
+			}
+			if decryptKey == "" {
+				home, _ := os.UserHomeDir()
+				decryptKey = filepath.Join(home, ".liltok", "maintainer.key")
+			}
+
+			keyBytes, err := os.ReadFile(decryptKey)
+			if err != nil {
+				return fmt.Errorf("failed to read private key at %s: %w", decryptKey, err)
+			}
+			privKey, err := crypto.ParsePrivateKey(string(keyBytes))
+			if err != nil {
+				return fmt.Errorf("invalid private key: %w", err)
+			}
+
+			rawEnc, err := os.ReadFile(inPath)
+			if err != nil {
+				return fmt.Errorf("failed to read encrypted file %s: %w", inPath, err)
+			}
+
+			decrypted, err := crypto.DecryptPayload(privKey, rawEnc)
+			if err != nil {
+				return fmt.Errorf("decryption failed: %w", err)
+			}
+
+			if err := os.WriteFile(decryptOut, decrypted, 0644); err != nil {
+				return fmt.Errorf("failed to write decrypted output to %s: %w", decryptOut, err)
+			}
+
+			fmt.Println("==================================================================")
+			fmt.Println(" Liltok Cache Decrypter")
+			fmt.Printf(" Input Envelope:    %s\n", inPath)
+			fmt.Printf(" Output Archive:    %s\n", decryptOut)
+			fmt.Printf(" Decrypted Bytes:   %d\n", len(decrypted))
+			fmt.Println("==================================================================")
+			return nil
+		},
+	}
+	decryptCmd.Flags().StringVarP(&decryptIn, "in", "i", "", "Input encrypted .enc file")
+	decryptCmd.Flags().StringVarP(&decryptOut, "out", "o", "", "Output decrypted archive path")
+	decryptCmd.Flags().StringVarP(&decryptKey, "key", "k", "", "Path to maintainer private key (default: ~/.liltok/maintainer.key)")
 
 	var importIn string
 	importCmd := &cobra.Command{
@@ -399,6 +506,6 @@ deduplicates against the starter pack, and writes internal/db/starter_cache.json
 	packCmd.Flags().IntVar(&packMinHits, "min-hits", 0, "Minimum hits required for imported database entries")
 	packCmd.Flags().IntVar(&packMaxPromptBytes, "max-prompt-bytes", 65536, "Max prompt byte length to include (default 65536, 0 = unlimited)")
 
-	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd, seedCmd, packCmd)
+	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, decryptCmd, importCmd, seedCmd, packCmd)
 	return cacheCmd
 }
