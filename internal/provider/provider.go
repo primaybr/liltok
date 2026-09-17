@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -144,6 +143,7 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 				if mMap, ok := m.(map[string]interface{}); ok {
 					role, _ := mMap["role"].(string)
 					content := ""
+					var msgToolCalls []UnifiedToolCall
 					switch c := mMap["content"].(type) {
 					case string:
 						content = c
@@ -155,28 +155,40 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 								} else if pType, ok := partMap["type"].(string); ok {
 									if pType == "tool_result" {
 										if res, ok := partMap["content"].(string); ok {
-											content += "\nTool Result:\n" + res
+											content += res
 										} else if resArr, ok := partMap["content"].([]interface{}); ok {
 											for _, rItem := range resArr {
 												if rMap, ok := rItem.(map[string]interface{}); ok {
 													if rTxt, ok := rMap["text"].(string); ok {
-														content += "\nTool Result:\n" + rTxt
+														content += rTxt
 													}
 												}
 											}
 										}
 									} else if pType == "tool_use" {
 										name, _ := partMap["name"].(string)
+										id, _ := partMap["id"].(string)
 										inputBytes, _ := json.Marshal(partMap["input"])
-										content += fmt.Sprintf("\nTool Call: %s(%s)", name, string(inputBytes))
+										msgToolCalls = append(msgToolCalls, UnifiedToolCall{
+											ID:   id,
+											Type: "function",
+											Function: struct {
+												Name      string `json:"name"`
+												Arguments string `json:"arguments"`
+											}{
+												Name:      name,
+												Arguments: string(inputBytes),
+											},
+										})
 									}
 								}
 							}
 						}
 					}
 					req.Messages = append(req.Messages, UnifiedChatMessage{
-						Role:    role,
-						Content: content,
+						Role:      role,
+						Content:   content,
+						ToolCalls: msgToolCalls,
 					})
 				}
 			}

@@ -3,6 +3,7 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/primaybr/liltok/internal/provider"
@@ -23,21 +24,32 @@ func (t *Translator) ConvertOpenAIToAnthropicResponse(resp *provider.UnifiedChat
 		msgID = fmt.Sprintf("msg_%x", time.Now().UnixMilli())
 	}
 
+	toolCalls := resp.ToolCalls
+	textContent := resp.Content
+
+	// Fallback Interceptor: If model generated plain-text tool calls, extract them into structured tool calls
+	if len(toolCalls) == 0 && textContent != "" {
+		if cleanText, extracted := extractTextToolCalls(textContent); len(extracted) > 0 {
+			textContent = cleanText
+			toolCalls = extracted
+		}
+	}
+
 	stopReason := "end_turn"
 	if resp.FinishReason == "length" {
 		stopReason = "max_tokens"
-	} else if resp.FinishReason == "tool_calls" || len(resp.ToolCalls) > 0 {
+	} else if resp.FinishReason == "tool_calls" || len(toolCalls) > 0 {
 		stopReason = "tool_use"
 	}
 
-	contentBlocks := make([]map[string]interface{}, 0, 1+len(resp.ToolCalls))
-	if resp.Content != "" {
+	contentBlocks := make([]map[string]interface{}, 0, 1+len(toolCalls))
+	if textContent != "" {
 		contentBlocks = append(contentBlocks, map[string]interface{}{
 			"type": "text",
-			"text": resp.Content,
+			"text": textContent,
 		})
 	}
-	for _, tc := range resp.ToolCalls {
+	for _, tc := range toolCalls {
 		var inputObj interface{}
 		if err := json.Unmarshal([]byte(tc.Function.Arguments), &inputObj); err != nil {
 			inputObj = map[string]interface{}{}
@@ -113,4 +125,79 @@ func (t *Translator) StreamOpenAIToAnthropicEvents(in <-chan provider.UnifiedSSE
 
 	// 5. Emit final message_stop
 	out <- []byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
+}
+
+func extractTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
+	lower := strings.ToLower(content)
+	tag := "tool call:"
+	idx := strings.Index(lower, tag)
+	if idx == -1 {
+		return content, nil
+	}
+
+	afterTag := content[idx+len(tag):]
+	openParen := strings.Index(afterTag, "(")
+	if openParen == -1 {
+		return content, nil
+	}
+
+	toolName := strings.TrimSpace(afterTag[:openParen])
+	if toolName == "" {
+		return content, nil
+	}
+
+	inside := afterTag[openParen+1:]
+	lastParen := strings.LastIndex(inside, ")")
+	if lastParen == -1 {
+		return content, nil
+	}
+
+	rawJSON := strings.TrimSpace(inside[:lastParen])
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(rawJSON), &parsed); err != nil {
+		sanitized := sanitizeJSON(rawJSON)
+		if err := json.Unmarshal([]byte(sanitized), &parsed); err != nil {
+			return content, nil
+		}
+		rawJSON = sanitized
+	}
+
+	cleanText := strings.TrimSpace(content[:idx])
+	callID := fmt.Sprintf("call_%x", time.Now().UnixNano())
+
+	tc := provider.UnifiedToolCall{
+		ID:   callID,
+		Type: "function",
+		Function: struct {
+			Name      string `json:"name"`
+			Arguments string `json:"arguments"`
+		}{
+			Name:      toolName,
+			Arguments: rawJSON,
+		},
+	}
+
+	return cleanText, []provider.UnifiedToolCall{tc}
+}
+
+func sanitizeJSON(raw string) string {
+	var sb strings.Builder
+	runes := []rune(raw)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
+		if r == '\\' && i+1 < len(runes) {
+			next := runes[i+1]
+			switch next {
+			case '"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u':
+				sb.WriteRune(r)
+				sb.WriteRune(next)
+				i++
+			default:
+				sb.WriteString("\\\\")
+			}
+		} else {
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
 }
