@@ -202,3 +202,115 @@ func TestGeminiFunctionCalling(t *testing.T) {
 		t.Errorf("expected finish_reason tool_calls, got %s", resp.FinishReason)
 	}
 }
+
+func TestCleanGeminiSchema(t *testing.T) {
+	rawSchema := map[string]interface{}{
+		"$schema":              "http://json-schema.org/draft-07/schema#",
+		"title":                "ComplexAgentTool",
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties": map[string]interface{}{
+			"action": map[string]interface{}{
+				"const": "execute",
+			},
+			"limit": map[string]interface{}{
+				"type":             "integer",
+				"exclusiveMinimum": 0,
+				"exclusiveMaximum": 100,
+			},
+			"items_list": map[string]interface{}{
+				"type": "array",
+				"prefixItems": []interface{}{
+					map[string]interface{}{
+						"type":                 "string",
+						"additionalProperties": false,
+						"pattern":              "^[a-z]+$",
+					},
+				},
+			},
+			"optional_val": map[string]interface{}{
+				"anyOf": []interface{}{
+					map[string]interface{}{"type": "string"},
+					map[string]interface{}{"type": "null"},
+				},
+				"propertyNames": map[string]interface{}{
+					"pattern": "^[a-z]+$",
+				},
+			},
+		},
+		"required": []interface{}{"action", "limit"},
+	}
+
+	cleaned := cleanGeminiSchema(rawSchema).(map[string]interface{})
+
+	// Verify top-level forbidden keys are stripped
+	if _, exists := cleaned["$schema"]; exists {
+		t.Errorf("expected $schema to be removed")
+	}
+	if _, exists := cleaned["title"]; exists {
+		t.Errorf("expected title to be removed")
+	}
+	if _, exists := cleaned["additionalProperties"]; exists {
+		t.Errorf("expected additionalProperties to be removed")
+	}
+
+	// Verify properties are cleaned
+	props, ok := cleaned["properties"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected properties to be map")
+	}
+
+	// Verify const -> enum
+	action := props["action"].(map[string]interface{})
+	if _, exists := action["const"]; exists {
+		t.Errorf("expected const to be stripped")
+	}
+	enumVal, ok := action["enum"].([]string)
+	if !ok || len(enumVal) != 1 || enumVal[0] != "execute" {
+		t.Errorf("expected enum: ['execute'], got %v", action["enum"])
+	}
+
+	// Verify exclusiveMinimum/exclusiveMaximum -> minimum/maximum
+	limit := props["limit"].(map[string]interface{})
+	if _, exists := limit["exclusiveMinimum"]; exists {
+		t.Errorf("expected exclusiveMinimum to be stripped")
+	}
+	if limit["minimum"] != 0 {
+		t.Errorf("expected minimum: 0, got %v", limit["minimum"])
+	}
+	if limit["maximum"] != 100 {
+		t.Errorf("expected maximum: 100, got %v", limit["maximum"])
+	}
+
+	// Verify prefixItems -> items
+	itemsList := props["items_list"].(map[string]interface{})
+	if _, exists := itemsList["prefixItems"]; exists {
+		t.Errorf("expected prefixItems to be stripped")
+	}
+	itemsMap, ok := itemsList["items"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected items to be map")
+	}
+	if itemsMap["type"] != "string" {
+		t.Errorf("expected items.type string, got %v", itemsMap["type"])
+	}
+	if _, exists := itemsMap["additionalProperties"]; exists {
+		t.Errorf("expected nested additionalProperties to be removed")
+	}
+	if _, exists := itemsMap["pattern"]; exists {
+		t.Errorf("expected nested pattern to be removed")
+	}
+
+	// Verify nullable anyOf flattening
+	optVal := props["optional_val"].(map[string]interface{})
+	if optVal["type"] != "string" {
+		t.Errorf("expected flattened type string, got %v", optVal["type"])
+	}
+	if optVal["nullable"] != true {
+		t.Errorf("expected nullable true, got %v", optVal["nullable"])
+	}
+	if _, exists := optVal["propertyNames"]; exists {
+		t.Errorf("expected propertyNames to be removed")
+	}
+}
+

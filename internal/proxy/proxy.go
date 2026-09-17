@@ -511,8 +511,68 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		w.WriteHeader(resp.StatusCode)
 		respBytes, _ := io.ReadAll(resp.Body)
+
+		// Check if Anthropic returned rate limit or 5-hour quota exhaustion (429), overloaded (529), or temporary outage (503)
+		if targetProvider == "anthropic" && (resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == 529 || resp.StatusCode == http.StatusServiceUnavailable) && p.router != nil {
+			telemetry.Log.Warn().
+				Str("request_id", reqID).
+				Int("status_code", resp.StatusCode).
+				Msg("Anthropic limit reached (429/529/503); engaging automatic emergency failover to free providers")
+
+			if unifiedReq, uErr := provider.ParseUnifiedRequest(bodyBytes, true); uErr == nil {
+				if fbResp, winningProvider, fbErr := p.router.DispatchChat(r.Context(), unifiedReq, "free-first"); fbErr == nil {
+					telemetry.Log.Info().
+						Str("request_id", reqID).
+						Str("winning_provider", winningProvider).
+						Msg("Emergency failover from Anthropic limit succeeded")
+
+					w.Header().Del("Content-Length")
+					w.Header().Del("Content-Encoding")
+					w.Header().Del("Retry-After")
+					w.Header().Set("X-Liltok-Request-Id", reqID)
+					w.Header().Set("X-Liltok-Cache-Status", "MISS")
+					w.Header().Set("X-Liltok-Cache-Tier", "NONE")
+					w.Header().Set("X-Liltok-Provider", winningProvider)
+
+					finalBytes, _ := p.router.Translator().ConvertOpenAIToAnthropicResponse(fbResp, unifiedReq.Model)
+					if chatReq.Stream {
+						entry := &cache.CacheEntry{
+							Model:           unifiedReq.Model,
+							ResponsePayload: finalBytes,
+						}
+						_ = cache.ReplayCacheHitWithTier(w, entry, true, true, "NONE", 0)
+					} else {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						_, _ = w.Write(finalBytes)
+					}
+
+					p.recordLog(&ledger.RequestLog{
+						RequestID:        reqID,
+						APIKeyID:         apiKeyID,
+						Model:            unifiedReq.Model,
+						Provider:         winningProvider,
+						CacheStatus:      "MISS",
+						CacheTier:        "NONE",
+						PromptTokens:     fbResp.Usage.PromptTokens,
+						CompletionTokens: fbResp.Usage.CompletionTokens,
+						LatencyMs:        time.Since(startTime).Milliseconds(),
+						CostUSD:          0.0,
+						SavedUSD:         0.0,
+						StatusCode:       http.StatusOK,
+					})
+					return
+				} else {
+					telemetry.Log.Error().
+						Str("request_id", reqID).
+						Err(fbErr).
+						Msg("Emergency failover from Anthropic limit failed")
+				}
+			}
+		}
+
+		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(respBytes)
 		return
 	}

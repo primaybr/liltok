@@ -244,6 +244,7 @@
             <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('free-first')">Free-First ($0.00)</button>
             <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('auto-resilient')">Auto-Resilient</button>
             <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('premium-only')">Premium-Only</button>
+            <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600; border-color: #38bdf8; color: #38bdf8;" onclick="resetCircuitBreakers()">Reset Breakers</button>
           </div>
         </div>
       </div>
@@ -806,6 +807,16 @@
       } catch (e) {}
     }
 
+    async function resetCircuitBreakers() {
+      try {
+        const res = await fetch('/api/v1/routes/reset-breakers', { method: 'POST' });
+        if (res.ok) {
+          loadRoutes();
+          loadProviders();
+        }
+      } catch (e) {}
+    }
+
     function syncStrategyUI(strategy) {
       const select = document.getElementById('header-strategy-select');
       if (select) select.value = strategy;
@@ -890,6 +901,9 @@
           if (ev.type === 'strategy_change') {
             syncStrategyUI(ev.data.strategy);
             loadRoutes();
+          } else if (ev.type === 'breakers_reset') {
+            loadRoutes();
+            loadProviders();
           } else if (ev.type === 'providers_updated') {
             loadProviders();
             loadProviderStats();

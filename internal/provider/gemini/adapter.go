@@ -133,6 +133,10 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	}
 
 	model := req.Model
+	cleanModel := strings.TrimPrefix(model, "models/")
+	if cleanModel == "gemini-flash-latest" || cleanModel == "gemini-1.5-flash" || cleanModel == "gemini-2.5-flash" || cleanModel == "gemini-flash" {
+		model = "gemini-3.6-flash"
+	}
 	if !strings.HasPrefix(model, "models/") {
 		model = "models/" + model
 	}
@@ -401,7 +405,9 @@ func convertToolsToGemini(tools []interface{}) []map[string]interface{} {
 			decl["description"] = desc
 		}
 		if schema != nil {
-			decl["parameters"] = schema
+			if cleaned := cleanGeminiSchema(schema); cleaned != nil {
+				decl["parameters"] = cleaned
+			}
 		}
 		decls = append(decls, decl)
 	}
@@ -410,5 +416,204 @@ func convertToolsToGemini(tools []interface{}) []map[string]interface{} {
 	}
 	return []map[string]interface{}{
 		{"functionDeclarations": decls},
+	}
+}
+
+// cleanGeminiSchema recursively sanitizes JSON Schema definitions to conform strictly
+// with Google Gemini's OpenAPI 3.0 Schema protobuf specification, stripping keywords
+// that trigger Gemini HTTP 400 INVALID_ARGUMENT errors.
+func cleanGeminiSchema(val interface{}) interface{} {
+	if val == nil {
+		return nil
+	}
+
+	switch v := val.(type) {
+	case map[string]interface{}:
+		cleaned := make(map[string]interface{})
+
+		// Handle const -> enum: [constVal]
+		if constVal, ok := v["const"]; ok {
+			if _, hasEnum := v["enum"]; !hasEnum {
+				cleaned["enum"] = []string{fmt.Sprintf("%v", constVal)}
+			}
+		}
+
+		// Handle exclusiveMinimum -> minimum
+		if exMin, ok := v["exclusiveMinimum"]; ok {
+			if _, hasMin := v["minimum"]; !hasMin {
+				cleaned["minimum"] = exMin
+			}
+		}
+
+		// Handle exclusiveMaximum -> maximum
+		if exMax, ok := v["exclusiveMaximum"]; ok {
+			if _, hasMax := v["maximum"]; !hasMax {
+				cleaned["maximum"] = exMax
+			}
+		}
+
+		// Handle prefixItems -> items
+		if prefixItems, ok := v["prefixItems"].([]interface{}); ok && len(prefixItems) > 0 {
+			if _, hasItems := v["items"]; !hasItems {
+				cleaned["items"] = cleanGeminiSchema(prefixItems[0])
+			}
+		}
+
+		// Strictly process only fields supported by Google Gemini Schema protobuf
+		for k, child := range v {
+			switch k {
+			case "type":
+				switch t := child.(type) {
+				case string:
+					cleaned["type"] = strings.ToLower(t)
+				case []interface{}:
+					// Convert type union such as ["string", "null"]
+					for _, item := range t {
+						if s, ok := item.(string); ok {
+							if strings.ToLower(s) == "null" {
+								cleaned["nullable"] = true
+							} else {
+								cleaned["type"] = strings.ToLower(s)
+							}
+						}
+					}
+				}
+
+			case "format":
+				if s, ok := child.(string); ok && s != "" {
+					cleaned["format"] = s
+				}
+
+			case "description":
+				if s, ok := child.(string); ok && s != "" {
+					cleaned["description"] = s
+				}
+
+			case "nullable":
+				if b, ok := child.(bool); ok {
+					cleaned["nullable"] = b
+				}
+
+			case "enum":
+				if enumList, ok := child.([]interface{}); ok {
+					var strEnum []string
+					for _, e := range enumList {
+						if es, ok := e.(string); ok {
+							strEnum = append(strEnum, es)
+						} else {
+							strEnum = append(strEnum, fmt.Sprintf("%v", e))
+						}
+					}
+					cleaned["enum"] = strEnum
+				} else if strList, ok := child.([]string); ok {
+					cleaned["enum"] = strList
+				}
+
+			case "properties":
+				if propMap, ok := child.(map[string]interface{}); ok {
+					cleanedProps := make(map[string]interface{})
+					for pName, pVal := range propMap {
+						cleanedProps[pName] = cleanGeminiSchema(pVal)
+					}
+					cleaned["properties"] = cleanedProps
+				}
+
+			case "required":
+				if reqList, ok := child.([]interface{}); ok {
+					var strReq []string
+					for _, r := range reqList {
+						if rs, ok := r.(string); ok {
+							strReq = append(strReq, rs)
+						}
+					}
+					cleaned["required"] = strReq
+				} else if strList, ok := child.([]string); ok {
+					cleaned["required"] = strList
+				}
+
+			case "items":
+				if itemMap, ok := child.(map[string]interface{}); ok {
+					cleaned["items"] = cleanGeminiSchema(itemMap)
+				} else if itemSlice, ok := child.([]interface{}); ok && len(itemSlice) > 0 {
+					cleaned["items"] = cleanGeminiSchema(itemSlice[0])
+				}
+
+			case "minItems", "min_items":
+				cleaned["minItems"] = child
+			case "maxItems", "max_items":
+				cleaned["maxItems"] = child
+			case "minLength", "min_length":
+				cleaned["minLength"] = child
+			case "maxLength", "max_length":
+				cleaned["maxLength"] = child
+			case "minimum":
+				cleaned["minimum"] = child
+			case "maximum":
+				cleaned["maximum"] = child
+
+			case "anyOf", "any_of":
+				if anySlice, ok := child.([]interface{}); ok {
+					var nonNullSchemas []interface{}
+					hasNull := false
+					for _, item := range anySlice {
+						if m, ok := item.(map[string]interface{}); ok {
+							if t, ok := m["type"].(string); ok && strings.ToLower(t) == "null" {
+								hasNull = true
+								continue
+							}
+						}
+						nonNullSchemas = append(nonNullSchemas, cleanGeminiSchema(item))
+					}
+
+					if hasNull && len(nonNullSchemas) == 1 {
+						if singleMap, ok := nonNullSchemas[0].(map[string]interface{}); ok {
+							for sk, sv := range singleMap {
+								cleaned[sk] = sv
+							}
+							cleaned["nullable"] = true
+						} else {
+							cleaned["anyOf"] = nonNullSchemas
+							cleaned["nullable"] = true
+						}
+					} else if len(nonNullSchemas) > 0 {
+						cleaned["anyOf"] = nonNullSchemas
+					}
+				}
+
+			default:
+				// Intentionally drop $schema, additionalProperties, propertyNames, default,
+				// title, pattern, $defs, definitions, $ref, $id, examples, etc.
+			}
+		}
+
+		// Ensure object type when properties are defined
+		if _, hasProps := cleaned["properties"]; hasProps {
+			if _, hasType := cleaned["type"]; !hasType {
+				cleaned["type"] = "object"
+			}
+		}
+
+		// Default primitive type to string if property has enum
+		if _, hasType := cleaned["type"]; !hasType {
+			if _, hasProps := cleaned["properties"]; !hasProps {
+				if _, hasItems := cleaned["items"]; !hasItems {
+					if _, hasEnum := cleaned["enum"]; hasEnum {
+						cleaned["type"] = "string"
+					}
+				}
+			}
+		}
+
+		return cleaned
+
+	case []interface{}:
+		var cleanedList []interface{}
+		for _, item := range v {
+			cleanedList = append(cleanedList, cleanGeminiSchema(item))
+		}
+		return cleanedList
+
+	default:
+		return val
 	}
 }
