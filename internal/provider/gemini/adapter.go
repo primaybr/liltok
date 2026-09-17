@@ -532,10 +532,29 @@ func cleanGeminiSchema(val interface{}) interface{} {
 				}
 
 			case "items":
-				if itemMap, ok := child.(map[string]interface{}); ok {
-					cleaned["items"] = cleanGeminiSchema(itemMap)
-				} else if itemSlice, ok := child.([]interface{}); ok && len(itemSlice) > 0 {
-					cleaned["items"] = cleanGeminiSchema(itemSlice[0])
+				switch iv := child.(type) {
+				case map[string]interface{}:
+					cleanedItem := cleanGeminiSchema(iv)
+					if m, ok := cleanedItem.(map[string]interface{}); ok && len(m) == 0 {
+						// Empty items schema - Gemini requires at least a type
+						cleaned["items"] = map[string]interface{}{"type": "string"}
+					} else {
+						cleaned["items"] = cleanedItem
+					}
+				case []interface{}:
+					if len(iv) > 0 {
+						cleaned["items"] = cleanGeminiSchema(iv[0])
+					} else {
+						cleaned["items"] = map[string]interface{}{"type": "string"}
+					}
+				case bool:
+					// Boolean schema (true/false) - convert to permissive string schema
+					cleaned["items"] = map[string]interface{}{"type": "string"}
+				default:
+					// null, missing, or unsupported - inject a safe default
+					if child != nil {
+						cleaned["items"] = map[string]interface{}{"type": "string"}
+					}
 				}
 
 			case "minItems", "min_items":
@@ -601,6 +620,13 @@ func cleanGeminiSchema(val interface{}) interface{} {
 						cleaned["type"] = "string"
 					}
 				}
+			}
+		}
+
+		// Gemini requires "items" when type is "array" - inject a safe default if missing
+		if t, ok := cleaned["type"].(string); ok && t == "array" {
+			if _, hasItems := cleaned["items"]; !hasItems {
+				cleaned["items"] = map[string]interface{}{"type": "string"}
 			}
 		}
 

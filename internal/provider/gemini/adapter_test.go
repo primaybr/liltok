@@ -314,3 +314,86 @@ func TestCleanGeminiSchema(t *testing.T) {
 	}
 }
 
+// TestCleanGeminiSchemaArrayItems reproduces the exact INVALID_ARGUMENT errors seen in production:
+// "properties[batch].items: missing field" and "properties[items].items: missing field"
+func TestCleanGeminiSchemaArrayItems(t *testing.T) {
+	// Case 1: array property with empty object as items (gets stripped to {}, causing "missing field")
+	schema1 := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"batch": map[string]interface{}{
+				"type":  "array",
+				"items": map[string]interface{}{}, // empty - previously got stripped
+			},
+		},
+	}
+	out1 := cleanGeminiSchema(schema1).(map[string]interface{})
+	props1 := out1["properties"].(map[string]interface{})
+	batch := props1["batch"].(map[string]interface{})
+	if batch["type"] != "array" {
+		t.Errorf("expected batch.type=array, got %v", batch["type"])
+	}
+	itemsVal1, hasItems1 := batch["items"]
+	if !hasItems1 {
+		t.Fatal("expected batch.items to be injected but it was missing")
+	}
+	if m, ok := itemsVal1.(map[string]interface{}); !ok || m["type"] != "string" {
+		t.Errorf("expected batch.items={type:string}, got %v", itemsVal1)
+	}
+
+	// Case 2: array property with NO items key at all
+	schema2 := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"batch": map[string]interface{}{
+				"type": "array",
+				// no items key
+			},
+		},
+	}
+	out2 := cleanGeminiSchema(schema2).(map[string]interface{})
+	props2 := out2["properties"].(map[string]interface{})
+	batch2 := props2["batch"].(map[string]interface{})
+	itemsVal2, hasItems2 := batch2["items"]
+	if !hasItems2 {
+		t.Fatal("expected default items to be injected for array with no items key")
+	}
+	if m, ok := itemsVal2.(map[string]interface{}); !ok || m["type"] != "string" {
+		t.Errorf("expected injected items={type:string}, got %v", itemsVal2)
+	}
+
+	// Case 3: property named "items" of type array with empty nested items (the other production failure)
+	schema3 := map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"items": map[string]interface{}{
+				"type":  "array",
+				"items": map[string]interface{}{}, // empty
+			},
+		},
+	}
+	out3 := cleanGeminiSchema(schema3).(map[string]interface{})
+	props3 := out3["properties"].(map[string]interface{})
+	itemsProp := props3["items"].(map[string]interface{})
+	nestedItems, hasNested := itemsProp["items"]
+	if !hasNested {
+		t.Fatal("expected items.items to be present")
+	}
+	if m, ok := nestedItems.(map[string]interface{}); !ok || m["type"] != "string" {
+		t.Errorf("expected items.items={type:string}, got %v", nestedItems)
+	}
+
+	// Case 4: boolean items schema (true/false - JSON Schema draft-2020)
+	schema4 := map[string]interface{}{
+		"type":  "array",
+		"items": true,
+	}
+	out4 := cleanGeminiSchema(schema4).(map[string]interface{})
+	itemsVal4, hasItems4 := out4["items"]
+	if !hasItems4 {
+		t.Fatal("expected boolean items to be converted to {type:string}")
+	}
+	if m, ok := itemsVal4.(map[string]interface{}); !ok || m["type"] != "string" {
+		t.Errorf("expected items={type:string} from boolean, got %v", itemsVal4)
+	}
+}
