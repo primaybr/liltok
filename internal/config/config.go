@@ -88,7 +88,7 @@ func Load(configPath string) (*Config, error) {
 
 	// If a config path is specified or standard default path exists, load it
 	if configPath != "" {
-		expandedPath := expandHomeDir(configPath)
+		expandedPath := ExpandHomeDir(configPath)
 		data, err := os.ReadFile(expandedPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config file %q: %w", configPath, err)
@@ -102,8 +102,8 @@ func Load(configPath string) (*Config, error) {
 	applyEnvOverrides(cfg)
 
 	// Expand home directory in DBPath and Maintainer Key
-	cfg.Storage.DBPath = expandHomeDir(cfg.Storage.DBPath)
-	cfg.Maintainer.PrivateKeyFile = expandHomeDir(cfg.Maintainer.PrivateKeyFile)
+	cfg.Storage.DBPath = ExpandHomeDir(cfg.Storage.DBPath)
+	cfg.Maintainer.PrivateKeyFile = ExpandHomeDir(cfg.Maintainer.PrivateKeyFile)
 
 	return cfg, nil
 }
@@ -170,7 +170,8 @@ func applyEnvOverrides(cfg *Config) {
 	}
 }
 
-func expandHomeDir(path string) string {
+// ExpandHomeDir resolves ~ to user home directory.
+func ExpandHomeDir(path string) string {
 	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") || path == "~" {
 		home, err := os.UserHomeDir()
 		if err == nil {
@@ -181,4 +182,43 @@ func expandHomeDir(path string) string {
 		}
 	}
 	return path
+}
+
+// PersistDefaultStrategy updates default_strategy in the YAML config file while preserving comments.
+func PersistDefaultStrategy(configPath, strategy string) error {
+	if configPath == "" {
+		configPath = "~/.liltok/liltok.yaml"
+	}
+	expanded := ExpandHomeDir(configPath)
+	data, err := os.ReadFile(expanded)
+	if err != nil {
+		return err
+	}
+
+	lines := strings.Split(string(data), "\n")
+	found := false
+	inRoutes := false
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "routes:" {
+			inRoutes = true
+			continue
+		}
+		if inRoutes && strings.HasPrefix(trimmed, "default_strategy:") {
+			indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+			lines[i] = fmt.Sprintf("%sdefault_strategy: %q", indent, strategy)
+			found = true
+			break
+		}
+		if inRoutes && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && trimmed != "" {
+			inRoutes = false
+		}
+	}
+
+	if !found {
+		lines = append(lines, fmt.Sprintf("routes:\n  default_strategy: %q", strategy))
+	}
+
+	return os.WriteFile(expanded, []byte(strings.Join(lines, "\n")), 0644)
 }

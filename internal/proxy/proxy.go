@@ -10,18 +10,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liltok/liltok/internal/admin"
-	"github.com/liltok/liltok/internal/cache"
-	"github.com/liltok/liltok/internal/cache/prefix"
-	"github.com/liltok/liltok/internal/cache/prune"
-	"github.com/liltok/liltok/internal/cache/semantic"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/ledger"
-	"github.com/liltok/liltok/internal/provider"
-	"github.com/liltok/liltok/internal/router"
-	"github.com/liltok/liltok/internal/server/middleware"
-	"github.com/liltok/liltok/internal/telemetry"
-	"github.com/liltok/liltok/internal/tokens"
+	"github.com/primaybr/liltok/internal/admin"
+	"github.com/primaybr/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/cache/prefix"
+	"github.com/primaybr/liltok/internal/cache/prune"
+	"github.com/primaybr/liltok/internal/cache/semantic"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/server/middleware"
+	"github.com/primaybr/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/tokens"
 )
 
 // Proxy handles reverse proxying between clients and upstream providers with caching, resilient routing, and ledger tracking.
@@ -318,6 +318,9 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 	// 4. Cache MISS: Router Fallback Dispatching (streaming & non-streaming)
 	routeAlias := r.Header.Get("X-Liltok-Route")
+	if routeAlias == "" && p.router != nil {
+		routeAlias = p.router.DefaultStrategy()
+	}
 	hasClientAuth := authKey != "" && !isVirtual
 	shouldRoute := routeAlias != "" || !hasClientAuth
 

@@ -119,6 +119,10 @@ CREATE TABLE IF NOT EXISTS route_targets (
 -- Seed Baseline Pricing
 INSERT OR REPLACE INTO model_pricing (model_pattern, provider, tier, input_cost_per_m, cached_input_cost_per_m, output_cost_per_m)
 VALUES 
+    ('claude-opus-5.*', 'anthropic', 'premium', 15.00, 1.50, 75.00),
+    ('claude-sonnet-5.*', 'anthropic', 'premium', 3.00, 0.30, 15.00),
+    ('claude-haiku-5.*', 'anthropic', 'budget', 0.80, 0.08, 4.00),
+    ('claude-5.*', 'anthropic', 'premium', 3.00, 0.30, 15.00),
     ('claude-3-5-sonnet.*', 'anthropic', 'premium', 3.00, 0.30, 15.00),
     ('claude-3-7-sonnet.*', 'anthropic', 'premium', 3.00, 0.30, 15.00),
     ('gpt-4o', 'openai', 'premium', 2.50, 1.25, 10.00),

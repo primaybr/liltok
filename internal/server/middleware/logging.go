@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 type responseWriterWrapper struct {

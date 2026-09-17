@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"text/tabwriter"
 
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/spf13/cobra"
 )
 

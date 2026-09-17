@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/liltok/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/cache"
 )
 
 func BenchmarkCanonicalNormalizer(b *testing.B) {

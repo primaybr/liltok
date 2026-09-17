@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 // TelemetryEvent represents a real-time event broadcast to dashboard clients.

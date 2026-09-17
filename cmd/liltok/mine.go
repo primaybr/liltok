@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/miner"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/miner"
 	"github.com/spf13/cobra"
 )
 
@@ -133,7 +133,7 @@ compiler/runtime errors, algorithms, and workspace-specific libraries at $0.00 c
 				}
 			}
 			if len(targetModels) == 0 {
-				targetModels = []string{"claude-3-5-sonnet-20241022", "claude-opus-5", "gpt-4o"}
+				targetModels = []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
 			}
 
 			minerCfg := miner.MinerConfig{

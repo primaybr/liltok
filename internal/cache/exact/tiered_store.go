@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liltok/liltok/internal/cache"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 type asyncTaskType int

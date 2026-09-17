@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 // SemanticCache provides high-level Tier-3 semantic similarity caching.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liltok/liltok/internal/cache/prune"
+	"github.com/primaybr/liltok/internal/cache/prune"
 )
 
 func TestStripWhitespaceAndDividers(t *testing.T) {

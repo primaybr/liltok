@@ -12,9 +12,9 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/crypto"
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/crypto"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 func TestModerationEndpointsLifecycle(t *testing.T) {

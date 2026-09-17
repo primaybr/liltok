@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liltok/liltok/internal/cache"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/miner"
+	"github.com/primaybr/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/miner"
 )
 
 type StarterItem struct {
@@ -36,7 +36,7 @@ func main() {
 	flag.Parse()
 
 	prompts := miner.GetCuratedPrompts("all")
-	models := []string{"claude-3-5-sonnet-20241022", "claude-opus-5", "gpt-4o"}
+	models := []string{"claude-opus-5", "claude-sonnet-5", "claude-3-5-sonnet-20241022", "gpt-4o"}
 
 	var starterItems []StarterItem
 	normOpts := cache.NormalizationOptions{CacheNonzeroTemperature: true}

@@ -70,6 +70,15 @@
         <span class="logo-badge">Gateway</span>
       </div>
       <div class="header-right">
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);">
+          <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Priority:</span>
+          <select id="header-strategy-select" onchange="changeRouteStrategy(this.value)" style="background: transparent; color: var(--text); border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
+            <option value="auto-resilient" style="background: var(--card); color: var(--text);">Auto-Resilient (Claude + Free)</option>
+            <option value="free-first" style="background: var(--card); color: var(--text);">Free-First ($0.00 Spend)</option>
+            <option value="premium-only" style="background: var(--card); color: var(--text);">Premium-Only (Frontier)</option>
+          </select>
+          <span id="header-strategy-badge" class="badge" style="font-size: 10px; padding: 2px 6px;">AUTO-RESILIENT</span>
+        </div>
         <span><span class="status-dot"></span> Live Telemetry</span>
         <span id="uptime-label">Uptime: 0s</span>
         <a href="/metrics" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">/metrics</a>
@@ -224,6 +233,19 @@
 
     <!-- ROUTES TAB -->
     <div id="tab-routes" class="tab-content">
+      <div class="card" style="margin-bottom: 20px; border-left: 4px solid var(--accent);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 4px;">Dynamic Routing Priority</h3>
+            <span style="font-size: 13px; color: var(--muted);">Switch gateway priority on the fly. Free-First routes prompts directly to NVIDIA NIM, Groq, Gemini Free, and Ollama to eliminate token consumption and bypass rate limits.</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('free-first')">Free-First ($0.00)</button>
+            <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('auto-resilient')">Auto-Resilient</button>
+            <button class="btn btn-secondary" style="font-size: 12px; font-weight: 600;" onclick="changeRouteStrategy('premium-only')">Premium-Only</button>
+          </div>
+        </div>
+      </div>
       <div class="grid-stats" id="circuit-breakers-grid"></div>
       <div class="card">
         <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Routing Profiles</h3>
@@ -676,12 +698,52 @@
       }
     }
 
+    async function changeRouteStrategy(strategy) {
+      try {
+        const res = await fetch('/api/v1/routes/strategy', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ strategy: strategy })
+        });
+        if (res.ok) {
+          syncStrategyUI(strategy);
+          loadRoutes();
+        }
+      } catch (e) {}
+    }
+
+    function syncStrategyUI(strategy) {
+      const select = document.getElementById('header-strategy-select');
+      if (select) select.value = strategy;
+      const badge = document.getElementById('header-strategy-badge');
+      if (badge) {
+        if (strategy === 'free-first') {
+          badge.style.background = 'rgba(16, 185, 129, 0.25)';
+          badge.style.color = '#34d399';
+          badge.style.border = '1px solid #10b981';
+          badge.innerText = 'FREE-FIRST ($0.00)';
+        } else if (strategy === 'premium-only') {
+          badge.style.background = 'rgba(168, 85, 247, 0.25)';
+          badge.style.color = '#c084fc';
+          badge.style.border = '1px solid #a855f7';
+          badge.innerText = 'PREMIUM-ONLY';
+        } else {
+          badge.style.background = 'rgba(56, 189, 248, 0.25)';
+          badge.style.color = '#38bdf8';
+          badge.style.border = '1px solid #38bdf8';
+          badge.innerText = 'AUTO-RESILIENT';
+        }
+      }
+    }
+
     async function loadRoutes() {
       try {
         const res = await fetch('/api/v1/routes');
         if (!res.ok) return;
         const data = await res.json();
         
+        syncStrategyUI(data.default_strategy);
+
         // Breakers
         const breakersGrid = document.getElementById('circuit-breakers-grid');
         breakersGrid.innerHTML = data.circuit_breakers.map(cb => {
@@ -698,16 +760,26 @@
 
         // Profiles
         const routesContainer = document.getElementById('routes-container');
-        routesContainer.innerHTML = data.routes.map(r => `
-          <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-              <span style="font-weight: 600; font-size: 15px;">${r.id}</span>
-              ${r.id === data.default_strategy ? '<span class="badge badge-hit-exact">DEFAULT STRATEGY</span>' : ''}
+        routesContainer.innerHTML = data.routes.map(r => {
+          const isActive = r.id === data.default_strategy;
+          return `
+          <div style="padding: 16px; margin-bottom: 12px; background: var(--bg); border: 1px solid ${isActive ? '#10b981' : 'var(--border)'}; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 700; font-size: 15px;">${r.id}</span>
+                ${isActive ? '<span class="badge" style="background:#10b981; color:#000; font-weight:700;">ACTIVE STRATEGY</span>' : ''}
+              </div>
+              <div>
+                ${isActive 
+                  ? '<span style="font-size: 12px; color: #34d399; font-weight: 600;">Currently Active</span>'
+                  : `<button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="changeRouteStrategy('${r.id}')">Activate Strategy</button>`
+                }
+              </div>
             </div>
-            <div style="font-size: 13px; color: var(--muted); margin-bottom: 6px;">${r.description}</div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">${r.description}</div>
             <div style="font-family: var(--mono); font-size: 12px; color: var(--accent);">Target Chain: ${r.targets.join(' -> ')}</div>
           </div>
-        `).join('');
+        `}).join('');
       } catch (e) {}
     }
 
@@ -717,7 +789,10 @@
       source.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data);
-          if (ev.type === 'request') {
+          if (ev.type === 'strategy_change') {
+            syncStrategyUI(ev.data.strategy);
+            loadRoutes();
+          } else if (ev.type === 'request') {
             prependLiveLogRow(ev.data);
             loadOverview();
           }
@@ -959,6 +1034,7 @@
 
     // Initialize
     loadOverview();
+    loadRoutes();
     loadRecentLogs();
     initSSE();
     setInterval(loadOverview, 5000);

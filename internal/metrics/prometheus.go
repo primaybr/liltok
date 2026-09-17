@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/router"
 )
 
 // PrometheusExporter formats runtime gateway telemetry into standard Prometheus text representation.

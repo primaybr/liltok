@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/liltok/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/provider"
 )
 
 func TestOpenAIAdapterSendChat(t *testing.T) {

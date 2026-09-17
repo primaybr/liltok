@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/liltok/liltok/internal/crypto"
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/crypto"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 // HandleModerateStatus returns whether maintainer mode is active, key status, and queue counts.

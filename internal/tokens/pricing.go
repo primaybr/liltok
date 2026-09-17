@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"sync"
 
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 // ModelPricing defines token rates per 1 Million (1M) tokens in USD.
@@ -30,6 +30,10 @@ type PricingRegistry struct {
 // DefaultPricingRules provides fallback pricing when database entries are unavailable.
 func DefaultPricingRules() []ModelPricing {
 	raw := []ModelPricing{
+		{ModelPattern: `^claude-opus-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 15.00, CachedInputCostPerM: 1.50, OutputCostPerM: 75.00},
+		{ModelPattern: `^claude-sonnet-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		{ModelPattern: `^claude-haiku-5.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 0.80, CachedInputCostPerM: 0.08, OutputCostPerM: 4.00},
+		{ModelPattern: `^claude-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-5-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-7-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^gpt-4o$`, Provider: "openai", Tier: "premium", InputCostPerM: 2.50, CachedInputCostPerM: 1.25, OutputCostPerM: 10.00},

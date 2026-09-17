@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/liltok/liltok/internal/crypto"
+	"github.com/primaybr/liltok/internal/crypto"
 	"github.com/spf13/cobra"
 )
 

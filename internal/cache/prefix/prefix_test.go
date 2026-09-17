@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/liltok/liltok/internal/cache/prefix"
+	"github.com/primaybr/liltok/internal/cache/prefix"
 )
 
 func TestEstimateTokens(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"runtime/debug"
 
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 type ErrorResponse struct {

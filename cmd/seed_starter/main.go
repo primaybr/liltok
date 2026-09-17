@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 )
 
 type StarterCacheItem struct {

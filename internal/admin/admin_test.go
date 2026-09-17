@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/liltok/liltok/internal/admin"
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/ledger"
-	"github.com/liltok/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/admin"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/router"
 )
 
 func setupAdminTest(t *testing.T) (*chi.Mux, *db.DB, *admin.AdminHandler) {
@@ -217,6 +217,30 @@ func TestAdminRoutes(t *testing.T) {
 	}
 	if len(data.Routes) == 0 {
 		t.Errorf("expected defined routes in response")
+	}
+
+	// 2. Switch strategy to free-first
+	switchBody := `{"strategy":"free-first"}`
+	reqSwitch := httptest.NewRequest("POST", "/api/v1/routes/strategy", strings.NewReader(switchBody))
+	reqSwitch.Header.Set("Content-Type", "application/json")
+	recSwitch := httptest.NewRecorder()
+	r.ServeHTTP(recSwitch, reqSwitch)
+
+	if recSwitch.Code != http.StatusOK {
+		t.Fatalf("expected 200 switching strategy, got %d: %s", recSwitch.Code, recSwitch.Body.String())
+	}
+
+	// 3. Verify updated strategy
+	req2 := httptest.NewRequest("GET", "/api/v1/routes", nil)
+	rec2 := httptest.NewRecorder()
+	r.ServeHTTP(rec2, req2)
+
+	var data2 struct {
+		DefaultStrategy string `json:"default_strategy"`
+	}
+	_ = json.Unmarshal(rec2.Body.Bytes(), &data2)
+	if data2.DefaultStrategy != "free-first" {
+		t.Errorf("expected updated strategy free-first, got %s", data2.DefaultStrategy)
 	}
 }
 

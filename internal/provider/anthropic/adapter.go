@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/liltok/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/provider"
 )
 
 // Adapter implements provider.ProviderClient for Anthropic Claude.

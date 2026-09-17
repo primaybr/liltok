@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/db"
 	"github.com/spf13/cobra"
 )
 
@@ -96,7 +97,7 @@ func runMCPLoop(gatewayURL string) error {
 					},
 					"model": map[string]interface{}{
 						"type":        "string",
-						"description": "Target model (optional, e.g. claude-3-5-sonnet-20241022, gpt-4o, llama-3.3-70b-versatile, defaults to claude-3-5-sonnet-20241022)",
+						"description": "Target model (optional, e.g. claude-opus-5, claude-sonnet-5, gpt-4o, llama-3.3-70b-versatile, defaults to claude-opus-5)",
 					},
 					"system": map[string]interface{}{
 						"type":        "string",
@@ -205,7 +206,7 @@ func executeTool(name string, args map[string]interface{}, gatewayURL string) to
 		}
 		model, _ := args["model"].(string)
 		if model == "" {
-			model = "claude-3-5-sonnet-20241022"
+			model = "claude-opus-5"
 		}
 		system, _ := args["system"].(string)
 		apiKey, _ := args["api_key"].(string)
@@ -217,7 +218,7 @@ func executeTool(name string, args map[string]interface{}, gatewayURL string) to
 		if strings.TrimSpace(query) == "" {
 			return toolError("query parameter is required")
 		}
-		return searchLiltokCache(query)
+		return searchLiltokCache(gatewayURL, query)
 
 	case "liltok_stats":
 		return getLiltokStats(gatewayURL)
@@ -333,7 +334,41 @@ func callLiltokChat(gatewayURL, model, system, prompt, apiKey string) toolCallRe
 	return toolText(fmt.Sprintf("%s\n\n%s", headerNote, content))
 }
 
-func searchLiltokCache(query string) toolCallResult {
+func searchLiltokCache(gatewayURL, query string) toolCallResult {
+	// 1. Try querying the running gateway first via HTTP to avoid SQLite lock contention
+	if gatewayURL != "" {
+		searchURL := fmt.Sprintf("%s/api/v1/cache?q=%s", gatewayURL, url.QueryEscape(query))
+		client := &http.Client{Timeout: 5 * time.Second}
+		if resp, err := client.Get(searchURL); err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				var items []struct {
+					Hash          string `json:"hash"`
+					Model         string `json:"model"`
+					PromptPreview string `json:"prompt_preview"`
+					HitCount      int    `json:"hit_count"`
+				}
+				if err := json.NewDecoder(resp.Body).Decode(&items); err == nil && len(items) > 0 {
+					var sb strings.Builder
+					sb.WriteString(fmt.Sprintf("Search results for '%s' in Liltok cache:\n\n", query))
+					for i, item := range items {
+						if i >= 5 {
+							break
+						}
+						hashShort := item.Hash
+						if len(hashShort) > 12 {
+							hashShort = hashShort[:12]
+						}
+						sb.WriteString(fmt.Sprintf("### Match %d: Hash %s (Hits: %d | Model: %s)\n", i+1, hashShort, item.HitCount, item.Model))
+						sb.WriteString(fmt.Sprintf("**Prompt Preview:** %s\n\n---\n", item.PromptPreview))
+					}
+					return toolText(sb.String())
+				}
+			}
+		}
+	}
+
+	// 2. Direct local SQLite query fallback if gateway is offline
 	dbPath := resolveDBPath()
 	database, err := db.Open(dbPath)
 	if err != nil {

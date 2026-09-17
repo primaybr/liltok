@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/liltok/liltok/internal/config"
-	"github.com/liltok/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/provider"
 )
 
 type mockProvider struct {
@@ -50,6 +50,27 @@ func TestRouterTargetResolution(t *testing.T) {
 	targets := r.ResolveTargets("claude-3-5-sonnet-20241022", "")
 	if len(targets) < 2 || targets[0].ProviderName != "anthropic" {
 		t.Errorf("expected anthropic primary for claude, got %v", targets)
+	}
+
+	// Test Claude 5 resolution
+	opusTargets := r.ResolveTargets("claude-opus-5", "")
+	if len(opusTargets) < 2 || opusTargets[0].ProviderName != "anthropic" || opusTargets[0].UpstreamModel != "claude-opus-5" {
+		t.Errorf("expected anthropic claude-opus-5, got %v", opusTargets)
+	}
+	if opusTargets[1].UpstreamModel != "meta/llama-3.3-70b-instruct" {
+		t.Errorf("expected llama-3.3 fallback, got %s", opusTargets[1].UpstreamModel)
+	}
+
+	// Test auto-resilient route resolution
+	resilientTargets := r.ResolveTargets("auto-resilient", "")
+	if len(resilientTargets) == 0 || resilientTargets[0].UpstreamModel != "claude-sonnet-5" {
+		t.Errorf("expected claude-sonnet-5 primary for auto-resilient, got %v", resilientTargets)
+	}
+
+	// Test premium-only route resolution
+	premiumTargets := r.ResolveTargets("premium-only", "")
+	if len(premiumTargets) == 0 || premiumTargets[0].UpstreamModel != "claude-opus-5" {
+		t.Errorf("expected claude-opus-5 primary for premium-only, got %v", premiumTargets)
 	}
 
 	// Test free-first route resolution

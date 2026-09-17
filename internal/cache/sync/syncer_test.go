@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	cachesync "github.com/liltok/liltok/internal/cache/sync"
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/miner"
+	cachesync "github.com/primaybr/liltok/internal/cache/sync"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/miner"
 )
 
 func TestCacheSyncer_HTTP200_And_HTTP304(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/telemetry"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 // RequestLog represents an immutable record of an inference request in the financial ledger.

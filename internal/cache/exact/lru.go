@@ -4,7 +4,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/liltok/liltok/internal/cache"
+	"github.com/primaybr/liltok/internal/cache"
 )
 
 // MemoryLRU provides a thread-safe in-memory L1 cache.

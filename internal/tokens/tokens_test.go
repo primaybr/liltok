@@ -3,8 +3,8 @@ package tokens_test
 import (
 	"testing"
 
-	"github.com/liltok/liltok/internal/db"
-	"github.com/liltok/liltok/internal/tokens"
+	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/tokens"
 )
 
 func TestCountTokens(t *testing.T) {
@@ -69,6 +69,27 @@ func TestPricingRegistry_PrefixDiscount(t *testing.T) {
 	// Saved: 4000 * (3.00 - 0.30) / 1M = 4000 * 2.70 / 1M = 0.0108
 	if saved != 0.0108 {
 		t.Errorf("Expected saved $0.0108, got %f", saved)
+	}
+}
+
+func TestPricingRegistry_ClaudeOpus5(t *testing.T) {
+	reg := tokens.NewPricingRegistry(nil)
+
+	// claude-opus-5: $15.00 / 1M input, $1.50 / 1M cached input, $75.00 / 1M output
+	// 1,000,000 prompt tokens total, of which 900,000 read from cache, 1,000 completion tokens
+	cost, saved := reg.Calculate("claude-opus-5", 1_000_000, 1_000, 900_000, "MISS", "TIER2_PREFIX")
+
+	// Regular prompt cost: 100,000 * 15.00 / 1M = 1.50 USD
+	// Cached prompt cost: 900,000 * 1.50 / 1M = 1.35 USD
+	// Completion cost: 1,000 * 75.00 / 1M = 0.075 USD
+	// Total cost = 1.50 + 1.35 + 0.075 = 2.925 USD
+	if cost != 2.925 {
+		t.Errorf("Expected cost $2.925, got %f", cost)
+	}
+
+	// Saved: 900,000 * (15.00 - 1.50) / 1M = 900,000 * 13.50 / 1M = 12.15 USD
+	if saved != 12.15 {
+		t.Errorf("Expected saved $12.15, got %f", saved)
 	}
 }
 
