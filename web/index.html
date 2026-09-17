@@ -90,6 +90,7 @@
       <button class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
       <button class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
       <button class="tab-btn" onclick="switchTab('routes')">Routes & Circuit Breakers</button>
+      <button class="tab-btn" onclick="switchTab('providers')">Providers &amp; Settings</button>
       <button id="tab-btn-moderate" class="tab-btn" style="display: none; border: 1px dashed #f59e0b; color: #fbbf24;" onclick="switchTab('moderate')">Moderator Studio <span id="moderate-badge" class="badge" style="background: rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 10px; margin-left: 4px;">0</span></button>
     </div>
 
@@ -336,6 +337,63 @@
     </div>
   </div>
 
+  <!-- PROVIDERS & SETTINGS TAB -->
+  <div id="tab-providers" class="tab-content">
+    <div style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(56,189,248,0.05) 100%); border: 1px solid rgba(16,185,129,0.25); border-radius: 8px; padding: 18px 20px; margin-bottom: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <span class="badge badge-hit-exact" style="background: rgba(16,185,129,0.2);">Zero-Touch YAML</span>
+            <h2 style="font-size: 18px; font-weight: 700;">Upstream AI Providers &amp; Monitoring</h2>
+          </div>
+          <p style="font-size: 13px; color: var(--muted); margin: 0;">
+            Manage API keys, endpoints, and multi-key quota rotation without touching config files. Keys are applied immediately to runtime memory and persisted safely.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn" style="background: var(--card); border: 1px solid var(--border); font-size: 12px;" onclick="testAllProviders()">Test All Connections</button>
+          <button class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px;" onclick="loadProviders()">Refresh Status</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Provider Configuration Cards Grid -->
+    <div id="provider-cards-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px;">
+      <!-- Dynamically rendered via loadProviders() -->
+    </div>
+
+    <!-- Provider Traffic and Latency Telemetry -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 16px; font-weight: 600;">Provider Traffic &amp; Reliability Telemetry</h3>
+          <span style="font-size: 12px; color: var(--muted);">Real-time metrics, costs, and circuit states by provider</span>
+        </div>
+        <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 8px;" onclick="loadProviderStats()">Refresh Metrics</button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Status</th>
+              <th>Requests Handled</th>
+              <th>Total Tokens</th>
+              <th>Gross Spend</th>
+              <th>Dollars Saved</th>
+              <th>Avg Latency</th>
+            </tr>
+          </thead>
+          <tbody id="provider-stats-table-body">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading provider telemetry...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- MODERATOR DETAIL MODAL -->
   <div id="mod-detail-modal" class="modal">
     <div class="modal-card" style="width: 700px; max-width: 90vw;">
@@ -445,6 +503,10 @@
       if (name === 'cache') loadCacheEntries();
       if (name === 'keys') loadKeys();
       if (name === 'routes') loadRoutes();
+      if (name === 'providers') {
+        loadProviders();
+        loadProviderStats();
+      }
       if (name === 'moderate') {
         loadModerateStatus();
         loadModerateEntries();
@@ -792,6 +854,9 @@
           if (ev.type === 'strategy_change') {
             syncStrategyUI(ev.data.strategy);
             loadRoutes();
+          } else if (ev.type === 'providers_updated') {
+            loadProviders();
+            loadProviderStats();
           } else if (ev.type === 'request') {
             prependLiveLogRow(ev.data);
             loadOverview();
@@ -1032,9 +1097,244 @@
       }[tag] || tag));
     }
 
+    // PROVIDER SETTINGS & MONITORING FUNCTIONS
+    let currentProvidersData = [];
+
+    async function loadProviders() {
+      try {
+        const res = await fetch('/api/v1/providers');
+        if (!res.ok) return;
+        const data = await res.json();
+        currentProvidersData = data.providers || [];
+        renderProviderCards(currentProvidersData);
+      } catch (e) {}
+    }
+
+    function renderProviderCards(providers) {
+      const grid = document.getElementById('provider-cards-grid');
+      if (!grid) return;
+
+      grid.innerHTML = providers.map(p => {
+        const isOllama = p.name === 'ollama';
+        const isGemini = p.name === 'gemini';
+        let statusBadge = '<span class="badge badge-hit-exact">ONLINE</span>';
+        if (p.circuit_breaker_state === 'OPEN') {
+          statusBadge = '<span class="badge badge-open">CIRCUIT OPEN</span>';
+        } else if (!p.has_key && !isOllama) {
+          statusBadge = '<span class="badge badge-miss">NO API KEY</span>';
+        }
+
+        let keyHint = 'Upstream API secret token';
+        if (isGemini) {
+          keyHint = 'Multi-key supported: comma-separated keys rotate automatically on each request & failover on 429';
+        }
+
+        let multiBadge = '';
+        if (isGemini && p.key_count > 1) {
+          multiBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 10px; margin-left: 6px;">${p.key_count} Keys Rotating</span>`;
+        }
+
+        return `
+          <div class="card" id="card-prov-${p.name}" style="position: relative; border-color: ${p.has_key || isOllama ? 'var(--border)' : 'rgba(239,68,68,0.3)'};">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+              <div>
+                <div style="display: flex; align-items: center;">
+                  <h4 style="font-size: 15px; font-weight: 700; margin: 0;">${p.display_name}</h4>
+                  ${multiBadge}
+                </div>
+                <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; margin-top: 2px;">Tier: ${p.tier}</div>
+              </div>
+              <div>${statusBadge}</div>
+            </div>
+
+            ${!isOllama ? `
+            <div class="form-group" style="margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label class="form-label" style="margin: 0;">API Key</label>
+                <button type="button" id="btn-toggle-${p.name}" onclick="toggleKeyVisibility('${p.name}')" style="background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; padding: 0;">Show</button>
+              </div>
+              <input id="key-input-${p.name}" type="password" class="form-input" placeholder="${p.has_key ? p.api_key_masked : 'Enter API Key...'}" value="" data-has-key="${p.has_key}" style="font-family: var(--mono); font-size: 12px;" />
+              <div style="font-size: 10px; color: var(--muted); margin-top: 3px;">${keyHint}</div>
+            </div>
+            ` : `
+            <div style="padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border); font-size: 12px; color: var(--muted); margin-bottom: 10px;">
+              Local offline inference engine running on your hardware. Zero keys and zero network costs.
+            </div>
+            `}
+
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label class="form-label" style="margin-bottom: 4px;">Base URL</label>
+              <input id="url-input-${p.name}" type="text" class="form-input" value="${escapeHTML(p.base_url)}" style="font-family: var(--mono); font-size: 12px;" />
+            </div>
+
+            <div id="test-result-${p.name}" style="display: none; font-size: 12px; margin-bottom: 10px; padding: 6px 10px; border-radius: 4px;"></div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; pt: 10px; border-top: 1px solid rgba(255,255,255,0.05);">
+              <button id="btn-test-${p.name}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px;" onclick="testProviderConnection('${p.name}')">
+                Test Connection
+              </button>
+              <button id="btn-save-${p.name}" class="btn" style="background: var(--accent); color: #000; font-weight: 600; font-size: 12px; padding: 5px 14px;" onclick="saveProvider('${p.name}')">
+                Save
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleKeyVisibility(name) {
+      const input = document.getElementById('key-input-' + name);
+      const btn = document.getElementById('btn-toggle-' + name);
+      if (!input || !btn) return;
+
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerText = 'Hide';
+      } else {
+        input.type = 'password';
+        btn.innerText = 'Show';
+      }
+    }
+
+    async function testProviderConnection(name) {
+      const btn = document.getElementById('btn-test-' + name);
+      const resBox = document.getElementById('test-result-' + name);
+      if (!btn || !resBox) return;
+
+      btn.disabled = true;
+      btn.innerText = 'Testing...';
+      resBox.style.display = 'block';
+      resBox.style.background = 'rgba(56, 189, 248, 0.1)';
+      resBox.style.color = '#38bdf8';
+      resBox.style.border = '1px solid rgba(56, 189, 248, 0.3)';
+      resBox.innerText = 'Pinging upstream endpoint...';
+
+      try {
+        const res = await fetch('/api/v1/providers/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: name })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          resBox.style.background = 'rgba(16, 185, 129, 0.1)';
+          resBox.style.color = '#34d399';
+          resBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          resBox.innerText = `Connected successfully (${data.latency_ms}ms)`;
+        } else {
+          resBox.style.background = 'rgba(239, 68, 68, 0.1)';
+          resBox.style.color = '#fca5a5';
+          resBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          resBox.innerText = 'Check Failed: ' + (data.error || 'Connection failed');
+        }
+      } catch (err) {
+        resBox.style.background = 'rgba(239, 68, 68, 0.1)';
+        resBox.style.color = '#fca5a5';
+        resBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        resBox.innerText = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Test Connection';
+      }
+    }
+
+    async function testAllProviders() {
+      for (const p of currentProvidersData) {
+        testProviderConnection(p.name);
+      }
+    }
+
+    async function saveProvider(name) {
+      const keyInput = document.getElementById('key-input-' + name);
+      const urlInput = document.getElementById('url-input-' + name);
+      const btn = document.getElementById('btn-save-' + name);
+      const resBox = document.getElementById('test-result-' + name);
+
+      const payload = { providers: {} };
+      const item = {};
+
+      if (urlInput) {
+        item.base_url = urlInput.value.trim();
+      }
+      if (keyInput && keyInput.value.trim() !== '') {
+        item.api_key = keyInput.value.trim();
+      }
+
+      payload.providers[name] = item;
+
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Saving...';
+      }
+
+      try {
+        const res = await fetch('/api/v1/providers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Save failed');
+
+        if (resBox) {
+          resBox.style.display = 'block';
+          resBox.style.background = 'rgba(16, 185, 129, 0.1)';
+          resBox.style.color = '#34d399';
+          resBox.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+          resBox.innerText = 'Settings saved and applied to memory!';
+          setTimeout(() => { resBox.style.display = 'none'; }, 4000);
+        }
+
+        loadProviders();
+      } catch (err) {
+        if (resBox) {
+          resBox.style.display = 'block';
+          resBox.style.background = 'rgba(239, 68, 68, 0.1)';
+          resBox.style.color = '#fca5a5';
+          resBox.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+          resBox.innerText = 'Save Error: ' + err.message;
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = 'Save';
+        }
+      }
+    }
+
+    async function loadProviderStats() {
+      try {
+        const res = await fetch('/api/v1/providers/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tbody = document.getElementById('provider-stats-table-body');
+        if (!tbody) return;
+
+        if (!data.stats || data.stats.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">No provider traffic recorded yet. Requests routed through Liltok will appear here.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.stats.map(s => `
+          <tr>
+            <td style="font-weight: 700; text-transform: uppercase;">${s.provider}</td>
+            <td><span class="badge badge-hit-exact">ACTIVE</span></td>
+            <td>${s.total_requests}</td>
+            <td>${s.total_tokens.toLocaleString()}</td>
+            <td>${formatCurrency(s.total_cost_usd)}</td>
+            <td style="color: #34d399;">${formatCurrency(s.total_saved_usd)}</td>
+            <td>${s.avg_latency_ms.toFixed(1)}ms</td>
+          </tr>
+        `).join('');
+      } catch (e) {}
+    }
+
     // Initialize
     loadOverview();
     loadRoutes();
+    loadProviders();
+    loadProviderStats();
     loadRecentLogs();
     initSSE();
     setInterval(loadOverview, 5000);

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/primaybr/liltok/internal/provider"
@@ -20,6 +21,7 @@ type Adapter struct {
 	tier       provider.ProviderTier
 	baseURL    string
 	apiKey     string
+	mu         sync.RWMutex
 	httpClient *http.Client
 }
 
@@ -35,6 +37,20 @@ func NewAdapter(name string, tier provider.ProviderTier, baseURL, apiKey string)
 			Timeout: 120 * time.Second,
 		},
 	}
+}
+
+// SetAPIKey updates the API key at runtime.
+func (a *Adapter) SetAPIKey(apiKey string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.apiKey = apiKey
+}
+
+// SetBaseURL updates the base URL at runtime.
+func (a *Adapter) SetBaseURL(baseURL string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.baseURL = strings.TrimRight(baseURL, "/")
 }
 
 // NewNVIDIANIMAdapter creates an adapter for NVIDIA NIM's free endpoints.
@@ -64,20 +80,39 @@ func (a *Adapter) Tier() provider.ProviderTier {
 }
 
 func (a *Adapter) CheckHealth(ctx context.Context) (bool, error) {
-	url := a.baseURL + "/models"
+	a.mu.RLock()
+	baseURL := a.baseURL
+	apiKey := a.apiKey
+	name := a.name
+	a.mu.RUnlock()
+
+	if name != "ollama" && apiKey == "" {
+		return false, fmt.Errorf("%s api key is not configured", name)
+	}
+
+	url := baseURL + "/models"
+	if name == "ollama" && !strings.HasSuffix(baseURL, "/v1") {
+		url = baseURL + "/api/tags"
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return false, err
 	}
-	if a.apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("%s connection failed: %w", name, err)
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode < 500, nil
+
+	if resp.StatusCode >= 400 {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("%s returned status %d: %s", name, resp.StatusCode, string(respBytes))
+	}
+	return true, nil
 }
 
 // SendChat executes a non-streaming chat completion.
@@ -87,15 +122,20 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		return nil, err
 	}
 
-	url := a.baseURL + "/chat/completions"
+	a.mu.RLock()
+	baseURL := a.baseURL
+	apiKey := a.apiKey
+	a.mu.RUnlock()
+
+	url := baseURL + "/chat/completions"
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	if a.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
 	start := time.Now()
@@ -259,6 +299,7 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 		var rawMap map[string]interface{}
 		if err := json.Unmarshal(req.RawPayload, &rawMap); err == nil {
 			rawMap["stream"] = stream
+			rawMap["model"] = req.Model
 			return json.Marshal(rawMap)
 		}
 	}

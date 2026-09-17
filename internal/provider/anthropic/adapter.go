@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/primaybr/liltok/internal/provider"
@@ -18,6 +19,7 @@ import (
 type Adapter struct {
 	baseURL    string
 	apiKey     string
+	mu         sync.RWMutex
 	httpClient *http.Client
 }
 
@@ -36,6 +38,23 @@ func NewAdapter(baseURL, apiKey string) *Adapter {
 	}
 }
 
+// SetAPIKey updates the API key at runtime.
+func (a *Adapter) SetAPIKey(apiKey string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.apiKey = apiKey
+}
+
+// SetBaseURL updates the base URL at runtime.
+func (a *Adapter) SetBaseURL(baseURL string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if baseURL == "" {
+		baseURL = "https://api.anthropic.com"
+	}
+	a.baseURL = strings.TrimRight(baseURL, "/")
+}
+
 func (a *Adapter) Name() string {
 	return "anthropic"
 }
@@ -45,7 +64,31 @@ func (a *Adapter) Tier() provider.ProviderTier {
 }
 
 func (a *Adapter) CheckHealth(ctx context.Context) (bool, error) {
-	// Anthropic does not have a lightweight GET /models without auth; check connectivity
+	a.mu.RLock()
+	baseURL := a.baseURL
+	apiKey := a.apiKey
+	a.mu.RUnlock()
+
+	if apiKey == "" {
+		return false, fmt.Errorf("anthropic api key is not configured")
+	}
+
+	url := baseURL + "/v1/models"
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false, err
+	}
+	a.setHeaders(req)
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("anthropic connection failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("anthropic returned status %d: %s", resp.StatusCode, string(respBytes))
+	}
 	return true, nil
 }
 
@@ -56,7 +99,11 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		return nil, err
 	}
 
-	url := a.baseURL + "/v1/messages"
+	a.mu.RLock()
+	baseURL := a.baseURL
+	a.mu.RUnlock()
+
+	url := baseURL + "/v1/messages"
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
@@ -229,8 +276,11 @@ func (a *Adapter) setHeaders(r *http.Request) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("anthropic-version", "2023-06-01")
 	r.Header.Set("anthropic-beta", "prompt-caching-2024-07-25")
-	if a.apiKey != "" {
-		r.Header.Set("x-api-key", a.apiKey)
+	a.mu.RLock()
+	apiKey := a.apiKey
+	a.mu.RUnlock()
+	if apiKey != "" {
+		r.Header.Set("x-api-key", apiKey)
 	}
 }
 

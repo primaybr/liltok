@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/provider"
@@ -85,21 +86,21 @@ func (r *Router) initDefaultRoutes() {
 		Strategy: "fallback",
 		Targets: []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
-			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
-			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:32b"},
+			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:7b"},
 		},
 	}
 
-	// 2. free-first: NVIDIA NIM -> Groq -> Gemini Free -> Ollama
+	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> Ollama
 	r.routes["free-first"] = Route{
 		ID:       "free-first",
 		Strategy: "free_first",
 		Targets: []TargetSpec{
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
-			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-1.5-flash"},
-			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:32b"},
+			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+			{ProviderName: "ollama", UpstreamModel: "qwen2.5-coder:7b"},
 		},
 	}
 
@@ -177,8 +178,8 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		// Target Anthropic first, fallback to free targets
 		return []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
-			{ProviderName: "groq", UpstreamModel: "llama-3.3-70b-versatile"},
+			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-flash-latest"},
 		}
 	}
 	if strings.Contains(lowerModel, "llama") || strings.Contains(lowerModel, "free") {
@@ -257,6 +258,80 @@ func (r *Router) CircuitBreakers() map[string]*CircuitBreaker {
 		res[k] = v
 	}
 	return res
+}
+
+// UpdateProvider dynamically updates credentials and base URL for a named provider.
+func (r *Router) UpdateProvider(name string, creds config.ProviderCreds) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	name = strings.ToLower(name)
+	if r.cfg != nil {
+		switch name {
+		case "openai":
+			r.cfg.Providers.OpenAI = creds
+		case "anthropic":
+			r.cfg.Providers.Anthropic = creds
+		case "nvidianim":
+			r.cfg.Providers.NVIDIANIM = creds
+		case "groq":
+			r.cfg.Providers.Groq = creds
+		case "gemini":
+			r.cfg.Providers.Gemini = creds
+		case "ollama":
+			r.cfg.Providers.Ollama = creds
+		}
+	}
+
+	p, exists := r.providers[name]
+	if !exists {
+		return fmt.Errorf("unknown provider: %s", name)
+	}
+
+	type keySetter interface {
+		SetAPIKey(string)
+	}
+	type urlSetter interface {
+		SetBaseURL(string)
+	}
+
+	if ks, ok := p.(keySetter); ok {
+		ks.SetAPIKey(creds.APIKey)
+	}
+	if us, ok := p.(urlSetter); ok && creds.BaseURL != "" {
+		us.SetBaseURL(creds.BaseURL)
+	}
+
+	// Reset circuit breaker to CLOSED when credentials are updated
+	if cb, exists := r.breakers[name]; exists {
+		cb.Reset()
+	}
+
+	return nil
+}
+
+// TestProvider runs an active health check against a provider and returns round-trip latency.
+func (r *Router) TestProvider(ctx context.Context, name string) (bool, int64, error) {
+	r.mu.RLock()
+	p, exists := r.providers[strings.ToLower(name)]
+	r.mu.RUnlock()
+
+	if !exists {
+		return false, 0, fmt.Errorf("unknown provider: %s", name)
+	}
+
+	start := time.Now()
+	ok, err := p.CheckHealth(ctx)
+	latencyMs := time.Since(start).Milliseconds()
+
+	if ok && err == nil {
+		if cb, ok := r.GetBreaker(name); ok {
+			cb.RecordSuccess()
+		}
+		return true, latencyMs, nil
+	}
+
+	return false, latencyMs, err
 }
 
 // Translator returns the cross-protocol translator instance.

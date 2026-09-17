@@ -88,3 +88,53 @@ func TestLoadWithEnvOverrides(t *testing.T) {
 		t.Errorf("expected Anthropic key from env, got %s", cfg.Providers.Anthropic.APIKey)
 	}
 }
+
+func TestPersistProviders(t *testing.T) {
+	tempDir := t.TempDir()
+	configFile := filepath.Join(tempDir, "liltok.yaml")
+
+	initialYAML := `# test config
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+providers:
+  openai:
+    api_key: ""
+    base_url: "https://api.openai.com/v1"
+  groq:
+    api_key: ""
+    base_url: "https://api.groq.com/openai/v1"
+  gemini:
+    api_key: ""
+    base_url: "https://generativelanguage.googleapis.com"
+`
+	if err := os.WriteFile(configFile, []byte(initialYAML), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	newProviders := ProvidersConfig{
+		OpenAI: ProviderCreds{APIKey: "sk-new-key", BaseURL: "https://api.openai.com/v1"},
+		Groq:   ProviderCreds{APIKey: "gsk_test123", BaseURL: "https://api.groq.com/openai/v1"},
+		Gemini: ProviderCreds{APIKey: "gem-key-1,gem-key-2", BaseURL: "https://generativelanguage.googleapis.com"},
+	}
+
+	if err := PersistProviders(configFile, newProviders); err != nil {
+		t.Fatalf("PersistProviders failed: %v", err)
+	}
+
+	reloaded, err := Load(configFile)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+
+	if reloaded.Providers.Groq.APIKey != "gsk_test123" {
+		t.Errorf("expected Groq key 'gsk_test123', got %q", reloaded.Providers.Groq.APIKey)
+	}
+	if reloaded.Providers.Gemini.APIKey != "gem-key-1,gem-key-2" {
+		t.Errorf("expected Gemini keys 'gem-key-1,gem-key-2', got %q", reloaded.Providers.Gemini.APIKey)
+	}
+	if reloaded.Providers.OpenAI.APIKey != "sk-new-key" {
+		t.Errorf("expected OpenAI key 'sk-new-key', got %q", reloaded.Providers.OpenAI.APIKey)
+	}
+}
