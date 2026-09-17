@@ -11,6 +11,7 @@ import (
 	cachesync "github.com/liltok/liltok/internal/cache/sync"
 	"github.com/liltok/liltok/internal/config"
 	"github.com/liltok/liltok/internal/db"
+	"github.com/liltok/liltok/internal/miner"
 	"github.com/spf13/cobra"
 )
 
@@ -225,6 +226,99 @@ using HTTP conditional GET (ETag). Merges new entries seamlessly into your local
 	updateCmd.Flags().StringVarP(&syncURLFlag, "url", "u", "", "Override remote sync URL")
 	updateCmd.Flags().BoolVarP(&forceFlag, "force", "f", false, "Force download and re-sync even if ETag matches")
 
-	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd)
+	var (
+		exportOut      string
+		exportMinHits  int
+		exportModel    string
+		exportSanitize bool
+	)
+
+	exportCmd := &cobra.Command{
+		Use:   "export",
+		Short: "Export sanitized local cache entries for community sharing or backup",
+		Long: `Exports high-value cache entries to a compressed .json.gz file.
+With --sanitize, private API keys, user home directory paths, and private IPs are scrubbed automatically.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if exportOut == "" {
+				exportOut = "community_cache_pack.json.gz"
+			}
+
+			dbPath := resolveDBPath()
+			database, err := db.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("failed to open database at %s: %w", dbPath, err)
+			}
+			defer database.Close()
+
+			outFile, err := os.Create(exportOut)
+			if err != nil {
+				return fmt.Errorf("failed to create output file %s: %w", exportOut, err)
+			}
+			defer outFile.Close()
+
+			opts := miner.ExportOptions{
+				MinHits:  exportMinHits,
+				Model:    exportModel,
+				Sanitize: exportSanitize,
+			}
+
+			count, err := miner.ExportCacheWithOptions(database, outFile, opts)
+			if err != nil {
+				return fmt.Errorf("export failed: %w", err)
+			}
+
+			fmt.Println("==================================================================")
+			fmt.Println(" Liltok Cache Exporter")
+			fmt.Printf(" Output File:       %s\n", exportOut)
+			fmt.Printf(" Exported Entries:  %d\n", count)
+			fmt.Printf(" Min Hits Filter:   %d\n", exportMinHits)
+			fmt.Printf(" Privacy Sanitized: %v\n", exportSanitize)
+			fmt.Println("==================================================================")
+			return nil
+		},
+	}
+	exportCmd.Flags().StringVarP(&exportOut, "out", "o", "community_cache_pack.json.gz", "Output gzip file path")
+	exportCmd.Flags().IntVar(&exportMinHits, "min-hits", 0, "Minimum hits required for export")
+	exportCmd.Flags().StringVar(&exportModel, "model", "", "Filter entries by model name")
+	exportCmd.Flags().BoolVar(&exportSanitize, "sanitize", true, "Scrub API keys, personal paths, and private IPs")
+
+	var importIn string
+	importCmd := &cobra.Command{
+		Use:   "import [file.json.gz]",
+		Short: "Import a community cache pack into local cache",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			filePath := importIn
+			if filePath == "" && len(args) > 0 {
+				filePath = args[0]
+			}
+			if filePath == "" {
+				return fmt.Errorf("must specify path to .json.gz cache file via argument or --file")
+			}
+
+			f, err := os.Open(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to open cache pack %s: %w", filePath, err)
+			}
+			defer f.Close()
+
+			dbPath := resolveDBPath()
+			database, err := db.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("failed to open database at %s: %w", dbPath, err)
+			}
+			defer database.Close()
+
+			imported, err := miner.ImportCacheFromGz(database, f)
+			if err != nil {
+				return fmt.Errorf("import failed: %w", err)
+			}
+
+			fmt.Printf("Successfully imported %d new cache entries from %s!\n", imported, filePath)
+			return nil
+		},
+	}
+	importCmd.Flags().StringVarP(&importIn, "file", "f", "", "Path to .json.gz file")
+
+	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd)
 	return cacheCmd
 }
