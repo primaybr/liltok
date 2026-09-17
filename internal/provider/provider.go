@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -151,6 +152,24 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 							if partMap, ok := part.(map[string]interface{}); ok {
 								if txt, ok := partMap["text"].(string); ok {
 									content += txt
+								} else if pType, ok := partMap["type"].(string); ok {
+									if pType == "tool_result" {
+										if res, ok := partMap["content"].(string); ok {
+											content += "\nTool Result:\n" + res
+										} else if resArr, ok := partMap["content"].([]interface{}); ok {
+											for _, rItem := range resArr {
+												if rMap, ok := rItem.(map[string]interface{}); ok {
+													if rTxt, ok := rMap["text"].(string); ok {
+														content += "\nTool Result:\n" + rTxt
+													}
+												}
+											}
+										}
+									} else if pType == "tool_use" {
+										name, _ := partMap["name"].(string)
+										inputBytes, _ := json.Marshal(partMap["input"])
+										content += fmt.Sprintf("\nTool Call: %s(%s)", name, string(inputBytes))
+									}
 								}
 							}
 						}

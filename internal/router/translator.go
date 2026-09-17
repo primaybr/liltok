@@ -26,8 +26,34 @@ func (t *Translator) ConvertOpenAIToAnthropicResponse(resp *provider.UnifiedChat
 	stopReason := "end_turn"
 	if resp.FinishReason == "length" {
 		stopReason = "max_tokens"
-	} else if resp.FinishReason == "tool_calls" {
+	} else if resp.FinishReason == "tool_calls" || len(resp.ToolCalls) > 0 {
 		stopReason = "tool_use"
+	}
+
+	contentBlocks := make([]map[string]interface{}, 0, 1+len(resp.ToolCalls))
+	if resp.Content != "" {
+		contentBlocks = append(contentBlocks, map[string]interface{}{
+			"type": "text",
+			"text": resp.Content,
+		})
+	}
+	for _, tc := range resp.ToolCalls {
+		var inputObj interface{}
+		if err := json.Unmarshal([]byte(tc.Function.Arguments), &inputObj); err != nil {
+			inputObj = map[string]interface{}{}
+		}
+		contentBlocks = append(contentBlocks, map[string]interface{}{
+			"type":  "tool_use",
+			"id":    tc.ID,
+			"name":  tc.Function.Name,
+			"input": inputObj,
+		})
+	}
+	if len(contentBlocks) == 0 {
+		contentBlocks = append(contentBlocks, map[string]interface{}{
+			"type": "text",
+			"text": "",
+		})
 	}
 
 	anthropicPayload := map[string]interface{}{
@@ -36,12 +62,7 @@ func (t *Translator) ConvertOpenAIToAnthropicResponse(resp *provider.UnifiedChat
 		"role":        "assistant",
 		"model":       targetModel,
 		"stop_reason": stopReason,
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": resp.Content,
-			},
-		},
+		"content":     contentBlocks,
 		"usage": map[string]int{
 			"input_tokens":  resp.Usage.PromptTokens,
 			"output_tokens": resp.Usage.CompletionTokens,

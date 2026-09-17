@@ -165,3 +165,60 @@ func TestTranslatorOpenAIToAnthropic(t *testing.T) {
 		t.Errorf("expected text 'translated answer', got %v", contentObj["text"])
 	}
 }
+
+func TestTranslatorOpenAIToAnthropicWithToolCalls(t *testing.T) {
+	tr := NewTranslator()
+	oaiResp := &provider.UnifiedChatResponse{
+		ID:           "test-tool-id",
+		Content:      "I will run the command",
+		FinishReason: "tool_calls",
+		ToolCalls: []provider.UnifiedToolCall{
+			{
+				ID:   "call_999",
+				Type: "function",
+				Function: struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				}{
+					Name:      "Bash",
+					Arguments: `{"command":"git status"}`,
+				},
+			},
+		},
+		Usage: provider.UnifiedUsage{
+			PromptTokens:     120,
+			CompletionTokens: 30,
+		},
+	}
+
+	anthJSON, err := tr.ConvertOpenAIToAnthropicResponse(oaiResp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("conversion failed: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(anthJSON, &parsed); err != nil {
+		t.Fatalf("invalid json generated: %v", err)
+	}
+
+	if parsed["stop_reason"] != "tool_use" {
+		t.Errorf("expected stop_reason tool_use, got %v", parsed["stop_reason"])
+	}
+
+	contentArr, ok := parsed["content"].([]interface{})
+	if !ok || len(contentArr) != 2 {
+		t.Fatalf("expected 2 content blocks (text + tool_use), got %v", contentArr)
+	}
+
+	toolBlock := contentArr[1].(map[string]interface{})
+	if toolBlock["type"] != "tool_use" {
+		t.Errorf("expected type tool_use, got %v", toolBlock["type"])
+	}
+	if toolBlock["name"] != "Bash" {
+		t.Errorf("expected tool Bash, got %v", toolBlock["name"])
+	}
+	inputMap, ok := toolBlock["input"].(map[string]interface{})
+	if !ok || inputMap["command"] != "git status" {
+		t.Errorf("expected command 'git status', got %v", inputMap)
+	}
+}

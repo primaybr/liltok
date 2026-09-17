@@ -171,9 +171,12 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			continue
 		}
 
-		// If rate limit (429) or quota exceeded, try next available key
-		if resp.StatusCode == http.StatusTooManyRequests || strings.Contains(string(respBytes), "RESOURCE_EXHAUSTED") {
-			lastErr = fmt.Errorf("gemini key rate limited (status %d): %s", resp.StatusCode, string(respBytes))
+		// If rate limit (429), temporary service unavailable (503), or quota exceeded, try next available key
+		if resp.StatusCode == http.StatusTooManyRequests || 
+		   resp.StatusCode == http.StatusServiceUnavailable || 
+		   strings.Contains(string(respBytes), "RESOURCE_EXHAUSTED") || 
+		   strings.Contains(string(respBytes), "UNAVAILABLE") {
+			lastErr = fmt.Errorf("gemini key %d unavailable (status %d): %s", i+1, resp.StatusCode, string(respBytes))
 			continue
 		}
 
