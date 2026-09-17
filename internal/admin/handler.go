@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/liltok/liltok/internal/config"
 	"github.com/liltok/liltok/internal/db"
 	"github.com/liltok/liltok/internal/ledger"
+	"github.com/liltok/liltok/internal/miner"
 	"github.com/liltok/liltok/internal/router"
 )
 
@@ -51,6 +53,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/cache", h.HandleListCache)
 		r.Delete("/cache/{hash}", h.HandleDeleteCacheEntry)
 		r.Post("/cache/purge", h.HandlePurgeCache)
+		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
 		r.Get("/keys", h.HandleListKeys)
 		r.Post("/keys", h.HandleCreateKey)
@@ -256,6 +259,51 @@ func (h *AdminHandler) HandlePurgeCache(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":        "purged",
 		"deleted_count": deletedCount,
+	})
+}
+
+// HandlePackStarterCache merges local database cache entries into starter_cache.json.gz with sanitization.
+func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Request) {
+	if h.database == nil {
+		writeError(w, http.StatusInternalServerError, "database unavailable")
+		return
+	}
+
+	var req struct {
+		MinHits        int    `json:"min_hits"`
+		MaxPromptBytes int    `json:"max_prompt_bytes"`
+		Sanitize       *bool  `json:"sanitize"`
+		TargetPath     string `json:"target_path"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	sanitize := true
+	if req.Sanitize != nil {
+		sanitize = *req.Sanitize
+	}
+
+	targetPath := req.TargetPath
+	if targetPath == "" {
+		targetPath = filepath.Join("internal", "db", "starter_cache.json.gz")
+	}
+
+	res, err := miner.PackStarterCache(h.database, targetPath, miner.PackOptions{
+		MinHits:        req.MinHits,
+		MaxPromptBytes: req.MaxPromptBytes,
+		Sanitize:       sanitize,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":           "success",
+		"total_entries":    res.TotalEntries,
+		"existing_entries": res.ExistingEntries,
+		"merged_from_db":   res.MergedFromDB,
+		"size_bytes":       res.SizeBytes,
+		"target_path":      res.TargetPath,
 	})
 }
 

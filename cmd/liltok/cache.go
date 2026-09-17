@@ -349,6 +349,56 @@ With --sanitize, private API keys, user home directory paths, and private IPs ar
 		},
 	}
 
-	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd, seedCmd)
+	var (
+		packFromDB         string
+		packOut            string
+		packSanitize       bool
+		packMinHits        int
+		packMaxPromptBytes int
+	)
+	packCmd := &cobra.Command{
+		Use:   "pack",
+		Short: "Merge and pack local database entries into starter cache archive",
+		Long: `Ingests entries from your active or specified liltok.db, scrubs personal file paths and credentials,
+deduplicates against the starter pack, and writes internal/db/starter_cache.json.gz for release bundling.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if packFromDB == "" {
+				packFromDB = resolveDBPath()
+			}
+			database, err := db.Open(packFromDB)
+			if err != nil {
+				return fmt.Errorf("failed to open database at %s: %w", packFromDB, err)
+			}
+			defer database.Close()
+
+			res, err := miner.PackStarterCache(database, packOut, miner.PackOptions{
+				MinHits:        packMinHits,
+				MaxPromptBytes: packMaxPromptBytes,
+				Sanitize:       packSanitize,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to pack starter cache: %w", err)
+			}
+
+			fmt.Println("==================================================================")
+			fmt.Println(" liltok Starter Cache Packer")
+			fmt.Printf(" Source Database:        %s\n", packFromDB)
+			fmt.Printf(" Output Archive:         %s\n", res.TargetPath)
+			fmt.Printf(" Existing Base Entries:  %d\n", res.ExistingEntries)
+			fmt.Printf(" Merged from Database:   %d\n", res.MergedFromDB)
+			fmt.Printf(" Total Packed Entries:   %d\n", res.TotalEntries)
+			fmt.Printf(" Archive Size:           %d bytes (gzip)\n", res.SizeBytes)
+			fmt.Printf(" Privacy Sanitized:      %v\n", packSanitize)
+			fmt.Println("==================================================================")
+			return nil
+		},
+	}
+	packCmd.Flags().StringVar(&packFromDB, "from-db", "", "Path to source SQLite database (defaults to ~/.liltok/liltok.db)")
+	packCmd.Flags().StringVarP(&packOut, "out", "o", filepath.Join("internal", "db", "starter_cache.json.gz"), "Target starter cache archive path")
+	packCmd.Flags().BoolVar(&packSanitize, "sanitize", true, "Automatically scrub personal home paths, API keys, and private IPs")
+	packCmd.Flags().IntVar(&packMinHits, "min-hits", 0, "Minimum hits required for imported database entries")
+	packCmd.Flags().IntVar(&packMaxPromptBytes, "max-prompt-bytes", 65536, "Max prompt byte length to include (default 65536, 0 = unlimited)")
+
+	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd, seedCmd, packCmd)
 	return cacheCmd
 }
