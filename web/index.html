@@ -631,7 +631,17 @@
       } catch (e) {}
     }
 
+    const _seenLogIds = new Set();
     function prependLiveLogRow(l) {
+      // Deduplicate: skip if this request_id was already rendered
+      if (l.request_id && _seenLogIds.has(l.request_id)) return;
+      if (l.request_id) {
+        _seenLogIds.add(l.request_id);
+        // Cap the set size to avoid unbounded memory growth
+        if (_seenLogIds.size > 200) {
+          _seenLogIds.delete(_seenLogIds.values().next().value);
+        }
+      }
       const tbody = document.getElementById('logs-tbody');
       const tr = createLogRow(l, true);
       tbody.prepend(tr);
@@ -893,8 +903,18 @@
     }
 
     // Connect Live Telemetry SSE Feed
+    let _sseSource = null;
     function initSSE() {
+      // Close any existing connection before creating a new one to prevent
+      // duplicate event listeners accumulating across reconnects
+      if (_sseSource) {
+        _sseSource.onmessage = null;
+        _sseSource.onerror = null;
+        _sseSource.close();
+        _sseSource = null;
+      }
       const source = new EventSource('/api/v1/events');
+      _sseSource = source;
       source.onmessage = (e) => {
         try {
           const ev = JSON.parse(e.data);
@@ -914,6 +934,9 @@
         } catch (err) {}
       };
       source.onerror = () => {
+        // Guard: only reconnect if this is still the active source
+        if (_sseSource !== source) return;
+        _sseSource = null;
         setTimeout(initSSE, 5000);
       };
     }
