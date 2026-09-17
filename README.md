@@ -71,7 +71,7 @@
 
 ### 1. Download or Build
 
-Download pre-compiled standalone static binaries from [GitHub Releases](https://github.com/liltok/liltok/releases) or build from source:
+Download pre-compiled standalone static binaries from [GitHub Releases](https://github.com/primaybr/liltok/releases) or build from source:
 
 ```bash
 # Build natively (requires Go 1.22+)
@@ -257,7 +257,7 @@ Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On
 
 ### Over-The-Air (OTA) Updates via GitHub Releases CDN
 Run `liltok cache update` to pull the latest community-verified cache pack:
-- Connects directly to GitHub Releases (`https://github.com/liltok/liltok/releases/latest/download/starter_cache.json.gz`).
+- Connects directly to GitHub Releases (`https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz`).
 - Employs HTTP `ETag` and `If-None-Match` conditional requests. If your cache is current, GitHub returns `304 Not Modified` consuming zero unnecessary bandwidth.
 - When an update is available, new entries are merged directly into local SQLite using canonical deduplication.
 
