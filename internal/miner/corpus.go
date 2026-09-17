@@ -29,6 +29,9 @@ func GetCuratedPrompts(category string) []PromptItem {
 	if category == "" || category == "all" || category == "coding" {
 		all = append(all, getCodingPrompts()...)
 	}
+	if category == "" || category == "all" || category == "security" {
+		all = append(all, getSecurityPrompts()...)
+	}
 	if category == "" || category == "all" || category == "devops" {
 		all = append(all, getDevOpsPrompts()...)
 	}
@@ -190,6 +193,160 @@ func getCodingPrompts() []PromptItem {
 			UserPrompt:   "How do I write an idiomatic Go worker pool pattern with channels, sync.WaitGroup, and context cancellation?",
 			Tags:         []string{"go", "concurrency", "worker-pool"},
 		},
+
+		// Database & SQL Performance
+		{
+			ID:           "code-sql-composite-index",
+			Category:     "coding",
+			SystemPrompt: "You are a database performance and SQL indexing specialist.",
+			UserPrompt:   "Explain composite indexing in relational databases (PostgreSQL/MySQL), including the leftmost prefix rule and how column cardinality/selectivity dictates index column order.",
+			Tags:         []string{"sql", "database", "indexing", "b-tree"},
+		},
+		{
+			ID:           "code-sql-explain-analyze",
+			Category:     "coding",
+			SystemPrompt: "You are a database performance and SQL tuning specialist.",
+			UserPrompt:   "How do I interpret PostgreSQL EXPLAIN ANALYZE output, including Seq Scan vs Index Scan vs Bitmap Heap Scan, actual time, loops, and cost estimations?",
+			Tags:         []string{"sql", "postgres", "explain-analyze", "performance"},
+		},
+		{
+			ID:           "code-sql-deadlock-prevention",
+			Category:     "coding",
+			SystemPrompt: "You are a database architect and transaction concurrency expert.",
+			UserPrompt:   "What causes deadlocks in relational databases, and what are the best practices (ordered resource locking, transaction isolation levels) to prevent them?",
+			Tags:         []string{"sql", "database", "deadlocks", "concurrency"},
+		},
+		{
+			ID:           "code-sql-connection-reconnect",
+			Category:     "coding",
+			SystemPrompt: "You are a database connectivity and backend resilience expert.",
+			UserPrompt:   "How do I handle severed database connections (such as PostgreSQL 08006, 57P01, or server termination) with transparent auto-reconnect and connection pool health checks?",
+			Tags:         []string{"sql", "database", "connection-pool", "resilience"},
+		},
+		{
+			ID:           "code-sql-two-stage-cte",
+			Category:     "coding",
+			SystemPrompt: "You are a database architect specializing in large-scale SQL query optimization.",
+			UserPrompt:   "Explain the two-stage candidate CTE pattern for complex feeds and deep pagination to avoid expensive lateral joins and table scans across non-paginated rows.",
+			Tags:         []string{"sql", "cte", "pagination", "performance"},
+		},
+
+		// Distributed Systems & API Resilience
+		{
+			ID:           "code-arch-circuit-breaker",
+			Category:     "coding",
+			SystemPrompt: "You are a distributed systems architect.",
+			UserPrompt:   "Explain the Circuit Breaker pattern with its three states (Closed, Open, Half-Open), failure thresholds, and recovery timeouts.",
+			Tags:         []string{"distributed-systems", "circuit-breaker", "resilience"},
+		},
+		{
+			ID:           "code-arch-exponential-backoff",
+			Category:     "coding",
+			SystemPrompt: "You are a distributed systems and networking engineer.",
+			UserPrompt:   "Explain exponential backoff with Full Jitter and show why jitter prevents the thundering herd problem in distributed API retries.",
+			Tags:         []string{"distributed-systems", "retry", "jitter", "backoff"},
+		},
+		{
+			ID:           "code-arch-idempotency-keys",
+			Category:     "coding",
+			SystemPrompt: "You are a backend architect specializing in payment and financial API reliability.",
+			UserPrompt:   "How should an API implement Idempotency-Key header processing, request payload fingerprinting, and atomic lock/replay states with TTL?",
+			Tags:         []string{"api", "idempotency", "architecture"},
+		},
+		{
+			ID:           "code-arch-rate-limiter-comparison",
+			Category:     "coding",
+			SystemPrompt: "You are a high-concurrency systems architect.",
+			UserPrompt:   "Compare Token Bucket, Leaky Bucket, and Sliding Window Counter rate limiting algorithms with their memory, precision, and burst handling trade-offs.",
+			Tags:         []string{"rate-limiting", "architecture", "algorithms"},
+		},
+
+		// Modern Go Concurrency
+		{
+			ID:           "code-go-errgroup-context",
+			Category:     "coding",
+			SystemPrompt: "You are a Go concurrency and systems programming expert.",
+			UserPrompt:   "How do I use golang.org/x/sync/errgroup with context cancellation to manage concurrent worker tasks and short-circuit on first error?",
+			Tags:         []string{"go", "concurrency", "errgroup", "context"},
+		},
+		{
+			ID:           "code-go-graceful-shutdown",
+			Category:     "coding",
+			SystemPrompt: "You are a Go systems engineer.",
+			UserPrompt:   "How do I implement graceful HTTP server shutdown in Go using signal.Notify for SIGINT/SIGTERM and context with timeout?",
+			Tags:         []string{"go", "http", "graceful-shutdown", "concurrency"},
+		},
+		{
+			ID:           "code-go-strings-builder",
+			Category:     "coding",
+			SystemPrompt: "You are a Go performance optimization engineer.",
+			UserPrompt:   "How do I use strings.Builder with Grow() for zero-allocation string concatenation in Go, and why is it faster than bytes.Buffer or string concatenation (+)?",
+			Tags:         []string{"go", "performance", "memory-allocation"},
+		},
+		{
+			ID:           "code-go-fan-out-fan-in",
+			Category:     "coding",
+			SystemPrompt: "You are a Go concurrency expert.",
+			UserPrompt:   "Explain and implement the Fan-Out / Fan-In concurrency pattern in Go using channels, goroutines, and sync.WaitGroup.",
+			Tags:         []string{"go", "concurrency", "fan-out-fan-in", "channels"},
+		},
+
+		// Modern Frontend & TypeScript
+		{
+			ID:           "code-ts-discriminated-unions",
+			Category:     "coding",
+			SystemPrompt: "You are a TypeScript architect.",
+			UserPrompt:   "Explain TypeScript discriminated unions and how to implement exhaustive pattern matching using the 'never' type in switch statements.",
+			Tags:         []string{"typescript", "types", "discriminated-unions"},
+		},
+		{
+			ID:           "code-react-useeffect-cleanup",
+			Category:     "coding",
+			SystemPrompt: "You are a senior React and frontend performance expert.",
+			UserPrompt:   "How do I properly cancel async operations and prevent race conditions or memory leaks in React useEffect using AbortController and cleanup functions?",
+			Tags:         []string{"react", "hooks", "useeffect", "abortcontroller"},
+		},
+		{
+			ID:           "code-nextjs-rsc-vs-client",
+			Category:     "coding",
+			SystemPrompt: "You are a Next.js and full-stack web architect.",
+			UserPrompt:   "Explain the boundary and serialization rules between React Server Components (RSC) and Client Components ('use client') in Next.js App Router.",
+			Tags:         []string{"react", "nextjs", "rsc", "server-components"},
+		},
+	}
+}
+
+// getSecurityPrompts returns high-value security, authentication, and cryptography engineering prompts.
+func getSecurityPrompts() []PromptItem {
+	return []PromptItem{
+		{
+			ID:           "code-sec-jwt-refresh-rotation",
+			Category:     "security",
+			SystemPrompt: "You are an application security and authentication architect.",
+			UserPrompt:   "Explain JWT authentication architecture with short-lived access tokens, sliding refresh token rotation, and family-based revocation on reuse.",
+			Tags:         []string{"security", "auth", "jwt", "refresh-tokens"},
+		},
+		{
+			ID:           "code-sec-sql-injection",
+			Category:     "security",
+			SystemPrompt: "You are an application security specialist.",
+			UserPrompt:   "How does SQL injection occur, why is input escaping insufficient compared to parameterized prepared statements, and how do ORMs mitigate it?",
+			Tags:         []string{"security", "sql-injection", "owasp"},
+		},
+		{
+			ID:           "code-sec-password-hashing",
+			Category:     "security",
+			SystemPrompt: "You are a cryptography and security engineer.",
+			UserPrompt:   "What are the modern recommendations for secure password hashing (Argon2id vs bcrypt vs PBKDF2), and how should memory/time cost parameters be tuned?",
+			Tags:         []string{"security", "cryptography", "passwords", "argon2id"},
+		},
+		{
+			ID:           "code-sec-cors-csrf",
+			Category:     "security",
+			SystemPrompt: "You are a web application security engineer.",
+			UserPrompt:   "What are the fundamental differences between CORS and CSRF vulnerabilities, and how do SameSite cookies and custom request headers mitigate CSRF?",
+			Tags:         []string{"security", "csrf", "cors", "web-security"},
+		},
 	}
 }
 
@@ -224,6 +381,20 @@ func getDevOpsPrompts() []PromptItem {
 			UserPrompt:   "Write a complete GitHub Actions workflow for linting, testing with coverage, and compiling cross-platform binaries.",
 			Tags:         []string{"github-actions", "cicd"},
 		},
+		{
+			ID:           "devops-docker-scratch-go",
+			Category:     "devops",
+			SystemPrompt: "You are a DevOps and containerization specialist focusing on minimal image sizes and secure builds.",
+			UserPrompt:   "Provide an optimized multi-stage Dockerfile compiling Go into a minimal scratch image with CA certificates and non-root user.",
+			Tags:         []string{"docker", "go", "scratch", "security"},
+		},
+		{
+			ID:           "devops-k8s-probes",
+			Category:     "devops",
+			SystemPrompt: "You are a Kubernetes and cloud infrastructure architect.",
+			UserPrompt:   "Explain how to configure Kubernetes liveness, readiness, and startup probes with HTTP handlers, initialDelaySeconds, and periodSeconds.",
+			Tags:         []string{"kubernetes", "probes", "devops", "cloud"},
+		},
 	}
 }
 
@@ -257,6 +428,27 @@ func getGitPrompts() []PromptItem {
 			SystemPrompt: "You are a Git version control expert. Provide clean, safe terminal commands.",
 			UserPrompt:   "How do I squash multiple commits into a single commit using interactive rebase before creating a PR?",
 			Tags:         []string{"git", "rebase", "squash"},
+		},
+		{
+			ID:           "git-interactive-rebase-squash",
+			Category:     "git",
+			SystemPrompt: "You are a Git version control expert. Provide clean, safe terminal commands.",
+			UserPrompt:   "Provide a complete interactive rebase workflow for squashing multiple feature commits into a single clean commit with git rebase -i.",
+			Tags:         []string{"git", "rebase", "squash", "workflow"},
+		},
+		{
+			ID:           "git-resolve-merge-conflict",
+			Category:     "git",
+			SystemPrompt: "You are a Git version control expert. Provide clean, safe terminal commands.",
+			UserPrompt:   "Provide a step-by-step guide to identifying and resolving Git merge conflicts during a merge or rebase.",
+			Tags:         []string{"git", "merge", "conflicts", "diff"},
+		},
+		{
+			ID:           "git-stash-workflow",
+			Category:     "git",
+			SystemPrompt: "You are a Git version control expert. Provide clean, safe terminal commands.",
+			UserPrompt:   "Explain advanced Git stash workflows: saving with messages, stashing untracked files (-u), listing, inspecting, popping, and stashing to a new branch.",
+			Tags:         []string{"git", "stash", "workflow"},
 		},
 	}
 }

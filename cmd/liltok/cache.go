@@ -319,6 +319,36 @@ With --sanitize, private API keys, user home directory paths, and private IPs ar
 	}
 	importCmd.Flags().StringVarP(&importIn, "file", "f", "", "Path to .json.gz file")
 
-	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd)
+	seedCmd := &cobra.Command{
+		Use:   "seed",
+		Short: "Seed or update embedded starter cache entries into the local database",
+		Long:  `Unpacks the embedded starter cache pack and inserts/updates all canonical entries using INSERT OR REPLACE.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			dbPath := resolveDBPath()
+			database, err := db.Open(dbPath)
+			if err != nil {
+				return fmt.Errorf("failed to open database at %s: %w", dbPath, err)
+			}
+			defer database.Close()
+
+			seeded, err := database.ForceSeedStarterCache()
+			if err != nil {
+				return fmt.Errorf("failed to seed starter cache: %w", err)
+			}
+
+			var totalCount int
+			_ = database.QueryRowContext(cmd.Context(), "SELECT COUNT(*) FROM cache_entries").Scan(&totalCount)
+
+			fmt.Println("==================================================================")
+			fmt.Println(" liltok Starter Cache Seeder")
+			fmt.Printf(" Database:               %s\n", dbPath)
+			fmt.Printf(" Seeded/Updated Entries: %d\n", seeded)
+			fmt.Printf(" Total Active Entries:   %d\n", totalCount)
+			fmt.Println("==================================================================")
+			return nil
+		},
+	}
+
+	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, importCmd, seedCmd)
 	return cacheCmd
 }

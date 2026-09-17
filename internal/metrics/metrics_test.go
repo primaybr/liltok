@@ -19,6 +19,9 @@ func TestPrometheusExporter(t *testing.T) {
 	}
 	defer database.Close()
 
+	// Clear cold-start starter cache entries for clean test isolation
+	_, _ = database.Exec(`DELETE FROM cache_entries`)
+
 	// Seed some metrics rows
 	_, _ = database.Exec(`
 		INSERT INTO cache_entries (hash, model, normalized_prompt, response_payload)

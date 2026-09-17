@@ -88,3 +88,62 @@ func (d *DB) SeedStarterCache() (int, error) {
 
 	return inserted, nil
 }
+
+// ForceSeedStarterCache unpacks and inserts or replaces all embedded starter cache entries into the database.
+func (d *DB) ForceSeedStarterCache() (int, error) {
+	if len(starterCacheGz) == 0 {
+		return 0, nil
+	}
+
+	gzReader, err := gzip.NewReader(bytes.NewReader(starterCacheGz))
+	if err != nil {
+		return 0, fmt.Errorf("failed to decompress starter cache: %w", err)
+	}
+	defer gzReader.Close()
+
+	var items []StarterCacheItem
+	if err := json.NewDecoder(gzReader).Decode(&items); err != nil {
+		return 0, fmt.Errorf("failed to decode starter cache json: %w", err)
+	}
+
+	if len(items) == 0 {
+		return 0, nil
+	}
+
+	tx, err := d.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin starter seed transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	stmt, err := tx.Prepare(`
+		INSERT OR REPLACE INTO cache_entries (
+			hash, model, normalized_prompt, response_payload,
+			prompt_tokens, completion_tokens, hit_count,
+			created_at, last_accessed_at, ttl_seconds, is_pinned, is_semantic
+		) VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, 1, ?)
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prepare starter replace statement: %w", err)
+	}
+	defer stmt.Close()
+
+	seeded := 0
+	for _, item := range items {
+		isSemInt := 0
+		if item.IsSemantic {
+			isSemInt = 1
+		}
+		_, err := stmt.Exec(item.Hash, item.Model, item.NormalizedPrompt, []byte(item.ResponsePayload), item.PromptTokens, item.CompletionTokens, item.TTLSeconds, isSemInt)
+		if err == nil {
+			seeded++
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit starter seed transaction: %w", err)
+	}
+
+	return seeded, nil
+}
+
