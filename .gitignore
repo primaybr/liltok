@@ -1,0 +1,65 @@
+# Internal Documentation (Strictly Local)
+/docs/
+
+# Binaries and build artifacts
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# SQLite databases & WAL journals
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+data/
+storage/
+
+# Test artifacts & coverage reports
+coverage
+coverage/
+*.out
+coverage.html
+profile.pprof
+*.test
+
+# Local configurations & secrets
+*.local.yaml
+configs/*.yaml
+!configs/liltok.example.yaml
+liltok.yaml
+config.yaml
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.crt
+
+# Cache Mining & Data Dumps
+mined_cache*.json
+cache_export*.json
+corpus_*.json
+*.json.gz
+!internal/db/starter_cache.json.gz
+
+# Logs & Diagnostics
+*.log
+logs/
+debug.txt
+trace.out
+
+# Operating System & IDE metadata
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+scratch/
+tmp/
+temp/
+

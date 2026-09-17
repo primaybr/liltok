@@ -1,0 +1,44 @@
+# liltok Gateway Configuration
+server:
+  host: "127.0.0.1"
+  port: 8080
+  read_timeout_seconds: 60
+  write_timeout_seconds: 300
+
+storage:
+  db_path: "~/.liltok/liltok.db"
+  wal_mode: true
+
+cache:
+  l1_max_entries: 10000
+  default_ttl_seconds: 604800 # 7 days
+  cache_nonzero_temperature: false
+  semantic_cache_enabled: false
+  semantic_threshold: 0.95
+  prune_diffs: true
+
+log:
+  level: "info"
+  format: "console"
+
+providers:
+  openai:
+    api_key: ""
+    base_url: "https://api.openai.com/v1"
+  anthropic:
+    api_key: ""
+    base_url: "https://api.anthropic.com"
+  nvidianim:
+    api_key: ""
+    base_url: "https://integrate.api.nvidia.com/v1"
+  groq:
+    api_key: ""
+    base_url: "https://api.groq.com/openai/v1"
+  gemini:
+    api_key: ""
+    base_url: "https://generativelanguage.googleapis.com"
+  ollama:
+    base_url: "http://localhost:11434"
+
+routes:
+  default_strategy: "auto-resilient" # "auto-resilient" | "free-first" | "premium-only"
