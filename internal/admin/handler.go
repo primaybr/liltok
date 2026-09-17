@@ -89,6 +89,8 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		"uptime_seconds":   int64(time.Since(h.startTime).Seconds()),
 		"total_requests":   overview.TotalRequests,
 		"total_hits":       overview.TotalHits,
+		"local_hits":       overview.LocalHits,
+		"model_cache_hits": overview.ModelCacheHits,
 		"hit_rate_percent": overview.HitRatePercent,
 		"total_cost_usd":   overview.TotalCostUSD,
 		"total_saved_usd":  overview.TotalSavedUSD,

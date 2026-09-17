@@ -114,3 +114,76 @@ func TestAnthropicStreamCollector_EmptyStream(t *testing.T) {
 		t.Errorf("expected HasContent to be false for empty stream")
 	}
 }
+
+func TestAnthropicStreamCollector_PromptCacheTokens(t *testing.T) {
+	c := NewAnthropicStreamCollector()
+
+	// Simulate Anthropic prompt cache hit in message_start
+	c.FeedLine(`{"type":"message_start","message":{"id":"msg_cache123","type":"message","role":"assistant","content":[],"model":"claude-3-5-sonnet-20241022","usage":{"input_tokens":41409,"output_tokens":0,"cache_read_input_tokens":40000,"cache_creation_input_tokens":1409}}}`)
+	c.FeedLine(`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`)
+	c.FeedLine(`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Cache read verified."}}`)
+	c.FeedLine(`{"type":"content_block_stop","index":0}`)
+	c.FeedLine(`{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":17}}`)
+	c.FeedLine(`{"type":"message_stop"}`)
+
+	if !c.HasContent() {
+		t.Fatalf("expected HasContent to be true")
+	}
+
+	payload, inTokens, outTokens := c.BuildMessage("claude-3-5-sonnet-20241022")
+	if inTokens != 41409 || outTokens != 17 {
+		t.Errorf("expected 41409 in, 17 out; got %d in, %d out", inTokens, outTokens)
+	}
+
+	var msg struct {
+		Usage struct {
+			InputTokens              int `json:"input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(payload, &msg); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	if msg.Usage.CacheReadInputTokens != 40000 {
+		t.Errorf("expected cache_read_input_tokens 40000, got %d", msg.Usage.CacheReadInputTokens)
+	}
+	if msg.Usage.CacheCreationInputTokens != 1409 {
+		t.Errorf("expected cache_creation_input_tokens 1409, got %d", msg.Usage.CacheCreationInputTokens)
+	}
+}
+
+func TestOpenAIStreamCollector_CachedTokens(t *testing.T) {
+	c := NewOpenAIStreamCollector()
+
+	c.FeedLine(`{"id":"chatcmpl-stream1","object":"chat.completion.chunk","model":"gpt-4o","choices":[{"index":0,"delta":{"content":"Hello world!"}}]}`)
+	c.FeedLine(`{"id":"chatcmpl-stream1","object":"chat.completion.chunk","model":"gpt-4o","choices":[],"usage":{"prompt_tokens":1000,"completion_tokens":25,"prompt_tokens_details":{"cached_tokens":800}}}`)
+	c.FeedLine(`[DONE]`)
+
+	if !c.HasContent() {
+		t.Fatalf("expected HasContent to be true")
+	}
+
+	payload := c.BuildCompletion("gpt-4o")
+
+	var obj struct {
+		Usage struct {
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+		} `json:"usage"`
+	}
+
+	if err := json.Unmarshal(payload, &obj); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	if obj.Usage.PromptTokensDetails.CachedTokens != 800 {
+		t.Errorf("expected cached_tokens 800, got %d", obj.Usage.PromptTokensDetails.CachedTokens)
+	}
+}

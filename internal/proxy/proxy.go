@@ -573,14 +573,24 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				}
 			}
 
+			var cachedTokens int
+			extPrompt, extComp, extCached := extractUsage(payloadBytes, modelName)
 			if pTokens == 0 {
-				pTokens, cTokens, _ = extractUsage(payloadBytes, modelName)
+				pTokens = extPrompt
 			}
+			if cTokens == 0 {
+				cTokens = extComp
+			}
+			cachedTokens = extCached
+
 			if pTokens == 0 && normReq != nil {
 				pTokens = tokens.CountTokens(modelName, normReq.CanonicalJSON)
 			}
 			tier := "NONE"
-			costUSD, savedUSD := p.pricingReg.Calculate(modelName, pTokens, cTokens, 0, "MISS", tier)
+			if cachedTokens > 0 {
+				tier = "TIER2_PREFIX"
+			}
+			costUSD, savedUSD := p.pricingReg.Calculate(modelName, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 			p.recordLog(&ledger.RequestLog{
 				RequestID:        reqID,
@@ -591,7 +601,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				CacheTier:        tier,
 				PromptTokens:     pTokens,
 				CompletionTokens: cTokens,
-				CachedTokens:     0,
+				CachedTokens:     cachedTokens,
 				LatencyMs:        duration.Milliseconds(),
 				CostUSD:          costUSD,
 				SavedUSD:         savedUSD,
@@ -686,11 +696,14 @@ func extractUsage(body []byte, model string) (promptTokens, completionTokens, ca
 
 	var obj struct {
 		Usage struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			InputTokens      int `json:"input_tokens"`
-			OutputTokens     int `json:"output_tokens"`
-			CacheReadTokens  int `json:"cache_read_input_tokens"`
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			InputTokens         int `json:"input_tokens"`
+			OutputTokens        int `json:"output_tokens"`
+			CacheReadTokens     int `json:"cache_read_input_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
 		Choices []struct {
 			Message struct {
@@ -712,6 +725,9 @@ func extractUsage(body []byte, model string) (promptTokens, completionTokens, ca
 			cTok = obj.Usage.OutputTokens
 		}
 		cachedTok := obj.Usage.CacheReadTokens
+		if cachedTok == 0 {
+			cachedTok = obj.Usage.PromptTokensDetails.CachedTokens
+		}
 
 		if cTok == 0 {
 			var text string
