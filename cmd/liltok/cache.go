@@ -173,16 +173,7 @@ using HTTP conditional GET (ETag). Merges new entries seamlessly into your local
 
 			syncURL := syncURLFlag
 			if syncURL == "" {
-				cfgPath := configPath
-				if cfgPath == "" {
-					home, err := os.UserHomeDir()
-					if err == nil {
-						candidate := filepath.Join(home, ".liltok", "liltok.yaml")
-						if _, err := os.Stat(candidate); err == nil {
-							cfgPath = candidate
-						}
-					}
-				}
+				cfgPath := resolveConfigPath(configPath)
 				if cfg, err := config.Load(cfgPath); err == nil && cfg.Cache.SyncURL != "" {
 					syncURL = cfg.Cache.SyncURL
 				} else {
@@ -277,8 +268,7 @@ With --encrypt, the pack is encrypted with the maintainer public key using X2551
 			if exportEncrypt {
 				pubKeyStr := exportPubKey
 				if pubKeyStr == "" {
-					home, _ := os.UserHomeDir()
-					cfgPath := filepath.Join(home, ".liltok", "liltok.yaml")
+					cfgPath := resolveConfigPath(configPath)
 					if cfg, err := config.Load(cfgPath); err == nil && cfg.Maintainer.PublicKey != "" {
 						pubKeyStr = cfg.Maintainer.PublicKey
 					} else if crypto.DefaultMaintainerPublicKey != "" {

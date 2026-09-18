@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -58,16 +57,7 @@ compiler/runtime errors, algorithms, and workspace-specific libraries at $0.00 c
 			defer database.Close()
 
 			// Load config to check for provider keys
-			cfgPath := configPath
-			if cfgPath == "" {
-				home, err := os.UserHomeDir()
-				if err == nil {
-					candidate := filepath.Join(home, ".liltok", "liltok.yaml")
-					if _, err := os.Stat(candidate); err == nil {
-						cfgPath = candidate
-					}
-				}
-			}
+			cfgPath := resolveConfigPath(configPath)
 			cfg, _ := config.Load(cfgPath)
 
 			// 2. Resolve provider API key
@@ -75,6 +65,11 @@ compiler/runtime errors, algorithms, and workspace-specific libraries at $0.00 c
 			apiKey := apiKeyFlag
 			if apiKey == "" && cfg != nil {
 				switch providerName {
+				case "openrouter":
+					apiKey = cfg.Providers.OpenRouter.APIKey
+					if apiKey == "" {
+						apiKey = os.Getenv("OPENROUTER_API_KEY")
+					}
 				case "groq":
 					apiKey = cfg.Providers.Groq.APIKey
 					if apiKey == "" {

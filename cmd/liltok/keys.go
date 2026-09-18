@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 
 	"github.com/primaybr/liltok/internal/config"
@@ -14,16 +13,7 @@ import (
 )
 
 func resolveDBPath() string {
-	cfgPath := configPath
-	if cfgPath == "" {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			candidate := filepath.Join(home, ".liltok", "liltok.yaml")
-			if _, err := os.Stat(candidate); err == nil {
-				cfgPath = candidate
-			}
-		}
-	}
+	cfgPath := resolveConfigPath(configPath)
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return "~/.liltok/liltok.db"

@@ -51,6 +51,8 @@ func DefaultPricingRules() []ModelPricing {
 		{ModelPattern: `^openai/gpt-oss-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^llama-3.3-70b-versatile.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^gemini-.*`, Provider: "gemini", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^openrouter/.*`, Provider: "openrouter", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `.*:free$`, Provider: "openrouter", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^ollama/.*`, Provider: "ollama", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 	}
 
@@ -189,7 +191,7 @@ func (pr *PricingRegistry) Calculate(model string, promptTokens, completionToken
 // CalculateDetailedForRouting computes detailed breakdown when a requested model is fulfilled by a specific provider.
 func (pr *PricingRegistry) CalculateDetailedForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) CostBreakdown {
 	prov := strings.ToLower(fulfillingProvider)
-	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "free"
+	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "openrouter" || prov == "free"
 
 	if isFree {
 		savedUSD := 0.0

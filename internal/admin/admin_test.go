@@ -35,7 +35,7 @@ func setupAdminTest(t *testing.T) (*chi.Mux, *db.DB, *admin.AdminHandler) {
 
 	handler := admin.NewAdminHandler(cfg, database, led, km, rtr, nil, broadcaster)
 	tempConfigFile := filepath.Join(t.TempDir(), "liltok.yaml")
-	_ = os.WriteFile(tempConfigFile, []byte("providers:\n  openai:\n    api_key: \"\"\n  anthropic:\n    api_key: \"\"\n  nvidianim:\n    api_key: \"\"\n  groq:\n    api_key: \"\"\n  gemini:\n    api_key: \"\"\n  ollama:\n    base_url: \"http://localhost:11434\"\nroutes:\n  default_strategy: \"auto-resilient\"\n"), 0644)
+	_ = os.WriteFile(tempConfigFile, []byte("providers:\n  openai:\n    api_key: \"\"\n  anthropic:\n    api_key: \"\"\n  nvidianim:\n    api_key: \"\"\n  groq:\n    api_key: \"\"\n  gemini:\n    api_key: \"\"\n  openrouter:\n    api_key: \"\"\n  ollama:\n    base_url: \"http://localhost:11434\"\nroutes:\n  default_strategy: \"auto-resilient\"\n"), 0644)
 	handler.SetConfigPath(tempConfigFile)
 
 	r := chi.NewRouter()
@@ -270,7 +270,7 @@ func TestAdminProvidersEndpoints(t *testing.T) {
 	}
 
 	// 2. Update Providers
-	body := `{"providers":{"groq":{"api_key":"gsk_test_key_1234567890"},"gemini":{"api_key":"gem1,gem2"}}}`
+	body := `{"providers":{"groq":{"api_key":"gsk_test_key_1234567890"},"gemini":{"api_key":"gem1,gem2"},"openrouter":{"api_key":"sk-or-v1-testkey123456789"}}}`
 	reqUp := httptest.NewRequest("POST", "/api/v1/providers", strings.NewReader(body))
 	reqUp.Header.Set("Content-Type", "application/json")
 	recUp := httptest.NewRecorder()
@@ -298,6 +298,11 @@ func TestAdminProvidersEndpoints(t *testing.T) {
 		if p.Name == "gemini" {
 			if p.KeyCount != 2 {
 				t.Errorf("expected 2 gemini keys, got %d", p.KeyCount)
+			}
+		}
+		if p.Name == "openrouter" {
+			if !p.HasKey || !strings.Contains(p.APIKeyMasked, "••••••••") {
+				t.Errorf("expected openrouter key to be masked, got %q", p.APIKeyMasked)
 			}
 		}
 	}
@@ -360,3 +365,153 @@ func TestBroadcaster(t *testing.T) {
 		t.Errorf("expected 0 clients after disconnect, got %d", count)
 	}
 }
+
+func TestAdminAnalytics(t *testing.T) {
+	r, database, _ := setupAdminTest(t)
+	defer database.Close()
+
+	ctx := context.Background()
+	_, err := database.ExecContext(ctx, `
+		INSERT INTO request_logs (
+			request_id, timestamp, model, requested_model, provider,
+			cache_status, cache_tier, prompt_tokens, completion_tokens,
+			cached_tokens, latency_ms, cost_usd, prompt_cost_usd, completion_cost_usd, saved_usd, status_code
+		) VALUES 
+		('req_1', datetime('now', '-2 hours'), 'claude-sonnet-5', 'claude-sonnet-5', 'anthropic', 'HIT', 'TIER1_EXACT', 100, 20, 0, 150, 0.0, 0.0, 0.0, 0.05, 200),
+		('req_2', datetime('now', '-1 hour'), 'gemini-3.8-flash', 'claude-sonnet-5', 'gemini', 'MISS', 'NONE', 500, 50, 0, 800, 0.001, 0.0008, 0.0002, 0.25, 200)
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert mock logs: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/analytics?range=24h", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode json: %v", err)
+	}
+
+	if resp["range"] != "24h" {
+		t.Errorf("expected range 24h, got %v", resp["range"])
+	}
+	if _, ok := resp["time_series"]; !ok {
+		t.Errorf("expected time_series in analytics response")
+	}
+	if _, ok := resp["providers"]; !ok {
+		t.Errorf("expected providers in analytics response")
+	}
+	if _, ok := resp["percentiles"]; !ok {
+		t.Errorf("expected percentiles in analytics response")
+	}
+}
+
+func TestAdminQueryAndExportLogs(t *testing.T) {
+	r, database, _ := setupAdminTest(t)
+	defer database.Close()
+
+	ctx := context.Background()
+	_, _ = database.ExecContext(ctx, `
+		INSERT INTO request_logs (
+			request_id, timestamp, model, requested_model, provider,
+			cache_status, cache_tier, prompt_tokens, completion_tokens,
+			cached_tokens, latency_ms, cost_usd, prompt_cost_usd, completion_cost_usd, saved_usd, status_code
+		) VALUES 
+		('req_a1', datetime('now', '-5 minutes'), 'claude-sonnet-5', 'claude-sonnet-5', 'cache-local', 'HIT', 'TIER1_EXACT', 200, 40, 0, 10, 0.0, 0.0, 0.0, 0.10, 200),
+		('req_a2', datetime('now', '-2 minutes'), 'gemini-3.8-flash', 'claude-sonnet-5', 'gemini', 'MISS', 'NONE', 1000, 100, 0, 500, 0.005, 0.004, 0.001, 0.50, 200)
+	`)
+
+	// Test Query
+	req := httptest.NewRequest("GET", "/api/v1/logs/query?page=1&page_size=10&provider=gemini", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var queryData struct {
+		Page       int                      `json:"page"`
+		TotalCount int64                    `json:"total_count"`
+		Logs       []*ledger.RequestLog     `json:"logs"`
+		Summary    map[string]interface{}   `json:"summary"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &queryData); err != nil {
+		t.Fatalf("failed to decode json: %v", err)
+	}
+
+	if queryData.TotalCount != 1 {
+		t.Errorf("expected 1 filtered log, got %d", queryData.TotalCount)
+	}
+	if len(queryData.Logs) != 1 || queryData.Logs[0].Provider != "gemini" {
+		t.Errorf("expected log for provider gemini")
+	}
+
+	// Test Export CSV
+	reqCSV := httptest.NewRequest("GET", "/api/v1/logs/export?format=csv", nil)
+	recCSV := httptest.NewRecorder()
+	r.ServeHTTP(recCSV, reqCSV)
+
+	if recCSV.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recCSV.Code)
+	}
+	if !strings.Contains(recCSV.Body.String(), "req_a1") {
+		t.Errorf("expected CSV to contain req_a1")
+	}
+
+	// Test Export JSON
+	reqJSON := httptest.NewRequest("GET", "/api/v1/logs/export?format=json", nil)
+	recJSON := httptest.NewRecorder()
+	r.ServeHTTP(recJSON, reqJSON)
+
+	if recJSON.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recJSON.Code)
+	}
+	if !strings.Contains(recJSON.Body.String(), "req_a1") {
+		t.Errorf("expected JSON to contain req_a1")
+	}
+}
+
+func TestAdminSystemDiagnosticsAndVacuum(t *testing.T) {
+	r, database, _ := setupAdminTest(t)
+	defer database.Close()
+
+	// Diagnostics
+	req := httptest.NewRequest("GET", "/api/v1/system", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+
+	var sysData map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &sysData); err != nil {
+		t.Fatalf("failed to decode system json: %v", err)
+	}
+
+	if _, ok := sysData["runtime"]; !ok {
+		t.Errorf("expected runtime stats in system diagnostics")
+	}
+	if _, ok := sysData["database"]; !ok {
+		t.Errorf("expected database stats in system diagnostics")
+	}
+	if _, ok := sysData["circuit_breakers"]; !ok {
+		t.Errorf("expected circuit_breakers in system diagnostics")
+	}
+
+	// Vacuum
+	reqVac := httptest.NewRequest("POST", "/api/v1/system/vacuum", nil)
+	recVac := httptest.NewRecorder()
+	r.ServeHTTP(recVac, reqVac)
+
+	if recVac.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", recVac.Code)
+	}
+}
+

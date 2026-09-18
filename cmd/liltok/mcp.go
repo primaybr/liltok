@@ -261,6 +261,8 @@ func callLiltokChat(gatewayURL, model, system, prompt, apiKey string) toolCallRe
 			apiKey = os.Getenv("GROQ_API_KEY")
 		} else if strings.Contains(lowerModel, "gemini") {
 			apiKey = os.Getenv("GEMINI_API_KEY")
+		} else if strings.Contains(lowerModel, "openrouter") {
+			apiKey = os.Getenv("OPENROUTER_API_KEY")
 		} else {
 			apiKey = os.Getenv("OPENAI_API_KEY")
 		}

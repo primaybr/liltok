@@ -63,6 +63,14 @@ func NewGroqAdapter(apiKey string) *Adapter {
 	return NewAdapter("groq", provider.TierFree, "https://api.groq.com/openai/v1", apiKey)
 }
 
+// NewOpenRouterAdapter creates an adapter for OpenRouter's free and routing endpoints.
+func NewOpenRouterAdapter(apiKey, baseURL string) *Adapter {
+	if baseURL == "" {
+		baseURL = "https://openrouter.ai/api/v1"
+	}
+	return NewAdapter("openrouter", provider.TierFree, baseURL, apiKey)
+}
+
 // NewOllamaAdapter creates an adapter for local offline Ollama endpoints.
 func NewOllamaAdapter(baseURL string) *Adapter {
 	if baseURL == "" {
@@ -102,6 +110,10 @@ func (a *Adapter) CheckHealth(ctx context.Context) (bool, error) {
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
+	if name == "openrouter" {
+		req.Header.Set("HTTP-Referer", "https://github.com/primaybr/liltok")
+		req.Header.Set("X-Title", "liltok")
+	}
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
 		return false, fmt.Errorf("%s connection failed: %w", name, err)
@@ -136,6 +148,10 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	httpReq.Header.Set("Content-Type", "application/json")
 	if apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	if a.name == "openrouter" {
+		httpReq.Header.Set("HTTP-Referer", "https://github.com/primaybr/liltok")
+		httpReq.Header.Set("X-Title", "liltok")
 	}
 
 	start := time.Now()
@@ -242,6 +258,10 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 	httpReq.Header.Set("Content-Type", "application/json")
 	if a.apiKey != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+	}
+	if a.name == "openrouter" {
+		httpReq.Header.Set("HTTP-Referer", "https://github.com/primaybr/liltok")
+		httpReq.Header.Set("X-Title", "liltok")
 	}
 
 	resp, err := a.httpClient.Do(httpReq)

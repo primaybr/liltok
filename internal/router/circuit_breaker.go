@@ -145,3 +145,32 @@ func (cb *CircuitBreaker) Reset() {
 	cb.consecutiveSuccesses = 0
 	cb.currentCooldown = cb.cooldownDuration
 }
+
+// CircuitBreakerSnapshot represents an immutable status view for diagnostics.
+type CircuitBreakerSnapshot struct {
+	Name                string       `json:"name"`
+	State               CircuitState `json:"state"`
+	ConsecutiveFailures int          `json:"consecutive_failures"`
+	CooldownRemaining   float64      `json:"cooldown_remaining_seconds"`
+}
+
+// Snapshot returns a thread-safe diagnostic representation of the circuit breaker.
+func (cb *CircuitBreaker) Snapshot() CircuitBreakerSnapshot {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	var remaining float64
+	if cb.state == StateOpen {
+		elapsed := time.Since(cb.lastTrippedAt)
+		if elapsed < cb.currentCooldown {
+			remaining = (cb.currentCooldown - elapsed).Seconds()
+		}
+	}
+
+	return CircuitBreakerSnapshot{
+		Name:                cb.name,
+		State:               cb.state,
+		ConsecutiveFailures: cb.consecutiveFailures,
+		CooldownRemaining:   remaining,
+	}
+}

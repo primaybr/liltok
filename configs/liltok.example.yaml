@@ -37,6 +37,9 @@ providers:
   gemini:
     api_key: ""
     base_url: "https://generativelanguage.googleapis.com"
+  openrouter:
+    api_key: ""
+    base_url: "https://openrouter.ai/api/v1"
   ollama:
     base_url: "http://localhost:11434"
 

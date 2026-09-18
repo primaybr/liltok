@@ -361,3 +361,61 @@ func TestRouterContextAwareTargetOrdering(t *testing.T) {
 		t.Errorf("unexpected response: %s", resp.Content)
 	}
 }
+
+func TestRouterOpenRouterResolutionAndDispatch(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	// Verify openrouter is registered in providers
+	if _, ok := r.GetProvider("openrouter"); !ok {
+		t.Fatalf("expected openrouter provider to be registered")
+	}
+
+	// Verify openrouter/free targets
+	targets := r.ResolveTargets("openrouter/free", "")
+	if len(targets) == 0 || targets[0].ProviderName != "openrouter" {
+		t.Fatalf("expected openrouter primary target for openrouter/free, got %v", targets)
+	}
+
+	// Verify openrouter is part of free-first fallback targets
+	freeTargets := r.ResolveTargets("free-first", "")
+	foundOR := false
+	for _, tgt := range freeTargets {
+		if tgt.ProviderName == "openrouter" && tgt.UpstreamModel == "openrouter/free" {
+			foundOR = true
+			break
+		}
+	}
+	if !foundOR {
+		t.Errorf("expected openrouter/free in free-first targets, got %v", freeTargets)
+	}
+
+	// Test dispatch to mock openrouter
+	r.providers["openrouter"] = &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "or-test-id",
+			Model:   "openrouter/free",
+			Content: "hello from openrouter",
+		},
+	}
+
+	req := &provider.UnifiedChatRequest{
+		Model: "openrouter/free",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "hi"},
+		},
+	}
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("unexpected dispatch error: %v", err)
+	}
+	if winProv != "openrouter" {
+		t.Errorf("expected winning provider openrouter, got %s", winProv)
+	}
+	if resp.Content != "hello from openrouter" {
+		t.Errorf("expected content 'hello from openrouter', got %s", resp.Content)
+	}
+}
+
