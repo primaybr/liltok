@@ -135,7 +135,7 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	model := req.Model
 	cleanModel := strings.TrimPrefix(model, "models/")
 	if cleanModel == "gemini-flash-latest" || cleanModel == "gemini-1.5-flash" || cleanModel == "gemini-2.5-flash" || cleanModel == "gemini-flash" {
-		model = "gemini-3.6-flash"
+		model = "gemini-3.8-flash"
 	}
 	if !strings.HasPrefix(model, "models/") {
 		model = "models/" + model
