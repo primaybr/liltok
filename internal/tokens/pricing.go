@@ -44,6 +44,8 @@ func DefaultPricingRules() []ModelPricing {
 		{ModelPattern: `^meta/llama-3.3-70b-instruct.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^meta/llama-3.2-11b-vision-instruct.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^meta/llama-.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^nvidia/nemotron-.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^poolside/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^deepseek-ai/deepseek-r1.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^qwen/.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^openai/gpt-oss-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
