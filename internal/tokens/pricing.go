@@ -129,20 +129,32 @@ func (pr *PricingRegistry) FindPricing(model string) ModelPricing {
 	}
 }
 
-// Calculate computes exact financial cost and dollars saved based on token consumption and cache status.
-func (pr *PricingRegistry) Calculate(model string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) (costUSD float64, savedUSD float64) {
+// CostBreakdown provides granular financial accounting for prompt and completion tokens.
+type CostBreakdown struct {
+	PromptCostUSD     float64 `json:"prompt_cost_usd"`
+	CompletionCostUSD float64 `json:"completion_cost_usd"`
+	TotalCostUSD      float64 `json:"total_cost_usd"`
+	SavedUSD          float64 `json:"saved_usd"`
+}
+
+// CalculateDetailed computes granular cost breakdown and dollars saved based on token consumption.
+func (pr *PricingRegistry) CalculateDetailed(model string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) CostBreakdown {
 	pricing := pr.FindPricing(model)
 
 	// Free tier models cost $0.00
-	if pricing.Tier == "free" || pricing.InputCostPerM == 0 && pricing.OutputCostPerM == 0 {
-		return 0.0, 0.0
+	if pricing.Tier == "free" || (pricing.InputCostPerM == 0 && pricing.OutputCostPerM == 0) {
+		return CostBreakdown{}
 	}
 
 	// 1. Exact or Semantic Cache Hit: Upstream cost is $0.00, saved is 100% of input + completion cost
 	if cacheStatus == "HIT" && (cacheTier == "TIER1_EXACT" || cacheTier == "TIER3_SEMANTIC") {
-		costUSD = 0.0
-		savedUSD = (float64(promptTokens)*pricing.InputCostPerM + float64(completionTokens)*pricing.OutputCostPerM) / 1_000_000.0
-		return round6(costUSD), round6(savedUSD)
+		saved := (float64(promptTokens)*pricing.InputCostPerM + float64(completionTokens)*pricing.OutputCostPerM) / 1_000_000.0
+		return CostBreakdown{
+			PromptCostUSD:     0.0,
+			CompletionCostUSD: 0.0,
+			TotalCostUSD:      0.0,
+			SavedUSD:          round6(saved),
+		}
 	}
 
 	// 2. Standard Upstream Execution (with potential Tier-2 Prefix Cache Hit)
@@ -153,34 +165,56 @@ func (pr *PricingRegistry) Calculate(model string, promptTokens, completionToken
 
 	promptCost := (float64(regularPromptTokens)*pricing.InputCostPerM + float64(cachedTokens)*pricing.CachedInputCostPerM) / 1_000_000.0
 	completionCost := (float64(completionTokens) * pricing.OutputCostPerM) / 1_000_000.0
-	costUSD = promptCost + completionCost
+	savedUSD := 0.0
 
 	// Dollars saved from prefix cache discount
 	if cachedTokens > 0 && pricing.InputCostPerM > pricing.CachedInputCostPerM {
 		savedUSD = (float64(cachedTokens) * (pricing.InputCostPerM - pricing.CachedInputCostPerM)) / 1_000_000.0
 	}
 
-	return round6(costUSD), round6(savedUSD)
+	return CostBreakdown{
+		PromptCostUSD:     round6(promptCost),
+		CompletionCostUSD: round6(completionCost),
+		TotalCostUSD:      round6(promptCost + completionCost),
+		SavedUSD:          round6(savedUSD),
+	}
+}
+
+// Calculate computes exact financial cost and dollars saved based on token consumption and cache status.
+func (pr *PricingRegistry) Calculate(model string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) (costUSD float64, savedUSD float64) {
+	b := pr.CalculateDetailed(model, promptTokens, completionTokens, cachedTokens, cacheStatus, cacheTier)
+	return b.TotalCostUSD, b.SavedUSD
+}
+
+// CalculateDetailedForRouting computes detailed breakdown when a requested model is fulfilled by a specific provider.
+func (pr *PricingRegistry) CalculateDetailedForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) CostBreakdown {
+	prov := strings.ToLower(fulfillingProvider)
+	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "free"
+
+	if isFree {
+		savedUSD := 0.0
+		pricing := pr.FindPricing(requestedModel)
+		if pricing.Tier != "free" {
+			baselineCost := (float64(promptTokens)*pricing.InputCostPerM + float64(completionTokens)*pricing.OutputCostPerM) / 1_000_000.0
+			savedUSD = baselineCost
+		}
+		return CostBreakdown{
+			PromptCostUSD:     0.0,
+			CompletionCostUSD: 0.0,
+			TotalCostUSD:      0.0,
+			SavedUSD:          round6(savedUSD),
+		}
+	}
+
+	return pr.CalculateDetailed(requestedModel, promptTokens, completionTokens, cachedTokens, cacheStatus, cacheTier)
 }
 
 // CalculateForRouting computes cost and savings when a requested model is fulfilled by a specific provider.
 // If the fulfilling provider is a free-tier provider (gemini, groq, nvidianim, ollama), actual cost is $0.00
 // and saved USD is the baseline commercial cost of executing that requested model.
 func (pr *PricingRegistry) CalculateForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) (costUSD float64, savedUSD float64) {
-	prov := strings.ToLower(fulfillingProvider)
-	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "free"
-
-	if isFree {
-		costUSD = 0.0
-		pricing := pr.FindPricing(requestedModel)
-		if pricing.Tier != "free" {
-			baselineCost := (float64(promptTokens)*pricing.InputCostPerM + float64(completionTokens)*pricing.OutputCostPerM) / 1_000_000.0
-			savedUSD = baselineCost
-		}
-		return round6(costUSD), round6(savedUSD)
-	}
-
-	return pr.Calculate(requestedModel, promptTokens, completionTokens, cachedTokens, cacheStatus, cacheTier)
+	b := pr.CalculateDetailedForRouting(requestedModel, fulfillingProvider, promptTokens, completionTokens, cachedTokens, cacheStatus, cacheTier)
+	return b.TotalCostUSD, b.SavedUSD
 }
 
 func round6(val float64) float64 {

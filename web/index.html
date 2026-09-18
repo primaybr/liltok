@@ -50,12 +50,21 @@
     .btn-secondary { background: var(--border); color: var(--text); }
     .btn-danger { background: #e11d48; color: #fff; }
     .btn:hover { opacity: 0.9; }
+    .badge-est { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); vertical-align: middle; margin-left: 4px; }
+    .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; display: flex; flex-direction: column; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .chart-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .chart-subtitle { font-size: 11px; color: var(--muted); }
+    .chart-body { flex: 1; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+    .btn-clear { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+    .btn-clear:hover { background: rgba(239, 68, 68, 0.22); border-color: rgba(239, 68, 68, 0.5); }
     .table-container { overflow-x: auto; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); justify-content: center; align-items: center; z-index: 999; }
     .modal.show { display: flex; }
-    .modal-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; width: 480px; padding: 24px; }
+    .modal-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; width: 480px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
     .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
     .form-input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font); }
@@ -70,6 +79,10 @@
         <span class="logo-badge">Gateway</span>
       </div>
       <div class="header-right">
+        <button class="btn-clear" onclick="confirmClearLogs()" title="Reset all monitoring request logs">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+          Clear Logs
+        </button>
         <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);">
           <span style="font-size: 11px; color: var(--muted); text-transform: uppercase; font-weight: 600;">Priority:</span>
           <select id="header-strategy-select" onchange="changeRouteStrategy(this.value)" style="background: transparent; color: var(--text); border: none; font-size: 12px; font-weight: 600; cursor: pointer; outline: none;">
@@ -96,33 +109,114 @@
 
     <!-- OVERVIEW TAB -->
     <div id="tab-overview" class="tab-content active">
-      <div class="grid-stats">
+      <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
         <div class="card">
-          <div class="card-title">Total Requests</div>
-          <div class="card-value" id="stat-requests">0</div>
-          <div class="card-sub" id="stat-latency">Avg Latency: 0ms</div>
+          <div class="card-title">Tokens In (Prompts)</div>
+          <div class="card-value" id="stat-tokens-in" style="color: #60a5fa;">0</div>
+          <div class="card-sub" id="stat-spend-in">Est. Spend: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tokens Out (Completions)</div>
+          <div class="card-value" id="stat-tokens-out" style="color: #a78bfa;">0</div>
+          <div class="card-sub" id="stat-spend-out">Est. Spend: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Total Token Spend <span class="badge-est">ESTIMATED</span></div>
+          <div class="card-value" id="stat-spend">$0.0000</div>
+          <div class="card-sub" id="stat-spend-breakdown">In: $0.0000 | Out: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Net Savings <span class="badge-est">ESTIMATED</span></div>
+          <div class="card-value" id="stat-saved" style="color: #34d399;">$0.0000</div>
+          <div class="card-sub" id="stat-gross-spend">Baseline Gross: $0.0000</div>
         </div>
         <div class="card">
           <div class="card-title">Cache Optimization Rate</div>
           <div class="card-value" id="stat-hitrate" style="color: #34d399;">0.0%</div>
           <div class="card-sub" id="stat-hits">0 Local (0ms) | 0 Model KV | 0 Miss</div>
         </div>
-        <div class="card">
-          <div class="card-title">Total Dollars Saved</div>
-          <div class="card-value" id="stat-saved" style="color: #34d399;">$0.0000</div>
-          <div class="card-sub">Eliminated upstream fees</div>
+      </div>
+
+      <div class="grid-charts">
+        <!-- Chart 1: Latency & Throughput Trend -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Inference Activity &amp; Latency</span>
+            <span class="chart-subtitle" id="chart-sparkline-sub">Recent requests</span>
+          </div>
+          <div class="chart-body" style="flex-direction: column; align-items: stretch;">
+            <svg id="svg-sparkline" width="100%" height="100" viewBox="0 0 360 100" style="overflow: visible;">
+              <defs>
+                <linearGradient id="grad-sparkline" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <line x1="0" y1="25" x2="360" y2="25" stroke="#27272a" stroke-dasharray="3,3" />
+              <line x1="0" y1="50" x2="360" y2="50" stroke="#27272a" stroke-dasharray="3,3" />
+              <line x1="0" y1="75" x2="360" y2="75" stroke="#27272a" stroke-dasharray="3,3" />
+              <path id="sparkline-area" d="" fill="url(#grad-sparkline)" />
+              <path id="sparkline-path" d="" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 8px;">
+              <span>Activity: <strong id="trend-count" style="color: var(--text);">0 calls</strong></span>
+              <span>Avg Latency: <strong id="trend-avg" style="color: #38bdf8;">0ms</strong></span>
+              <span>Peak: <strong id="trend-max" style="color: #fb7185;">0ms</strong></span>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-title">Gross Spend</div>
-          <div class="card-value" id="stat-spend">$0.0000</div>
-          <div class="card-sub" id="stat-entries">0 Cache Entries</div>
+
+        <!-- Chart 2: Cache Tier Distribution -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Cache Tier Distribution</span>
+            <span class="chart-subtitle">Hit &amp; Routing Mix</span>
+          </div>
+          <div class="chart-body" style="gap: 16px;">
+            <div style="width: 110px; height: 110px; flex-shrink: 0; position: relative;">
+              <svg id="svg-donut" width="110" height="110" viewBox="0 0 110 110">
+                <circle cx="55" cy="55" r="42" fill="none" stroke="#27272a" stroke-width="12" />
+                <circle id="donut-t1" cx="55" cy="55" r="42" fill="none" stroke="#34d399" stroke-width="12" stroke-dasharray="0 264" stroke-dashoffset="0" />
+                <circle id="donut-t2" cx="55" cy="55" r="42" fill="none" stroke="#38bdf8" stroke-width="12" stroke-dasharray="0 264" stroke-dashoffset="0" />
+                <circle id="donut-t3" cx="55" cy="55" r="42" fill="none" stroke="#c084fc" stroke-width="12" stroke-dasharray="0 264" stroke-dashoffset="0" />
+                <circle id="donut-miss" cx="55" cy="55" r="42" fill="none" stroke="#52525b" stroke-width="12" stroke-dasharray="0 264" stroke-dashoffset="0" />
+              </svg>
+              <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;">
+                <span id="donut-center-pct" style="font-size: 15px; font-weight: 700; font-family: var(--mono); color: #34d399;">0%</span>
+                <span style="font-size: 8px; color: var(--muted); text-transform: uppercase;">Optimized</span>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; justify-content: center; gap: 5px; font-size: 11px; flex: 1;">
+              <div style="display: flex; justify-content: space-between;"><span style="color: #34d399;">Tier-1 Exact:</span><strong id="legend-t1">0</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #38bdf8;">Tier-2 KV Prefix:</span><strong id="legend-t2">0</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #c084fc;">Tier-3 Semantic:</span><strong id="legend-t3">0</strong></div>
+              <div style="display: flex; justify-content: space-between;"><span style="color: #71717a;">Full Miss:</span><strong id="legend-miss">0</strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart 3: Provider Routing Breakdown -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">Provider Routing Share</span>
+            <span class="chart-subtitle">Execution Engines</span>
+          </div>
+          <div class="chart-body" id="provider-bars-container" style="flex-direction: column; justify-content: center; gap: 8px; width: 100%;">
+            <div style="text-align: center; color: var(--muted); font-size: 12px;">Waiting for provider traffic...</div>
+          </div>
         </div>
       </div>
 
       <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-          <h3 style="font-size: 16px; font-weight: 600;">Live Inference Stream</h3>
-          <span style="font-size: 12px; color: var(--muted);">Real-time SSE event feed</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Live Inference Stream</h3>
+            <span style="font-size: 11px; color: var(--muted);">Real-time SSE event feed &bull; All pricing displays indicate estimated projections based on model token rates</span>
+          </div>
+          <button class="btn-clear" onclick="confirmClearLogs()" style="font-size: 11px; padding: 4px 10px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            Clear Stream
+          </button>
         </div>
         <div class="table-container">
           <table>
@@ -134,8 +228,8 @@
                 <th>Provider</th>
                 <th>Cache Status</th>
                 <th>Prompt / Comp Tokens</th>
-                <th>Cost</th>
-                <th>Saved</th>
+                <th>Cost <span class="badge-est">EST.</span></th>
+                <th>Saved <span class="badge-est">EST.</span></th>
                 <th>Latency</th>
               </tr>
             </thead>
@@ -217,7 +311,7 @@
                 <th>Key ID</th>
                 <th>Name</th>
                 <th>Status</th>
-                <th>Current Spend</th>
+                <th>Current Spend <span class="badge-est">EST.</span></th>
                 <th>Monthly Budget</th>
                 <th>RPM</th>
                 <th>TPM</th>
@@ -411,8 +505,8 @@
                 <th>Status</th>
                 <th>Requests Handled</th>
                 <th>Total Tokens</th>
-                <th>Gross Spend</th>
-                <th>Dollars Saved</th>
+                <th>Gross Spend <span class="badge-est">EST.</span></th>
+                <th>Dollars Saved <span class="badge-est">EST.</span></th>
                 <th>Avg Latency</th>
               </tr>
             </thead>
@@ -527,7 +621,73 @@
     </div>
   </div>
 
+  <!-- CLEAR LOGS MODAL -->
+  <div id="clear-logs-modal" class="modal">
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="font-size: 16px; font-weight: 600; color: #f87171;">Clear Request Logs</h3>
+        <button onclick="closeClearLogsModal()" style="background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer;">&times;</button>
+      </div>
+      <p style="color: var(--muted); font-size: 13px; margin-bottom: 16px;">
+        This will wipe all historical request logs from the monitoring feed. Your cached prompt-response pairs will remain intact.
+      </p>
+      <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+        <input type="checkbox" id="reset-key-spends-check" style="cursor: pointer;">
+        <label for="reset-key-spends-check" style="font-size: 13px; color: var(--text); cursor: pointer;">Also reset Virtual API Key spend counters to $0.00</label>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px;">
+        <button class="btn btn-secondary" onclick="closeClearLogsModal()">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-clear" onclick="executeClearLogs()">Wipe Logs</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    let _recentLogs = [];
+    const _seenLogIds = new Set();
+
+    function formatTokens(n) {
+      n = Number(n) || 0;
+      if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+      if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+      return n.toLocaleString();
+    }
+
+    function confirmClearLogs() {
+      document.getElementById('clear-logs-modal').classList.add('show');
+    }
+
+    function closeClearLogsModal() {
+      document.getElementById('clear-logs-modal').classList.remove('show');
+    }
+
+    async function executeClearLogs() {
+      const resetSpends = document.getElementById('reset-key-spends-check').checked;
+      const btn = document.getElementById('btn-confirm-clear');
+      btn.disabled = true;
+      btn.innerText = 'Wiping...';
+      try {
+        const res = await fetch('/api/v1/logs/clear' + (resetSpends ? '?reset_spends=true' : ''), {
+          method: 'POST'
+        });
+        if (res.ok) {
+          _seenLogIds.clear();
+          _recentLogs = [];
+          const tbody = document.getElementById('logs-tbody');
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted);">Logs cleared. Listening for inference requests...</td></tr>';
+          closeClearLogsModal();
+          await loadOverview();
+          renderCharts();
+          if (resetSpends && typeof loadKeys === 'function') loadKeys();
+        }
+      } catch (e) {
+        alert('Failed to clear logs: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Wipe Logs';
+      }
+    }
+
     function switchTab(name) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -572,16 +732,207 @@
           if (modBtn) modBtn.style.display = 'inline-block';
           loadModerateStatus();
         }
-        document.getElementById('stat-requests').innerText = data.total_requests;
-        document.getElementById('stat-latency').innerText = `Avg Latency: ${data.avg_latency_ms.toFixed(1)}ms`;
-        document.getElementById('stat-hitrate').innerText = `${data.hit_rate_percent.toFixed(1)}%`;
-        const misses = Math.max(0, data.total_requests - data.total_hits);
+
+        const tokensInEl = document.getElementById('stat-tokens-in');
+        if (tokensInEl) tokensInEl.innerText = formatTokens(data.total_tokens_in || 0);
+        const spendInEl = document.getElementById('stat-spend-in');
+        if (spendInEl) spendInEl.innerText = `Est. Spend: ${formatCurrency(data.total_prompt_cost_usd || 0)}`;
+
+        const tokensOutEl = document.getElementById('stat-tokens-out');
+        if (tokensOutEl) tokensOutEl.innerText = formatTokens(data.total_tokens_out || 0);
+        const spendOutEl = document.getElementById('stat-spend-out');
+        if (spendOutEl) spendOutEl.innerText = `Est. Spend: ${formatCurrency(data.total_completion_cost_usd || 0)}`;
+
+        document.getElementById('stat-spend').innerText = formatCurrency(data.total_cost_usd || 0);
+        const spendBreakdownEl = document.getElementById('stat-spend-breakdown');
+        if (spendBreakdownEl) spendBreakdownEl.innerText = `In: ${formatCurrency(data.total_prompt_cost_usd || 0)} | Out: ${formatCurrency(data.total_completion_cost_usd || 0)}`;
+
+        document.getElementById('stat-saved').innerText = formatCurrency(data.total_saved_usd || 0);
+        const grossSpend = (data.gross_token_spend_usd != null && data.gross_token_spend_usd > 0) ? data.gross_token_spend_usd : ((data.total_cost_usd || 0) + (data.total_saved_usd || 0));
+        const grossEl = document.getElementById('stat-gross-spend');
+        if (grossEl) grossEl.innerText = `Baseline Gross: ${formatCurrency(grossSpend)}`;
+
+        document.getElementById('stat-hitrate').innerText = `${(data.hit_rate_percent || 0).toFixed(1)}%`;
+        const misses = Math.max(0, (data.total_requests || 0) - (data.total_hits || 0));
         document.getElementById('stat-hits').innerText = `${data.local_hits || 0} Local (0ms) | ${data.model_cache_hits || 0} Model KV | ${misses} Miss`;
-        document.getElementById('stat-saved').innerText = formatCurrency(data.total_saved_usd);
-        document.getElementById('stat-spend').innerText = formatCurrency(data.total_cost_usd);
-        document.getElementById('stat-entries').innerText = `${data.cache_entries} Cache Entries`;
-        document.getElementById('uptime-label').innerText = `Uptime: ${data.uptime_seconds}s`;
+
+        const uptimeEl = document.getElementById('uptime-label');
+        if (uptimeEl) uptimeEl.innerText = `Uptime: ${data.uptime_seconds || 0}s`;
       } catch (e) {}
+    }
+
+    function renderCharts() {
+      renderLatencyChart();
+      renderTierDonut();
+      renderProviderBars();
+    }
+
+    function renderLatencyChart() {
+      const svg = document.getElementById('svg-sparkline');
+      const path = document.getElementById('sparkline-path');
+      const area = document.getElementById('sparkline-area');
+      const sub = document.getElementById('chart-sparkline-sub');
+      const trendCount = document.getElementById('trend-count');
+      const trendAvg = document.getElementById('trend-avg');
+      const trendMax = document.getElementById('trend-max');
+      if (!svg || !path || !area) return;
+
+      if (!_recentLogs || _recentLogs.length === 0) {
+        path.setAttribute('d', '');
+        area.setAttribute('d', '');
+        if (trendCount) trendCount.innerText = '0 calls';
+        if (trendAvg) trendAvg.innerText = '0ms';
+        if (trendMax) trendMax.innerText = '0ms';
+        if (sub) sub.innerText = 'Recent requests';
+        return;
+      }
+
+      const data = [..._recentLogs].reverse().slice(-30);
+      const latencies = data.map(d => Number(d.latency_ms) || 0);
+      const maxLat = Math.max(...latencies, 50);
+      const sum = latencies.reduce((a, b) => a + b, 0);
+      const avg = Math.round(sum / latencies.length);
+
+      if (trendCount) trendCount.innerText = `${data.length} calls`;
+      if (trendAvg) trendAvg.innerText = `${avg}ms`;
+      if (trendMax) trendMax.innerText = `${Math.max(...latencies)}ms`;
+      if (sub) sub.innerText = `Last ${data.length} requests`;
+
+      const width = 360;
+      const height = 100;
+      const padTop = 10;
+      const padBottom = 10;
+      const usableHeight = height - padTop - padBottom;
+
+      const points = latencies.map((lat, idx) => {
+        const x = data.length > 1 ? (idx / (data.length - 1)) * width : width / 2;
+        const y = padTop + usableHeight - (lat / maxLat) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      if (points.length === 1) {
+        path.setAttribute('d', `M 0,${points[0].y} L ${width},${points[0].y}`);
+        area.setAttribute('d', `M 0,${points[0].y} L ${width},${points[0].y} L ${width},${height} L 0,${height} Z`);
+        return;
+      }
+
+      let dPath = `M ${points[0].x},${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        dPath += ` L ${points[i].x},${points[i].y}`;
+      }
+      path.setAttribute('d', dPath);
+
+      const dArea = `${dPath} L ${points[points.length - 1].x},${height} L ${points[0].x},${height} Z`;
+      area.setAttribute('d', dArea);
+    }
+
+    function renderTierDonut() {
+      let t1 = 0, t2 = 0, t3 = 0, miss = 0;
+      (_recentLogs || []).forEach(l => {
+        if (l.cache_status === 'HIT') {
+          if (l.cache_tier === 'TIER1_EXACT') t1++;
+          else if (l.cache_tier === 'TIER3_SEMANTIC') t3++;
+          else t1++;
+        } else if (l.cache_tier === 'TIER2_PREFIX' || (l.cached_tokens && l.cached_tokens > 0)) {
+          t2++;
+        } else {
+          miss++;
+        }
+      });
+
+      const total = t1 + t2 + t3 + miss;
+      const elT1 = document.getElementById('legend-t1');
+      if (elT1) elT1.innerText = t1;
+      const elT2 = document.getElementById('legend-t2');
+      if (elT2) elT2.innerText = t2;
+      const elT3 = document.getElementById('legend-t3');
+      if (elT3) elT3.innerText = t3;
+      const elMiss = document.getElementById('legend-miss');
+      if (elMiss) elMiss.innerText = miss;
+
+      const pctOpt = total > 0 ? Math.round(((t1 + t2 + t3) / total) * 100) : 0;
+      const centerEl = document.getElementById('donut-center-pct');
+      if (centerEl) centerEl.innerText = `${pctOpt}%`;
+
+      const circumference = 2 * Math.PI * 42; // ~263.89
+
+      const cT1 = document.getElementById('donut-t1');
+      const cT2 = document.getElementById('donut-t2');
+      const cT3 = document.getElementById('donut-t3');
+      const cMiss = document.getElementById('donut-miss');
+
+      if (!cT1 || !cT2 || !cT3 || !cMiss) return;
+
+      if (total === 0) {
+        cT1.setAttribute('stroke-dasharray', `0 ${circumference}`);
+        cT2.setAttribute('stroke-dasharray', `0 ${circumference}`);
+        cT3.setAttribute('stroke-dasharray', `0 ${circumference}`);
+        cMiss.setAttribute('stroke-dasharray', `0 ${circumference}`);
+        return;
+      }
+
+      let offset = 0;
+      const setSegment = (circle, count) => {
+        const seg = (count / total) * circumference;
+        circle.setAttribute('stroke-dasharray', `${seg} ${circumference}`);
+        circle.setAttribute('stroke-dashoffset', `${-offset}`);
+        offset += seg;
+      };
+
+      setSegment(cT1, t1);
+      setSegment(cT2, t2);
+      setSegment(cT3, t3);
+      setSegment(cMiss, miss);
+    }
+
+    function renderProviderBars() {
+      const container = document.getElementById('provider-bars-container');
+      if (!container) return;
+
+      const counts = {};
+      (_recentLogs || []).forEach(l => {
+        let p = (l.provider || 'unknown').toLowerCase();
+        if (p === 'cache-local') p = 'Local Cache';
+        else if (p === 'nvidianim') p = 'NVIDIA NIM';
+        else if (p === 'groq') p = 'Groq';
+        else if (p === 'gemini') p = 'Gemini';
+        else if (p === 'anthropic') p = 'Anthropic';
+        else if (p === 'openai') p = 'OpenAI';
+        counts[p] = (counts[p] || 0) + 1;
+      });
+
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      if (total === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--muted); font-size: 12px;">Waiting for provider traffic...</div>';
+        return;
+      }
+
+      const colors = {
+        'Local Cache': '#34d399',
+        'Groq': '#f97316',
+        'NVIDIA NIM': '#10b981',
+        'Gemini': '#38bdf8',
+        'Anthropic': '#c084fc',
+        'OpenAI': '#10a37f',
+        'unknown': '#a1a1aa'
+      };
+
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      container.innerHTML = sorted.map(([name, count]) => {
+        const pct = Math.round((count / total) * 100);
+        const col = colors[name] || '#38bdf8';
+        return `
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
+              <span style="font-weight: 600;">${name}</span>
+              <span style="color: var(--muted);">${count} (${pct}%)</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: #27272a; border-radius: 9999px; overflow: hidden;">
+              <div style="width: ${pct}%; height: 100%; background: ${col}; border-radius: 9999px; transition: width 0.3s;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function createLogRow(l, flash = true) {
@@ -627,31 +978,43 @@
         if (!res.ok) return;
         const data = await res.json();
         const tbody = document.getElementById('logs-tbody');
-        if (!data.logs || data.logs.length === 0) return;
+        if (!data.logs || data.logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted);">No request logs recorded yet. Listening for inference requests...</td></tr>';
+          _recentLogs = [];
+          renderCharts();
+          return;
+        }
+        _recentLogs = data.logs.slice();
         tbody.innerHTML = '';
         data.logs.forEach(l => {
           tbody.appendChild(createLogRow(l, false));
         });
+        renderCharts();
       } catch (e) {}
     }
 
-    const _seenLogIds = new Set();
     function prependLiveLogRow(l) {
-      // Deduplicate: skip if this request_id was already rendered
+      if (!l) return;
       if (l.request_id && _seenLogIds.has(l.request_id)) return;
       if (l.request_id) {
         _seenLogIds.add(l.request_id);
-        // Cap the set size to avoid unbounded memory growth
         if (_seenLogIds.size > 200) {
           _seenLogIds.delete(_seenLogIds.values().next().value);
         }
       }
+      _recentLogs.unshift(l);
+      if (_recentLogs.length > 50) _recentLogs.pop();
+
       const tbody = document.getElementById('logs-tbody');
+      if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
+        tbody.innerHTML = '';
+      }
       const tr = createLogRow(l, true);
       tbody.prepend(tr);
       if (tbody.children.length > 100) {
         tbody.removeChild(tbody.lastChild);
       }
+      renderCharts();
     }
 
     async function loadCacheEntries() {
@@ -1441,13 +1804,38 @@
       } catch (e) {}
     }
 
+    function initSSE() {
+      if (!window.EventSource) return;
+      const es = new EventSource('/api/v1/events');
+      es.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data);
+          if (payload.type === 'request' && payload.data) {
+            prependLiveLogRow(payload.data);
+            loadOverview();
+          } else if (payload.type === 'logs_cleared') {
+            const tbody = document.getElementById('logs-tbody');
+            if (tbody) {
+              tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted);">Logs cleared. Listening for inference requests...</td></tr>';
+            }
+            _seenLogIds.clear();
+            _recentLogs = [];
+            renderCharts();
+            loadOverview();
+          }
+        } catch (e) {}
+      };
+    }
+
     // Initialize
     loadOverview();
     loadRoutes();
     loadProviders();
     loadProviderStats();
     loadRecentLogs();
-    initSSE();
+    window.addEventListener('load', () => {
+      setTimeout(initSSE, 200);
+    });
     setInterval(loadOverview, 5000);
   </script>
 </body>

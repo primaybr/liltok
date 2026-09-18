@@ -77,10 +77,23 @@ func (d *DB) Migrate() error {
 
 	// Backward-compatible schema evolution: add requested_model if missing
 	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN requested_model TEXT DEFAULT '';`)
+	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN prompt_cost_usd REAL NOT NULL DEFAULT 0.0;`)
+	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN completion_cost_usd REAL NOT NULL DEFAULT 0.0;`)
 
 	// Retroactive update: align historical routed logs so appointed model reflects reality
 	_, _ = d.Exec(`UPDATE request_logs SET requested_model = model, model = 'gemini-3.8-flash' WHERE provider = 'gemini' AND (requested_model IS NULL OR requested_model = '' OR requested_model = model) AND model LIKE 'claude%';`)
 	_, _ = d.Exec(`UPDATE request_logs SET requested_model = model, model = 'qwen/qwen3.8-27b' WHERE provider = 'groq' AND (requested_model IS NULL OR requested_model = '' OR requested_model = model) AND (model LIKE 'claude%' OR model = 'free-first');`)
+
+	// Retroactive backfill for historical logs where cost_usd > 0 but breakdown was unpopulated
+	_, _ = d.Exec(`
+		UPDATE request_logs
+		SET prompt_cost_usd = ROUND(cost_usd * CAST(prompt_tokens AS REAL) / CAST(prompt_tokens + completion_tokens AS REAL), 6),
+		    completion_cost_usd = ROUND(cost_usd - (cost_usd * CAST(prompt_tokens AS REAL) / CAST(prompt_tokens + completion_tokens AS REAL)), 6)
+		WHERE cost_usd > 0
+		  AND prompt_cost_usd = 0.0
+		  AND completion_cost_usd = 0.0
+		  AND (prompt_tokens + completion_tokens) > 0;
+	`)
 
 	return nil
 }

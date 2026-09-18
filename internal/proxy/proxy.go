@@ -178,23 +178,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 					pTokens := tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
 					_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
-					costUSD, savedUSD := p.pricingReg.Calculate(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
+					costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
 					p.recordLog(&ledger.RequestLog{
-						RequestID:        reqID,
-						APIKeyID:         apiKeyID,
-						Model:            normReq.Model,
-						RequestedModel:   normReq.Model,
-						Provider:         "cache-local",
-						CacheStatus:      "HIT",
-						CacheTier:        "TIER1_EXACT",
-						PromptTokens:     pTokens,
-						CompletionTokens: cTokens,
-						CachedTokens:     0,
-						LatencyMs:        time.Since(startTime).Milliseconds(),
-						CostUSD:          costUSD,
-						SavedUSD:         savedUSD,
-						StatusCode:       http.StatusOK,
+						RequestID:         reqID,
+						APIKeyID:          apiKeyID,
+						Model:             normReq.Model,
+						RequestedModel:    normReq.Model,
+						Provider:          "cache-local",
+						CacheStatus:       "HIT",
+						CacheTier:         "TIER1_EXACT",
+						PromptTokens:      pTokens,
+						CompletionTokens:  cTokens,
+						CachedTokens:      0,
+						LatencyMs:         time.Since(startTime).Milliseconds(),
+						CostUSD:           costBD.TotalCostUSD,
+						PromptCostUSD:     costBD.PromptCostUSD,
+						CompletionCostUSD: costBD.CompletionCostUSD,
+						SavedUSD:          costBD.SavedUSD,
+						StatusCode:        http.StatusOK,
 					})
 
 					_ = cache.ReplayCacheHit(w, entry, chatReq.Stream, targetProvider == "anthropic", 850)
@@ -218,23 +220,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 								pTokens := tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
 								_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
-								costUSD, savedUSD := p.pricingReg.Calculate(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
+								costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
 								p.recordLog(&ledger.RequestLog{
-									RequestID:        reqID,
-									APIKeyID:         apiKeyID,
-									Model:            normReq.Model,
-									RequestedModel:   normReq.Model,
-									Provider:         "cache-local",
-									CacheStatus:      "HIT",
-									CacheTier:        "TIER1_EXACT",
-									PromptTokens:     pTokens,
-									CompletionTokens: cTokens,
-									CachedTokens:     0,
-									LatencyMs:        time.Since(startTime).Milliseconds(),
-									CostUSD:          costUSD,
-									SavedUSD:         savedUSD,
-									StatusCode:       http.StatusOK,
+									RequestID:         reqID,
+									APIKeyID:          apiKeyID,
+									Model:             normReq.Model,
+									RequestedModel:    normReq.Model,
+									Provider:          "cache-local",
+									CacheStatus:       "HIT",
+									CacheTier:         "TIER1_EXACT",
+									PromptTokens:      pTokens,
+									CompletionTokens:  cTokens,
+									CachedTokens:      0,
+									LatencyMs:         time.Since(startTime).Milliseconds(),
+									CostUSD:           costBD.TotalCostUSD,
+									PromptCostUSD:     costBD.PromptCostUSD,
+									CompletionCostUSD: costBD.CompletionCostUSD,
+									SavedUSD:          costBD.SavedUSD,
+									StatusCode:        http.StatusOK,
 								})
 
 								_ = cache.ReplayCacheHit(w, entry, chatReq.Stream, targetProvider == "anthropic", 850)
@@ -273,23 +277,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 					pTokens := tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
 					_, cTokens, _ := extractUsage(cachedEntry.ResponsePayload, normReq.Model)
-					costUSD, savedUSD := p.pricingReg.Calculate(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER3_SEMANTIC")
+					costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER3_SEMANTIC")
 
 					p.recordLog(&ledger.RequestLog{
-						RequestID:        reqID,
-						APIKeyID:         apiKeyID,
-						Model:            normReq.Model,
-						RequestedModel:   normReq.Model,
-						Provider:         "cache-local",
-						CacheStatus:      "HIT",
-						CacheTier:        "TIER3_SEMANTIC",
-						PromptTokens:     pTokens,
-						CompletionTokens: cTokens,
-						CachedTokens:     0,
-						LatencyMs:        time.Since(startTime).Milliseconds(),
-						CostUSD:          costUSD,
-						SavedUSD:         savedUSD,
-						StatusCode:       http.StatusOK,
+						RequestID:         reqID,
+						APIKeyID:          apiKeyID,
+						Model:             normReq.Model,
+						RequestedModel:    normReq.Model,
+						Provider:          "cache-local",
+						CacheStatus:       "HIT",
+						CacheTier:         "TIER3_SEMANTIC",
+						PromptTokens:      pTokens,
+						CompletionTokens:  cTokens,
+						CachedTokens:      0,
+						LatencyMs:         time.Since(startTime).Milliseconds(),
+						CostUSD:           costBD.TotalCostUSD,
+						PromptCostUSD:     costBD.PromptCostUSD,
+						CompletionCostUSD: costBD.CompletionCostUSD,
+						SavedUSD:          costBD.SavedUSD,
+						StatusCode:        http.StatusOK,
 					})
 
 					_ = cache.ReplayCacheHitWithTier(w, cachedEntry, chatReq.Stream, targetProvider == "anthropic", "TIER3_SEMANTIC", 850)
@@ -381,7 +387,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				if cachedTokens > 0 {
 					tier = "TIER2_PREFIX"
 				}
-				costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, winningProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
+				costBD := p.pricingReg.CalculateDetailedForRouting(modelName, winningProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 				appointedModel := resp.Model
 				if appointedModel == "" {
@@ -389,20 +395,22 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				}
 
 				p.recordLog(&ledger.RequestLog{
-					RequestID:        reqID,
-					APIKeyID:         apiKeyID,
-					Model:            appointedModel,
-					RequestedModel:   modelName,
-					Provider:         winningProvider,
-					CacheStatus:      "MISS",
-					CacheTier:        tier,
-					PromptTokens:     pTokens,
-					CompletionTokens: cTokens,
-					CachedTokens:     cachedTokens,
-					LatencyMs:        time.Since(startTime).Milliseconds(),
-					CostUSD:          costUSD,
-					SavedUSD:         savedUSD,
-					StatusCode:       http.StatusOK,
+					RequestID:         reqID,
+					APIKeyID:          apiKeyID,
+					Model:             appointedModel,
+					RequestedModel:    modelName,
+					Provider:          winningProvider,
+					CacheStatus:       "MISS",
+					CacheTier:         tier,
+					PromptTokens:      pTokens,
+					CompletionTokens:  cTokens,
+					CachedTokens:      cachedTokens,
+					LatencyMs:         time.Since(startTime).Milliseconds(),
+					CostUSD:           costBD.TotalCostUSD,
+					PromptCostUSD:     costBD.PromptCostUSD,
+					CompletionCostUSD: costBD.CompletionCostUSD,
+					SavedUSD:          costBD.SavedUSD,
+					StatusCode:        http.StatusOK,
 				})
 
 				if normReq != nil && normReq.IsCacheable && len(finalBytes) > 0 {
@@ -561,22 +569,24 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					if appointedModel == "" {
 						appointedModel = unifiedReq.Model
 					}
-					costUSD, savedUSD := p.pricingReg.CalculateForRouting(unifiedReq.Model, winningProvider, fbResp.Usage.PromptTokens, fbResp.Usage.CompletionTokens, 0, "MISS", "NONE")
+					costBD := p.pricingReg.CalculateDetailedForRouting(unifiedReq.Model, winningProvider, fbResp.Usage.PromptTokens, fbResp.Usage.CompletionTokens, 0, "MISS", "NONE")
 
 					p.recordLog(&ledger.RequestLog{
-						RequestID:        reqID,
-						APIKeyID:         apiKeyID,
-						Model:            appointedModel,
-						RequestedModel:   unifiedReq.Model,
-						Provider:         winningProvider,
-						CacheStatus:      "MISS",
-						CacheTier:        "NONE",
-						PromptTokens:     fbResp.Usage.PromptTokens,
-						CompletionTokens: fbResp.Usage.CompletionTokens,
-						LatencyMs:        time.Since(startTime).Milliseconds(),
-						CostUSD:          costUSD,
-						SavedUSD:         savedUSD,
-						StatusCode:       http.StatusOK,
+						RequestID:         reqID,
+						APIKeyID:          apiKeyID,
+						Model:             appointedModel,
+						RequestedModel:    unifiedReq.Model,
+						Provider:          winningProvider,
+						CacheStatus:       "MISS",
+						CacheTier:         "NONE",
+						PromptTokens:      fbResp.Usage.PromptTokens,
+						CompletionTokens:  fbResp.Usage.CompletionTokens,
+						LatencyMs:         time.Since(startTime).Milliseconds(),
+						CostUSD:           costBD.TotalCostUSD,
+						PromptCostUSD:     costBD.PromptCostUSD,
+						CompletionCostUSD: costBD.CompletionCostUSD,
+						SavedUSD:          costBD.SavedUSD,
+						StatusCode:        http.StatusOK,
 					})
 					return
 				} else {
@@ -669,23 +679,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			if cachedTokens > 0 {
 				tier = "TIER2_PREFIX"
 			}
-			costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
+			costBD := p.pricingReg.CalculateDetailedForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 			p.recordLog(&ledger.RequestLog{
-				RequestID:        reqID,
-				APIKeyID:         apiKeyID,
-				Model:            modelName,
-				RequestedModel:   modelName,
-				Provider:         targetProvider,
-				CacheStatus:      "MISS",
-				CacheTier:        tier,
-				PromptTokens:     pTokens,
-				CompletionTokens: cTokens,
-				CachedTokens:     cachedTokens,
-				LatencyMs:        duration.Milliseconds(),
-				CostUSD:          costUSD,
-				SavedUSD:         savedUSD,
-				StatusCode:       resp.StatusCode,
+				RequestID:         reqID,
+				APIKeyID:          apiKeyID,
+				Model:             modelName,
+				RequestedModel:    modelName,
+				Provider:          targetProvider,
+				CacheStatus:       "MISS",
+				CacheTier:         tier,
+				PromptTokens:      pTokens,
+				CompletionTokens:  cTokens,
+				CachedTokens:      cachedTokens,
+				LatencyMs:         duration.Milliseconds(),
+				CostUSD:           costBD.TotalCostUSD,
+				PromptCostUSD:     costBD.PromptCostUSD,
+				CompletionCostUSD: costBD.CompletionCostUSD,
+				SavedUSD:          costBD.SavedUSD,
+				StatusCode:        resp.StatusCode,
 			})
 
 			if normReq != nil && normReq.IsCacheable && len(payloadBytes) > 0 {
@@ -724,23 +736,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			if cachedTokens > 0 {
 				tier = "TIER2_PREFIX"
 			}
-			costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
+			costBD := p.pricingReg.CalculateDetailedForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
 			p.recordLog(&ledger.RequestLog{
-				RequestID:        reqID,
-				APIKeyID:         apiKeyID,
-				Model:            modelName,
-				RequestedModel:   modelName,
-				Provider:         targetProvider,
-				CacheStatus:      "MISS",
-				CacheTier:        tier,
-				PromptTokens:     pTokens,
-				CompletionTokens: cTokens,
-				CachedTokens:     cachedTokens,
-				LatencyMs:        duration.Milliseconds(),
-				CostUSD:          costUSD,
-				SavedUSD:         savedUSD,
-				StatusCode:       resp.StatusCode,
+				RequestID:         reqID,
+				APIKeyID:          apiKeyID,
+				Model:             modelName,
+				RequestedModel:    modelName,
+				Provider:          targetProvider,
+				CacheStatus:       "MISS",
+				CacheTier:         tier,
+				PromptTokens:      pTokens,
+				CompletionTokens:  cTokens,
+				CachedTokens:      cachedTokens,
+				LatencyMs:         duration.Milliseconds(),
+				CostUSD:           costBD.TotalCostUSD,
+				PromptCostUSD:     costBD.PromptCostUSD,
+				CompletionCostUSD: costBD.CompletionCostUSD,
+				SavedUSD:          costBD.SavedUSD,
+				StatusCode:        resp.StatusCode,
 			})
 
 			if resp.StatusCode == http.StatusOK && normReq != nil && normReq.IsCacheable {
