@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS request_logs (
     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     api_key_id TEXT,
     model TEXT NOT NULL,
+    requested_model TEXT NOT NULL DEFAULT '',
     provider TEXT NOT NULL,
     cache_status TEXT NOT NULL,
     cache_tier TEXT NOT NULL,

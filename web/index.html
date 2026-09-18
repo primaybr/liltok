@@ -603,10 +603,14 @@
       if (l.cached_tokens && l.cached_tokens > 0) {
         tokensDisplay = `${l.prompt_tokens} <span style="color: #38bdf8; font-size: 11px;">(${l.cached_tokens} kv-hit)</span> / ${l.completion_tokens}`;
       }
+      let modelHtml = `<span style="font-weight: 600;">${l.model || '-'}</span>`;
+      if (l.requested_model && l.requested_model !== l.model) {
+        modelHtml += `<div style="font-size: 11px; color: var(--muted); margin-top: 2px;">from ${l.requested_model}</div>`;
+      }
       tr.innerHTML = `
         <td style="color: var(--muted);">${timeStr}</td>
         <td>${l.request_id ? l.request_id.slice(-8) : '-'}</td>
-        <td style="font-weight: 600;">${l.model}</td>
+        <td>${modelHtml}</td>
         <td>${l.provider}</td>
         <td>${getTierBadge(l.cache_status, l.cache_tier, l.cached_tokens)}</td>
         <td>${tokensDisplay}</td>

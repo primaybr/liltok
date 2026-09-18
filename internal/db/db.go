@@ -74,5 +74,13 @@ func (d *DB) Migrate() error {
 	if err != nil {
 		return fmt.Errorf("migration execution error: %w", err)
 	}
+
+	// Backward-compatible schema evolution: add requested_model if missing
+	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN requested_model TEXT DEFAULT '';`)
+
+	// Retroactive update: align historical routed logs so appointed model reflects reality
+	_, _ = d.Exec(`UPDATE request_logs SET requested_model = model, model = 'gemini-3.8-flash' WHERE provider = 'gemini' AND (requested_model IS NULL OR requested_model = '' OR requested_model = model) AND model LIKE 'claude%';`)
+	_, _ = d.Exec(`UPDATE request_logs SET requested_model = model, model = 'qwen/qwen3.8-27b' WHERE provider = 'groq' AND (requested_model IS NULL OR requested_model = '' OR requested_model = model) AND (model LIKE 'claude%' OR model = 'free-first');`)
+
 	return nil
 }

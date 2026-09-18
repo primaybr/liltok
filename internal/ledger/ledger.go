@@ -17,6 +17,7 @@ type RequestLog struct {
 	Timestamp        time.Time `json:"timestamp"`
 	APIKeyID         string    `json:"api_key_id,omitempty"`
 	Model            string    `json:"model"`
+	RequestedModel   string    `json:"requested_model,omitempty"`
 	Provider         string    `json:"provider"`
 	CacheStatus      string    `json:"cache_status"`
 	CacheTier        string    `json:"cache_tier"`
@@ -105,15 +106,19 @@ func (l *Ledger) persistLog(item *RequestLog) {
 		item.Timestamp = time.Now()
 	}
 
+	if item.RequestedModel == "" {
+		item.RequestedModel = item.Model
+	}
+
 	_, err := l.db.ExecContext(ctx, `
 		INSERT INTO request_logs (
-			request_id, timestamp, api_key_id, model, provider,
+			request_id, timestamp, api_key_id, model, requested_model, provider,
 			cache_status, cache_tier, prompt_tokens, completion_tokens,
 			cached_tokens, latency_ms, cost_usd, saved_usd,
 			status_code, error_message
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
-		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.Provider,
+		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.RequestedModel, item.Provider,
 		item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
 		item.CachedTokens, item.LatencyMs, item.CostUSD, item.SavedUSD,
 		item.StatusCode, item.ErrorMessage,

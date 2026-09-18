@@ -184,6 +184,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 						RequestID:        reqID,
 						APIKeyID:         apiKeyID,
 						Model:            normReq.Model,
+						RequestedModel:   normReq.Model,
 						Provider:         "cache-local",
 						CacheStatus:      "HIT",
 						CacheTier:        "TIER1_EXACT",
@@ -223,6 +224,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 									RequestID:        reqID,
 									APIKeyID:         apiKeyID,
 									Model:            normReq.Model,
+									RequestedModel:   normReq.Model,
 									Provider:         "cache-local",
 									CacheStatus:      "HIT",
 									CacheTier:        "TIER1_EXACT",
@@ -277,6 +279,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 						RequestID:        reqID,
 						APIKeyID:         apiKeyID,
 						Model:            normReq.Model,
+						RequestedModel:   normReq.Model,
 						Provider:         "cache-local",
 						CacheStatus:      "HIT",
 						CacheTier:        "TIER3_SEMANTIC",
@@ -380,10 +383,16 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				}
 				costUSD, savedUSD := p.pricingReg.CalculateForRouting(modelName, winningProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
+				appointedModel := resp.Model
+				if appointedModel == "" {
+					appointedModel = modelName
+				}
+
 				p.recordLog(&ledger.RequestLog{
 					RequestID:        reqID,
 					APIKeyID:         apiKeyID,
-					Model:            modelName,
+					Model:            appointedModel,
+					RequestedModel:   modelName,
 					Provider:         winningProvider,
 					CacheStatus:      "MISS",
 					CacheTier:        tier,
@@ -548,18 +557,25 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 						_, _ = w.Write(finalBytes)
 					}
 
+					appointedModel := fbResp.Model
+					if appointedModel == "" {
+						appointedModel = unifiedReq.Model
+					}
+					costUSD, savedUSD := p.pricingReg.CalculateForRouting(unifiedReq.Model, winningProvider, fbResp.Usage.PromptTokens, fbResp.Usage.CompletionTokens, 0, "MISS", "NONE")
+
 					p.recordLog(&ledger.RequestLog{
 						RequestID:        reqID,
 						APIKeyID:         apiKeyID,
-						Model:            unifiedReq.Model,
+						Model:            appointedModel,
+						RequestedModel:   unifiedReq.Model,
 						Provider:         winningProvider,
 						CacheStatus:      "MISS",
 						CacheTier:        "NONE",
 						PromptTokens:     fbResp.Usage.PromptTokens,
 						CompletionTokens: fbResp.Usage.CompletionTokens,
 						LatencyMs:        time.Since(startTime).Milliseconds(),
-						CostUSD:          0.0,
-						SavedUSD:         0.0,
+						CostUSD:          costUSD,
+						SavedUSD:         savedUSD,
 						StatusCode:       http.StatusOK,
 					})
 					return
@@ -659,6 +675,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				RequestID:        reqID,
 				APIKeyID:         apiKeyID,
 				Model:            modelName,
+				RequestedModel:   modelName,
 				Provider:         targetProvider,
 				CacheStatus:      "MISS",
 				CacheTier:        tier,
@@ -713,6 +730,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				RequestID:        reqID,
 				APIKeyID:         apiKeyID,
 				Model:            modelName,
+				RequestedModel:   modelName,
 				Provider:         targetProvider,
 				CacheStatus:      "MISS",
 				CacheTier:        tier,
