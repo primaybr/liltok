@@ -192,7 +192,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <span class="chart-title">Cache Tier Distribution</span>
-            <span class="chart-subtitle">Hit &amp; Routing Mix</span>
+            <span class="chart-subtitle">All-Time Cumulative Ratio</span>
           </div>
           <div class="chart-body" style="gap: 16px;">
             <div style="width: 110px; height: 110px; flex-shrink: 0; position: relative;">
@@ -221,7 +221,7 @@
         <div class="chart-card">
           <div class="chart-header">
             <span class="chart-title">Provider Routing Share</span>
-            <span class="chart-subtitle">Execution Engines</span>
+            <span class="chart-subtitle">All-Time Execution Share</span>
           </div>
           <div class="chart-body" id="provider-bars-container" style="flex-direction: column; justify-content: center; gap: 8px; width: 100%;">
             <div style="text-align: center; color: var(--muted); font-size: 12px;">Waiting for provider traffic...</div>
@@ -909,16 +909,42 @@
 
         <!-- Card 3: Circuit Breakers Monitor -->
         <div class="card" style="grid-column: 1 / -1;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h4 style="font-size: 14px; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 8px;">
-              Provider Circuit Breakers &amp; Outage Protection
-            </h4>
-            <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="resetCircuitBreakers()">
-              Reset All Breakers
-            </button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h4 style="font-size: 14px; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 8px; margin: 0;">
+                Provider Circuit Breakers &amp; Outage Protection
+              </h4>
+              <span id="sys-breakers-summary-badge" class="badge badge-hit-exact">Loading...</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <input id="sys-breakers-search" class="filter-input" placeholder="Search breakers or models..." oninput="filterCircuitBreakers()" style="width: 220px; font-size: 11px; padding: 5px 8px;" />
+              <select id="sys-breakers-filter" class="filter-select" onchange="filterCircuitBreakers()" style="font-size: 11px; padding: 5px 8px;">
+                <option value="all">All Breakers</option>
+                <option value="engine">Engine Providers Only</option>
+                <option value="model">Model Fallback Targets</option>
+                <option value="tripped">Tripped / Probing Only</option>
+              </select>
+              <button class="btn btn-secondary" style="font-size: 11px; padding: 5px 10px;" onclick="resetCircuitBreakers()" title="Reset all circuit breakers to CLOSED">
+                Reset All Breakers
+              </button>
+            </div>
           </div>
-          <div id="sys-breakers-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-            <div style="text-align: center; color: var(--muted); padding: 16px;">Loading circuit breaker telemetry...</div>
+          <div class="table-container">
+            <table style="width: 100%;">
+              <thead>
+                <tr>
+                  <th style="min-width: 260px;">Breaker / Target Name</th>
+                  <th style="width: 110px;">Type</th>
+                  <th style="width: 180px;">Status / State</th>
+                  <th style="width: 140px;">Failures</th>
+                  <th style="width: 150px;">Cooldown Remaining</th>
+                  <th style="width: 100px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="sys-breakers-tbody">
+                <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 20px;">Loading circuit breaker telemetry...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -1139,6 +1165,8 @@
   <script>
     let _recentLogs = [];
     const _seenLogIds = new Set();
+    let _overviewData = null;
+    let _allCircuitBreakers = [];
 
     function formatTokens(n) {
       n = Number(n) || 0;
@@ -1784,49 +1812,134 @@
         }
 
         // Circuit Breakers
-        const cbContainer = document.getElementById('sys-breakers-container');
-        if (cbContainer) {
-          if (!cbs || cbs.length === 0) {
-            cbContainer.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 16px;">No circuit breakers registered.</div>';
-          } else {
-            cbContainer.innerHTML = cbs.map(cb => {
-              let badge = '<span class="badge badge-hit-exact">CLOSED (HEALTHY)</span>';
-              let borderStyle = 'var(--border)';
-              if (cb.state === 'OPEN') {
-                badge = '<span class="badge badge-open">OPEN (TRIPPED)</span>';
-                borderStyle = 'rgba(239, 68, 68, 0.4)';
-              } else if (cb.state === 'HALF-OPEN') {
-                badge = '<span class="badge badge-hit-prefix">HALF-OPEN (PROBING)</span>';
-                borderStyle = 'rgba(56, 189, 248, 0.4)';
-              }
-
-              const name = cb.name || cb.provider || 'unknown';
-              const failures = cb.consecutive_failures != null ? cb.consecutive_failures : (cb.failures || 0);
-              const remainingSec = cb.cooldown_remaining_seconds != null ? Math.round(cb.cooldown_remaining_seconds) : 0;
-              let cooldownNotice = '';
-              if (cb.state === 'OPEN' && remainingSec > 0) {
-                cooldownNotice = `<div style="font-size: 11px; color: #fb7185; margin-top: 4px;">Cooldown remaining: ${remainingSec}s</div>`;
-              }
-
-              return `
-                <div class="card" style="border-color: ${borderStyle}; padding: 14px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-weight: 700; text-transform: uppercase;">${escapeHTML(name)}</span>
-                    ${badge}
-                  </div>
-                  <div style="font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 3px;">
-                    <div>Consecutive Failures: <strong style="color: var(--text);">${failures}</strong> / 5 threshold</div>
-                    <div>Outage Protection: <strong style="color: var(--text);">Auto-Failover Active</strong></div>
-                    ${cooldownNotice}
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-        }
+        _allCircuitBreakers = cbs;
+        renderCircuitBreakersTable();
 
       } catch (e) {
         console.error('Failed to load system diagnostics:', e);
+      }
+    }
+
+    function filterCircuitBreakers() {
+      renderCircuitBreakersTable();
+    }
+
+    function renderCircuitBreakersTable() {
+      const tbody = document.getElementById('sys-breakers-tbody');
+      const badge = document.getElementById('sys-breakers-summary-badge');
+      if (!tbody) return;
+
+      const cbs = _allCircuitBreakers || [];
+      if (cbs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 20px;">No circuit breakers registered.</td></tr>';
+        if (badge) {
+          badge.className = 'badge badge-miss';
+          badge.innerText = '0 Breakers';
+        }
+        return;
+      }
+
+      const searchInput = document.getElementById('sys-breakers-search');
+      const query = searchInput ? searchInput.value.trim().toLowerCase() : '';
+      const filterSelect = document.getElementById('sys-breakers-filter');
+      const filterMode = filterSelect ? filterSelect.value : 'all';
+
+      let trippedCount = 0;
+      let probingCount = 0;
+      cbs.forEach(cb => {
+        if (cb.state === 'OPEN') trippedCount++;
+        else if (cb.state === 'HALF-OPEN') probingCount++;
+      });
+
+      if (badge) {
+        if (trippedCount > 0) {
+          badge.className = 'badge badge-open';
+          badge.innerText = `${trippedCount} Tripped (${cbs.length} Total)`;
+        } else if (probingCount > 0) {
+          badge.className = 'badge badge-hit-prefix';
+          badge.innerText = `${probingCount} Probing (${cbs.length} Total)`;
+        } else {
+          badge.className = 'badge badge-hit-exact';
+          badge.innerText = `${cbs.length} / ${cbs.length} Healthy`;
+        }
+      }
+
+      const filtered = cbs.filter(cb => {
+        const name = (cb.name || cb.provider || '').toLowerCase();
+        const isEngine = !name.includes('/');
+        if (query && !name.includes(query)) return false;
+        if (filterMode === 'engine' && !isEngine) return false;
+        if (filterMode === 'model' && isEngine) return false;
+        if (filterMode === 'tripped' && cb.state !== 'OPEN' && cb.state !== 'HALF-OPEN' && (cb.consecutive_failures || 0) === 0) return false;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 20px;">No circuit breakers match the current search filter.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(cb => {
+        const name = cb.name || cb.provider || 'unknown';
+        const isEngine = !name.includes('/');
+        const failures = cb.consecutive_failures != null ? cb.consecutive_failures : (cb.failures || 0);
+        const remainingSec = cb.cooldown_remaining_seconds != null ? Math.round(cb.cooldown_remaining_seconds) : 0;
+
+        let typeBadge = isEngine
+          ? '<span class="badge" style="background: rgba(255,255,255,0.06); color: #e4e4e7; border: 1px solid var(--border);">ENGINE</span>'
+          : '<span class="badge" style="background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">TARGET</span>';
+
+        let stateBadge = '<span class="badge badge-hit-exact">CLOSED (HEALTHY)</span>';
+        let rowBg = 'transparent';
+        if (cb.state === 'OPEN') {
+          stateBadge = '<span class="badge badge-open">OPEN (TRIPPED)</span>';
+          rowBg = 'rgba(239, 68, 68, 0.05)';
+        } else if (cb.state === 'HALF-OPEN') {
+          stateBadge = '<span class="badge badge-hit-prefix">HALF-OPEN (PROBING)</span>';
+          rowBg = 'rgba(56, 189, 248, 0.05)';
+        }
+
+        let failureDisplay = `${failures} / 5`;
+        if (failures > 0) {
+          failureDisplay = `<span style="color: #fb7185; font-weight: 700;">${failures} / 5</span>`;
+        }
+
+        let cooldownDisplay = '-';
+        if (cb.state === 'OPEN' && remainingSec > 0) {
+          cooldownDisplay = `<span style="color: #fb7185; font-weight: 600;">${remainingSec}s</span>`;
+        }
+
+        const canReset = cb.state !== 'CLOSED' || failures > 0;
+        const actionBtn = canReset
+          ? `<button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px; border-color: #38bdf8; color: #38bdf8;" onclick="resetSingleBreaker('${escapeHTML(name)}')">Reset</button>`
+          : `<button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px; opacity: 0.35; cursor: not-allowed;" disabled>Reset</button>`;
+
+        return `
+          <tr style="background: ${rowBg};">
+            <td style="word-break: break-all; font-weight: 600; font-family: var(--mono); font-size: 12px; color: ${isEngine ? '#a7f3d0' : '#e4e4e7'};">
+              ${escapeHTML(name)}
+            </td>
+            <td>${typeBadge}</td>
+            <td>${stateBadge}</td>
+            <td>${failureDisplay}</td>
+            <td>${cooldownDisplay}</td>
+            <td style="text-align: right;">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function resetSingleBreaker(name) {
+      if (!name) return;
+      try {
+        const res = await fetch('/api/v1/routes/reset-breakers?name=' + encodeURIComponent(name), { method: 'POST' });
+        if (res.ok) {
+          loadSystemDiagnostics();
+          loadRoutes();
+          loadProviders();
+        }
+      } catch (e) {
+        console.error('Failed to reset circuit breaker:', e);
       }
     }
 
@@ -1867,6 +1980,7 @@
         const res = await fetch('/api/v1/overview');
         if (!res.ok) return;
         const data = await res.json();
+        _overviewData = data;
         if (data.maintainer_mode) {
           const modBtn = document.getElementById('tab-btn-moderate');
           if (modBtn) modBtn.style.display = 'inline-block';
@@ -1898,6 +2012,9 @@
 
         const uptimeEl = document.getElementById('uptime-label');
         if (uptimeEl) uptimeEl.innerText = `Uptime: ${data.uptime_seconds || 0}s`;
+
+        renderTierDonut();
+        renderProviderBars();
       } catch (e) {}
     }
 
@@ -1968,27 +2085,34 @@
 
     function renderTierDonut() {
       let t1 = 0, t2 = 0, t3 = 0, miss = 0;
-      (_recentLogs || []).forEach(l => {
-        if (l.cache_status === 'HIT') {
-          if (l.cache_tier === 'TIER1_EXACT') t1++;
-          else if (l.cache_tier === 'TIER3_SEMANTIC') t3++;
-          else t1++;
-        } else if (l.cache_tier === 'TIER2_PREFIX' || (l.cached_tokens && l.cached_tokens > 0)) {
-          t2++;
-        } else {
-          miss++;
-        }
-      });
+      if (_overviewData && _overviewData.total_requests != null) {
+        t1 = Number(_overviewData.tier1_exact_hits) || 0;
+        t2 = Number(_overviewData.tier2_prefix_hits) || 0;
+        t3 = Number(_overviewData.tier3_semantic_hits) || 0;
+        miss = Number(_overviewData.misses) || 0;
+      } else {
+        (_recentLogs || []).forEach(l => {
+          if (l.cache_status === 'HIT') {
+            if (l.cache_tier === 'TIER1_EXACT') t1++;
+            else if (l.cache_tier === 'TIER3_SEMANTIC') t3++;
+            else t1++;
+          } else if (l.cache_tier === 'TIER2_PREFIX' || (l.cached_tokens && l.cached_tokens > 0)) {
+            t2++;
+          } else {
+            miss++;
+          }
+        });
+      }
 
       const total = t1 + t2 + t3 + miss;
       const elT1 = document.getElementById('legend-t1');
-      if (elT1) elT1.innerText = t1;
+      if (elT1) elT1.innerText = t1.toLocaleString();
       const elT2 = document.getElementById('legend-t2');
-      if (elT2) elT2.innerText = t2;
+      if (elT2) elT2.innerText = t2.toLocaleString();
       const elT3 = document.getElementById('legend-t3');
-      if (elT3) elT3.innerText = t3;
+      if (elT3) elT3.innerText = t3.toLocaleString();
       const elMiss = document.getElementById('legend-miss');
-      if (elMiss) elMiss.innerText = miss;
+      if (elMiss) elMiss.innerText = miss.toLocaleString();
 
       const pctOpt = total > 0 ? Math.round(((t1 + t2 + t3) / total) * 100) : 0;
       const centerEl = document.getElementById('donut-center-pct');
@@ -2030,17 +2154,34 @@
       if (!container) return;
 
       const counts = {};
-      (_recentLogs || []).forEach(l => {
-        let p = (l.provider || 'unknown').toLowerCase();
-        if (p === 'cache-local') p = 'Local Cache';
-        else if (p === 'nvidianim') p = 'NVIDIA NIM';
-        else if (p === 'groq') p = 'Groq';
-        else if (p === 'gemini') p = 'Gemini';
-        else if (p === 'anthropic') p = 'Anthropic';
-        else if (p === 'openai') p = 'OpenAI';
-        else if (p === 'openrouter') p = 'OpenRouter';
-        counts[p] = (counts[p] || 0) + 1;
-      });
+      if (_overviewData && _overviewData.provider_counts && Object.keys(_overviewData.provider_counts).length > 0) {
+        Object.entries(_overviewData.provider_counts).forEach(([prov, count]) => {
+          let p = (prov || 'unknown').toLowerCase();
+          if (p === 'cache-local' || p === 'cache') p = 'Local Cache';
+          else if (p === 'nvidianim') p = 'NVIDIA NIM';
+          else if (p === 'groq') p = 'Groq';
+          else if (p === 'gemini') p = 'Gemini';
+          else if (p === 'anthropic') p = 'Anthropic';
+          else if (p === 'openai') p = 'OpenAI';
+          else if (p === 'openrouter') p = 'OpenRouter';
+          else if (p === 'ollama') p = 'Ollama';
+          else p = prov.toUpperCase();
+          counts[p] = (counts[p] || 0) + Number(count);
+        });
+      } else {
+        (_recentLogs || []).forEach(l => {
+          let p = (l.provider || 'unknown').toLowerCase();
+          if (p === 'cache-local' || p === 'cache') p = 'Local Cache';
+          else if (p === 'nvidianim') p = 'NVIDIA NIM';
+          else if (p === 'groq') p = 'Groq';
+          else if (p === 'gemini') p = 'Gemini';
+          else if (p === 'anthropic') p = 'Anthropic';
+          else if (p === 'openai') p = 'OpenAI';
+          else if (p === 'openrouter') p = 'OpenRouter';
+          else if (p === 'ollama') p = 'Ollama';
+          counts[p] = (counts[p] || 0) + 1;
+        });
+      }
 
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       if (total === 0) {
@@ -2056,18 +2197,19 @@
         'Anthropic': '#c084fc',
         'OpenAI': '#10a37f',
         'OpenRouter': '#6366f1',
+        'Ollama': '#fbbf24',
         'unknown': '#a1a1aa'
       };
 
-      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
       container.innerHTML = sorted.map(([name, count]) => {
         const pct = Math.round((count / total) * 100);
         const col = colors[name] || '#38bdf8';
         return `
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px;">
-              <span style="font-weight: 600;">${name}</span>
-              <span style="color: var(--muted);">${count} (${pct}%)</span>
+              <span style="font-weight: 600;">${escapeHTML(name)}</span>
+              <span style="color: var(--muted);">${count.toLocaleString()} (${pct}%)</span>
             </div>
             <div style="width: 100%; height: 6px; background: #27272a; border-radius: 9999px; overflow: hidden;">
               <div style="width: ${pct}%; height: 100%; background: ${col}; border-radius: 9999px; transition: width 0.3s;"></div>
@@ -2332,6 +2474,7 @@
         if (res.ok) {
           loadRoutes();
           loadProviders();
+          loadSystemDiagnostics();
         }
       } catch (e) {}
     }

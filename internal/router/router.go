@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -369,6 +370,21 @@ func (r *Router) ResetCircuitBreakers() {
 	}
 }
 
+// ResetCircuitBreaker resets a single named circuit breaker to CLOSED.
+func (r *Router) ResetCircuitBreaker(name string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if cb, exists := r.breakers[strings.ToLower(name)]; exists && cb != nil {
+		cb.Reset()
+		return true
+	}
+	if cb, exists := r.breakers[name]; exists && cb != nil {
+		cb.Reset()
+		return true
+	}
+	return false
+}
+
 // isCircuitBreakerError returns true if the error indicates a downstream server outage,
 // network timeout, or rate-limit exhaustion that should contribute to tripping the circuit breaker.
 // Client errors (HTTP 400 Bad Request, 401 Unauthorized, 403 Forbidden, 404 Not Found)
@@ -427,6 +443,14 @@ func (r *Router) CircuitBreakerSnapshots() []CircuitBreakerSnapshot {
 			res = append(res, cb.Snapshot())
 		}
 	}
+	sort.Slice(res, func(i, j int) bool {
+		iHasSlash := strings.Contains(res[i].Name, "/")
+		jHasSlash := strings.Contains(res[j].Name, "/")
+		if iHasSlash != jHasSlash {
+			return !iHasSlash
+		}
+		return res[i].Name < res[j].Name
+	})
 	return res
 }
 

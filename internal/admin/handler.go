@@ -127,6 +127,11 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		"local_hits":                overview.LocalHits,
 		"model_cache_hits":          overview.ModelCacheHits,
 		"hit_rate_percent":          overview.HitRatePercent,
+		"tier1_exact_hits":          overview.Tier1ExactHits,
+		"tier2_prefix_hits":         overview.Tier2PrefixHits,
+		"tier3_semantic_hits":       overview.Tier3SemanticHits,
+		"misses":                    overview.Misses,
+		"provider_counts":           overview.ProviderCounts,
 		"total_tokens_in":           overview.TotalTokensIn,
 		"total_tokens_out":          overview.TotalTokensOut,
 		"total_cost_usd":            overview.TotalCostUSD,
@@ -1187,10 +1192,17 @@ func (h *AdminHandler) HandleSetRouteStrategy(w http.ResponseWriter, r *http.Req
 	})
 }
 
-// HandleResetCircuitBreakers manually resets all circuit breakers to CLOSED.
+// HandleResetCircuitBreakers manually resets all circuit breakers or a single named circuit breaker to CLOSED.
 func (h *AdminHandler) HandleResetCircuitBreakers(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	msg := "All circuit breakers reset to CLOSED"
 	if h.router != nil {
-		h.router.ResetCircuitBreakers()
+		if name != "" {
+			h.router.ResetCircuitBreaker(name)
+			msg = fmt.Sprintf("Circuit breaker %s reset to CLOSED", name)
+		} else {
+			h.router.ResetCircuitBreakers()
+		}
 	}
 
 	if h.broadcaster != nil {
@@ -1199,13 +1211,14 @@ func (h *AdminHandler) HandleResetCircuitBreakers(w http.ResponseWriter, r *http
 			Timestamp: time.Now(),
 			Data: map[string]string{
 				"status": "closed",
+				"name":   name,
 			},
 		})
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":  "success",
-		"message": "All circuit breakers reset to CLOSED",
+		"message": msg,
 	})
 }
 
