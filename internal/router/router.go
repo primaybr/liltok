@@ -80,15 +80,21 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> Groq -> Gemini Free -> NVIDIA NIM
+	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> GPT-20B)
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
 		Targets: []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
+			{ProviderName: "groq", UpstreamModel: "openai/gpt-oss-120b"},
+			{ProviderName: "groq", UpstreamModel: "openai/gpt-oss-20b"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 		},
 	}
 
@@ -98,8 +104,14 @@ func (r *Router) initDefaultRoutes() {
 		Strategy: "free_first",
 		Targets: []TargetSpec{
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
+			{ProviderName: "groq", UpstreamModel: "openai/gpt-oss-120b"},
+			{ProviderName: "groq", UpstreamModel: "openai/gpt-oss-20b"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 		},
 	}
 
@@ -111,6 +123,16 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "anthropic", UpstreamModel: "claude-opus-5"},
 			{ProviderName: "openai", UpstreamModel: "gpt-4o"},
 		},
+	}
+
+	// Initialize target-level circuit breakers for all targets in routes
+	for _, route := range r.routes {
+		for _, target := range route.Targets {
+			key := target.ProviderName + "/" + target.UpstreamModel
+			if _, exists := r.breakers[key]; !exists {
+				r.breakers[key] = NewCircuitBreaker(key)
+			}
+		}
 	}
 }
 
@@ -174,13 +196,12 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 	// 5. Specific model matching heuristics for auto-resilient mode
 	lowerModel := strings.ToLower(requestedModel)
 	if strings.Contains(lowerModel, "claude") {
-		// Target Anthropic first, fallback to free targets
-		return []TargetSpec{
+		// Target Anthropic first, fallback to all rolling free targets
+		targets := []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
-			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
-			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		}
+		targets = append(targets, r.routes["free-first"].Targets...)
+		return targets
 	}
 	if strings.Contains(lowerModel, "llama") || strings.Contains(lowerModel, "free") {
 		return r.routes["free-first"].Targets
@@ -189,8 +210,27 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 	// 6. Default to OpenAI target + fallback
 	return []TargetSpec{
 		{ProviderName: "openai", UpstreamModel: requestedModel},
-		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.3-70b-instruct"},
+		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+		{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 	}
+}
+
+// getTargetBreaker returns or initializes a circuit breaker for a specific provider/model target.
+func (r *Router) getTargetBreaker(providerName, upstreamModel string) *CircuitBreaker {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	key := providerName
+	if upstreamModel != "" {
+		key = providerName + "/" + upstreamModel
+	}
+
+	cb, exists := r.breakers[key]
+	if !exists {
+		cb = NewCircuitBreaker(key)
+		r.breakers[key] = cb
+	}
+	return cb
 }
 
 // DispatchChat executes non-streaming chat with automatic failover across target specifications.
@@ -205,11 +245,39 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		approxTokens = promptChars / 4
 	}
 
+	// Filter and prioritize targets based on token context requirements
+	var candidateTargets []TargetSpec
+	if approxTokens > 25000 {
+		// Prompts > 25k tokens: prioritize 1M-context Gemini models first
+		for _, t := range targets {
+			if t.ProviderName == "gemini" {
+				candidateTargets = append(candidateTargets, t)
+			}
+		}
+		// If prompt fits within 120k tokens, include Groq/NVIDIA as secondary fallback
+		if approxTokens <= 120000 {
+			for _, t := range targets {
+				if t.ProviderName != "gemini" && t.ProviderName != "anthropic" {
+					candidateTargets = append(candidateTargets, t)
+				}
+			}
+		}
+		// If no candidates selected, default to original targets
+		if len(candidateTargets) == 0 {
+			candidateTargets = targets
+		}
+	} else {
+		// Prompts <= 25k tokens: use default sequence (Groq fast tier first, then Gemini, then NVIDIA NIM)
+		candidateTargets = targets
+	}
+
 	var lastErr error
-	for _, target := range targets {
-		if approxTokens > 25000 && (target.ProviderName == "groq" || target.ProviderName == "nvidianim") {
+	for _, target := range candidateTargets {
+		// Strictly bypass providers whose physical context window cannot accommodate prompt
+		if approxTokens > 120000 && (target.ProviderName == "groq" || target.ProviderName == "nvidianim") {
 			telemetry.Log.Debug().
 				Str("provider", target.ProviderName).
+				Str("model", target.UpstreamModel).
 				Int("approx_tokens", approxTokens).
 				Msg("Prompt exceeds provider context window; bypassing to large-context target")
 			continue
@@ -220,10 +288,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			continue
 		}
 
-		cb := r.breakers[target.ProviderName]
+		cb := r.getTargetBreaker(target.ProviderName, target.UpstreamModel)
 		if !cb.Allow() {
 			telemetry.Log.Warn().
 				Str("provider", target.ProviderName).
+				Str("model", target.UpstreamModel).
 				Msg("Circuit breaker OPEN, skipping target in fallback chain")
 			continue
 		}
@@ -240,12 +309,18 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 
 		if isCircuitBreakerError(err) {
 			cb.RecordFailure()
+			// If rate limited or quota exhausted (429/RESOURCE_EXHAUSTED), trip immediately to allow rapid rolling failover
+			errLower := strings.ToLower(err.Error())
+			if strings.Contains(errLower, "429") || strings.Contains(errLower, "resource_exhausted") || strings.Contains(errLower, "quota") {
+				cb.TripImmediate()
+			}
 		}
 		lastErr = err
 		telemetry.Log.Warn().
 			Str("failed_provider", target.ProviderName).
+			Str("failed_model", target.UpstreamModel).
 			Err(err).
-			Msg("Provider failed, failing over to next target")
+			Msg("Provider target failed, failing over to next target in rolling sequence")
 	}
 
 	return nil, "", fmt.Errorf("all providers in fallback chain failed: %w", lastErr)

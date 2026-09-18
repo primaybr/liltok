@@ -365,13 +365,34 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 	routes := []map[string]interface{}{
 		{
 			"id":          "auto-resilient",
-			"description": "Frontier models with automatic failover to budget and free tiers",
-			"targets":     []string{"anthropic/claude-sonnet-5", "groq/qwen/qwen3.8-27b", "gemini/gemini-3.6-flash", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
+			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), and NVIDIA NIM",
+			"targets": []string{
+				"anthropic/claude-sonnet-5",
+				"groq/qwen/qwen3.8-27b",
+				"groq/openai/gpt-oss-120b",
+				"groq/openai/gpt-oss-20b",
+				"gemini/gemini-3.8-flash",
+				"gemini/gemini-3.7-flash",
+				"gemini/gemini-3.6-flash",
+				"gemini/gemini-3.5-flash-lite",
+				"nvidianim/meta/llama-3.2-11b-vision-instruct",
+				"nvidianim/openai/gpt-oss-20b",
+			},
 		},
 		{
 			"id":          "free-first",
-			"description": "Free AI coding agents (Groq, Gemini Free with 3 keys, NVIDIA NIM) for $0.00 spend",
-			"targets":     []string{"groq/qwen/qwen3.8-27b", "gemini/gemini-3.6-flash", "nvidianim/meta/llama-3.2-11b-vision-instruct"},
+			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> NVIDIA NIM for $0.00 spend",
+			"targets": []string{
+				"groq/qwen/qwen3.8-27b",
+				"groq/openai/gpt-oss-120b",
+				"groq/openai/gpt-oss-20b",
+				"gemini/gemini-3.8-flash",
+				"gemini/gemini-3.7-flash",
+				"gemini/gemini-3.6-flash",
+				"gemini/gemini-3.5-flash-lite",
+				"nvidianim/meta/llama-3.2-11b-vision-instruct",
+				"nvidianim/openai/gpt-oss-20b",
+			},
 		},
 		{
 			"id":          "premium-only",

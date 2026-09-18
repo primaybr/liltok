@@ -42,9 +42,13 @@ func DefaultPricingRules() []ModelPricing {
 		{ModelPattern: `^deepseek-chat.*`, Provider: "deepseek", Tier: "budget", InputCostPerM: 0.27, CachedInputCostPerM: 0.07, OutputCostPerM: 1.10},
 		{ModelPattern: `^deepseek-reasoner.*`, Provider: "deepseek", Tier: "budget", InputCostPerM: 0.55, CachedInputCostPerM: 0.14, OutputCostPerM: 2.19},
 		{ModelPattern: `^meta/llama-3.3-70b-instruct.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^meta/llama-3.2-11b-vision-instruct.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^meta/llama-.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^deepseek-ai/deepseek-r1.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^qwen/.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^openai/gpt-oss-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^llama-3.3-70b-versatile.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^gemini-1.5-flash.*`, Provider: "gemini", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^gemini-.*`, Provider: "gemini", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^ollama/.*`, Provider: "ollama", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 	}
 

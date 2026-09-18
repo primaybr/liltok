@@ -276,3 +276,88 @@ Tool Call: SendMessage({"message":"Continue where you left off. Run the tests to
 		t.Errorf("expected input to 'a139b43b450f80250', got %v", inputMap)
 	}
 }
+
+func TestRouterRollingFallbackSequence(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	// Register mock groq (failing with 429), mock gemini (failing with 429), mock nvidianim (succeeding)
+	r.providers["groq"] = &mockProvider{
+		name: "groq",
+		fail: true,
+	}
+	r.providers["gemini"] = &mockProvider{
+		name: "gemini",
+		fail: true,
+	}
+	r.providers["nvidianim"] = &mockProvider{
+		name: "nvidianim",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "nim-winner-1",
+			Content: "hello from NVIDIA NIM rolling winner",
+		},
+	}
+
+	req := &provider.UnifiedChatRequest{
+		Model: "free-first",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "test rolling fallback"},
+		},
+	}
+
+	resp, winningProvider, err := r.DispatchChat(context.Background(), req, "free-first")
+	if err != nil {
+		t.Fatalf("dispatch failed unexpectedly: %v", err)
+	}
+
+	if winningProvider != "nvidianim" {
+		t.Errorf("expected winning provider nvidianim after groq and gemini 429s, got %s", winningProvider)
+	}
+
+	if resp.Content != "hello from NVIDIA NIM rolling winner" {
+		t.Errorf("unexpected content: %s", resp.Content)
+	}
+}
+
+func TestRouterContextAwareTargetOrdering(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	var attemptedOrder []string
+	r.providers["groq"] = &mockProvider{
+		name: "groq",
+		fail: true,
+	}
+	r.providers["gemini"] = &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-large-ctx",
+			Content: "handled large prompt",
+		},
+	}
+
+	// Create a large payload simulating > 25,000 tokens
+	largePayload := make([]byte, 120000) // 120,000 bytes / 4 = 30,000 tokens
+	req := &provider.UnifiedChatRequest{
+		Model:      "free-first",
+		RawPayload: largePayload,
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "large prompt"},
+		},
+	}
+
+	resp, winningProvider, err := r.DispatchChat(context.Background(), req, "free-first")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	// For > 25,000 tokens, Gemini should be prioritized first
+	if winningProvider != "gemini" {
+		t.Errorf("expected gemini to win for large prompt, got %s (attempted: %v)", winningProvider, attemptedOrder)
+	}
+	if resp.Content != "handled large prompt" {
+		t.Errorf("unexpected response: %s", resp.Content)
+	}
+}
