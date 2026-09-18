@@ -43,6 +43,60 @@ type MiningStats struct {
 	Duration        time.Duration `json:"duration"`
 }
 
+// PromptAuditItem represents a curated prompt with live database cache status.
+type PromptAuditItem struct {
+	ID           string   `json:"id"`
+	Category     string   `json:"category"`
+	SystemPrompt string   `json:"system_prompt,omitempty"`
+	UserPrompt   string   `json:"user_prompt"`
+	Tags         []string `json:"tags,omitempty"`
+	IsCached     bool     `json:"is_cached"`
+	HitCount     int      `json:"hit_count"`
+	CachedAt     string   `json:"cached_at,omitempty"`
+	ModelsCached []string `json:"models_cached,omitempty"`
+}
+
+// CorpusSummary aggregates prompt counts and caching status across categories.
+type CorpusSummary struct {
+	TotalPrompts int            `json:"total_prompts"`
+	TotalCached  int            `json:"total_cached"`
+	TotalMissing int            `json:"total_missing"`
+	Categories   map[string]int `json:"categories"`
+}
+
+// MiningStatus represents the state of the mining worker.
+type MiningStatus string
+
+const (
+	MiningStatusIdle      MiningStatus = "idle"
+	MiningStatusRunning   MiningStatus = "running"
+	MiningStatusStopping  MiningStatus = "stopping"
+	MiningStatusCompleted MiningStatus = "completed"
+	MiningStatusFailed    MiningStatus = "failed"
+)
+
+// MiningProgressEvent is emitted on progress updates.
+type MiningProgressEvent struct {
+	Type          string       `json:"type"` // "miner_progress", "miner_log", "miner_complete", "miner_error"
+	Status        MiningStatus `json:"status"`
+	CurrentPrompt *PromptItem  `json:"current_prompt,omitempty"`
+	Stats         MiningStats  `json:"stats"`
+	LogMessage    string       `json:"log_message,omitempty"`
+	Timestamp     time.Time    `json:"timestamp"`
+}
+
+// MiningStatusResponse represents the serializable status of the mining manager.
+type MiningStatusResponse struct {
+	Status        MiningStatus `json:"status"`
+	Provider      string       `json:"provider"`
+	Category      string       `json:"category"`
+	CurrentPrompt *PromptItem  `json:"current_prompt,omitempty"`
+	Stats         MiningStats  `json:"stats"`
+	RecentLogs    []string     `json:"recent_logs"`
+	StartedAt     *time.Time   `json:"started_at,omitempty"`
+	ElapsedSec    int64        `json:"elapsed_seconds"`
+}
+
 // CacheExportItem represents an exportable/importable cache record.
 type CacheExportItem struct {
 	Hash             string `json:"hash"`
@@ -120,6 +174,16 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 
 // MinePrompts executes mining across the given slice of prompt items with throttling and concurrent workers.
 func (m *CacheMiner) MinePrompts(ctx context.Context, prompts []PromptItem) (MiningStats, error) {
+	return m.MinePromptsWithProgress(ctx, prompts, nil, nil)
+}
+
+// MinePromptsWithProgress executes mining with optional progress and completion hooks per prompt.
+func (m *CacheMiner) MinePromptsWithProgress(
+	ctx context.Context,
+	prompts []PromptItem,
+	onStart func(item PromptItem),
+	onDone func(item PromptItem, err error, newEntries int, tokens int),
+) (MiningStats, error) {
 	start := time.Now()
 	stats := MiningStats{
 		TotalPrompts: len(prompts),
@@ -156,12 +220,21 @@ func (m *CacheMiner) MinePrompts(ctx context.Context, prompts []PromptItem) (Min
 						return
 					}
 
-					// Wait for rate limiter ticket
+					// Wait for rate limiter ticket with cancellation support
 					mu.Lock()
-					<-throttleTicker.C
+					select {
+					case <-ctx.Done():
+						mu.Unlock()
+						return
+					case <-throttleTicker.C:
+					}
 					mu.Unlock()
 
-					err := m.mineSinglePrompt(ctx, item, &stats)
+					if onStart != nil {
+						onStart(item)
+					}
+
+					newEntries, tokens, err := m.mineSinglePrompt(ctx, item, &stats)
 					if err != nil {
 						atomic.AddInt64(&stats.Errors, 1)
 						telemetry.Log.Warn().
@@ -170,6 +243,10 @@ func (m *CacheMiner) MinePrompts(ctx context.Context, prompts []PromptItem) (Min
 							Msg("Cache miner prompt failed")
 					} else {
 						atomic.AddInt64(&stats.Completed, 1)
+					}
+
+					if onDone != nil {
+						onDone(item, err, newEntries, tokens)
 					}
 				}
 			}
@@ -181,7 +258,7 @@ func (m *CacheMiner) MinePrompts(ctx context.Context, prompts []PromptItem) (Min
 	return stats, nil
 }
 
-func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stats *MiningStats) error {
+func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stats *MiningStats) (int, int, error) {
 	// 1. Generate canonical completion using free provider
 	maxTokens := 2048
 	if strings.ToLower(m.cfg.Provider) == "groq" {
@@ -205,7 +282,7 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 
 	jsonBytes, err := json.Marshal(reqPayload)
 	if err != nil {
-		return fmt.Errorf("failed to marshal generator payload: %w", err)
+		return 0, 0, fmt.Errorf("failed to marshal generator payload: %w", err)
 	}
 
 	targetURL := strings.TrimRight(m.cfg.BaseURL, "/") + "/chat/completions"
@@ -215,7 +292,7 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		httpReq, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(jsonBytes))
 		if err != nil {
-			return fmt.Errorf("failed to create http request: %w", err)
+			return 0, 0, fmt.Errorf("failed to create http request: %w", err)
 		}
 
 		httpReq.Header.Set("Content-Type", "application/json")
@@ -225,26 +302,26 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 
 		resp, err := m.httpClient.Do(httpReq)
 		if err != nil {
-			return fmt.Errorf("http call to %s failed: %w", m.cfg.Provider, err)
+			return 0, 0, fmt.Errorf("http call to %s failed: %w", m.cfg.Provider, err)
 		}
 
 		respBytes, err = io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return fmt.Errorf("failed to read response: %w", err)
+			return 0, 0, fmt.Errorf("failed to read response: %w", err)
 		}
 
 		if resp.StatusCode == 429 && attempt < maxRetries {
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return 0, 0, ctx.Err()
 			case <-time.After(time.Duration(attempt+1) * 3 * time.Second):
 				continue
 			}
 		}
 
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("provider %s returned status %d: %s", m.cfg.Provider, resp.StatusCode, string(respBytes))
+			return 0, 0, fmt.Errorf("provider %s returned status %d: %s", m.cfg.Provider, resp.StatusCode, string(respBytes))
 		}
 		break
 	}
@@ -264,20 +341,23 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 	}
 
 	if err := json.Unmarshal(respBytes, &parsedResp); err != nil || len(parsedResp.Choices) == 0 {
-		return fmt.Errorf("failed to parse valid response: %w", err)
+		return 0, 0, fmt.Errorf("failed to parse valid response: %w", err)
 	}
 
 	generatedText := parsedResp.Choices[0].Message.Content
-	atomic.AddInt64(&stats.TokensGenerated, int64(parsedResp.Usage.TotalTokens))
+	tokensGen := parsedResp.Usage.TotalTokens
+	atomic.AddInt64(&stats.TokensGenerated, int64(tokensGen))
 
 	// 2. Synthesize entries for each target model
+	entriesCreated := 0
 	for _, targetModel := range m.cfg.TargetModels {
 		if err := m.storeSynthesizedEntry(ctx, targetModel, item, generatedText, parsedResp.Usage.PromptTokens, parsedResp.Usage.CompletionTokens); err == nil {
 			atomic.AddInt64(&stats.CacheEntries, 2)
+			entriesCreated += 2
 		}
 	}
 
-	return nil
+	return entriesCreated, tokensGen, nil
 }
 
 func (m *CacheMiner) storeSynthesizedEntry(ctx context.Context, targetModel string, item PromptItem, answer string, pTokens, cTokens int) error {
@@ -633,4 +713,338 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 		SizeBytes:       buf.Len(),
 		TargetPath:      targetGzPath,
 	}, nil
+}
+
+// computePromptHashes computes canonical cache hashes for both Anthropic and OpenAI schemas across target models.
+func computePromptHashes(item PromptItem, models []string) map[string]string {
+	hashes := make(map[string]string)
+	normOpts := cache.NormalizationOptions{CacheNonzeroTemperature: true}
+
+	for _, model := range models {
+		// 1. Anthropic schema
+		anthPayload := map[string]interface{}{
+			"model": model,
+			"messages": []map[string]string{
+				{"role": "user", "content": item.UserPrompt},
+			},
+			"max_tokens": 4096,
+		}
+		if item.SystemPrompt != "" {
+			anthPayload["system"] = item.SystemPrompt
+		}
+		if b, err := json.Marshal(anthPayload); err == nil {
+			if norm, err := cache.NormalizePayload(b, normOpts); err == nil {
+				hashes[norm.Hash] = model
+			}
+		}
+
+		// 2. OpenAI schema
+		openAIPayload := map[string]interface{}{
+			"model": model,
+			"messages": []map[string]string{
+				{"role": "user", "content": item.UserPrompt},
+			},
+			"temperature": 0.0,
+		}
+		if item.SystemPrompt != "" {
+			openAIPayload["messages"] = []map[string]string{
+				{"role": "system", "content": item.SystemPrompt},
+				{"role": "user", "content": item.UserPrompt},
+			}
+		}
+		if b, err := json.Marshal(openAIPayload); err == nil {
+			if norm, err := cache.NormalizePayload(b, normOpts); err == nil {
+				hashes[norm.Hash] = model
+			}
+		}
+	}
+
+	return hashes
+}
+
+// AuditCorpusStatus inspects all curated prompts and checks which ones exist in the database.
+func AuditCorpusStatus(database *db.DB, category string) ([]PromptAuditItem, CorpusSummary, error) {
+	prompts := GetCuratedPrompts(category)
+	summary := CorpusSummary{
+		TotalPrompts: len(prompts),
+		Categories:   make(map[string]int),
+	}
+
+	targetModels := []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
+
+	type cacheMeta struct {
+		hitCount  int
+		createdAt string
+		model     string
+	}
+	existing := make(map[string]cacheMeta)
+	existingPrompts := make(map[string]cacheMeta)
+
+	if database != nil {
+		rows, err := database.QueryContext(context.Background(), "SELECT hash, model, normalized_prompt, hit_count, created_at FROM cache_entries")
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var hash, model, normPrompt, createdAt string
+				var hitCount int
+				if err := rows.Scan(&hash, &model, &normPrompt, &hitCount, &createdAt); err == nil {
+					existing[hash] = cacheMeta{hitCount: hitCount, createdAt: createdAt, model: model}
+					if len(normPrompt) < 500 {
+						clean := strings.ToLower(strings.TrimSpace(normPrompt))
+						existingPrompts[clean] = cacheMeta{hitCount: hitCount, createdAt: createdAt, model: model}
+					}
+				}
+			}
+		}
+	}
+
+	auditItems := make([]PromptAuditItem, 0, len(prompts))
+
+	for _, p := range prompts {
+		summary.Categories[p.Category]++
+
+		item := PromptAuditItem{
+			ID:           p.ID,
+			Category:     p.Category,
+			SystemPrompt: p.SystemPrompt,
+			UserPrompt:   p.UserPrompt,
+			Tags:         p.Tags,
+			IsCached:     false,
+		}
+
+		hashes := computePromptHashes(p, targetModels)
+		modelsSet := make(map[string]bool)
+
+		for h, m := range hashes {
+			if meta, found := existing[h]; found {
+				item.IsCached = true
+				if meta.hitCount > item.HitCount {
+					item.HitCount = meta.hitCount
+				}
+				if item.CachedAt == "" || meta.createdAt > item.CachedAt {
+					item.CachedAt = meta.createdAt
+				}
+				modelsSet[m] = true
+			}
+		}
+
+		// Fallback check against prompt substring if hash was created under different formatting
+		if !item.IsCached {
+			cleaned := strings.ToLower(strings.TrimSpace(p.UserPrompt))
+			for storedPrompt, meta := range existingPrompts {
+				if strings.Contains(storedPrompt, cleaned) {
+					item.IsCached = true
+					if meta.hitCount > item.HitCount {
+						item.HitCount = meta.hitCount
+					}
+					item.CachedAt = meta.createdAt
+					modelsSet[meta.model] = true
+					break
+				}
+			}
+		}
+
+		for m := range modelsSet {
+			item.ModelsCached = append(item.ModelsCached, m)
+		}
+
+		if item.IsCached {
+			summary.TotalCached++
+		} else {
+			summary.TotalMissing++
+		}
+
+		auditItems = append(auditItems, item)
+	}
+
+	return auditItems, summary, nil
+}
+
+// MiningManager coordinates background synthetic mining sessions.
+type MiningManager struct {
+	mu            sync.RWMutex
+	status        MiningStatus
+	provider      string
+	category      string
+	cancelFunc    context.CancelFunc
+	currentPrompt *PromptItem
+	stats         MiningStats
+	recentLogs    []string
+	startedAt     time.Time
+	database      *db.DB
+	onProgress    func(MiningProgressEvent)
+}
+
+// NewMiningManager creates a new mining manager instance.
+func NewMiningManager(database *db.DB, onProgress func(MiningProgressEvent)) *MiningManager {
+	return &MiningManager{
+		status:     MiningStatusIdle,
+		database:   database,
+		onProgress: onProgress,
+		recentLogs: make([]string, 0, 100),
+	}
+}
+
+// Start initiates a background synthetic mining session.
+func (mm *MiningManager) Start(cfg MinerConfig, category string, prompts []PromptItem) error {
+	mm.mu.Lock()
+	if mm.status == MiningStatusRunning {
+		mm.mu.Unlock()
+		return fmt.Errorf("a mining session is already in progress")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mm.cancelFunc = cancel
+	mm.status = MiningStatusRunning
+	mm.provider = cfg.Provider
+	mm.category = category
+	mm.startedAt = time.Now()
+	mm.stats = MiningStats{
+		TotalPrompts: len(prompts),
+	}
+	mm.recentLogs = make([]string, 0, 100)
+	mm.currentPrompt = nil
+	mm.mu.Unlock()
+
+	mm.addLog(fmt.Sprintf("Started synthetic mining with provider '%s' (%s) for %d prompts in category '%s'", cfg.Provider, cfg.Model, len(prompts), category))
+	mm.emitEvent("miner_progress", "Mining session initialized")
+
+	go func() {
+		defer func() {
+			mm.mu.Lock()
+			mm.cancelFunc = nil
+			mm.currentPrompt = nil
+			if mm.status == MiningStatusStopping || ctx.Err() != nil {
+				mm.status = MiningStatusIdle
+				mm.addLogLocked("Mining session halted by user.")
+			} else if mm.stats.Errors > 0 && mm.stats.Completed == 0 {
+				mm.status = MiningStatusFailed
+				mm.addLogLocked(fmt.Sprintf("Mining session failed: all %d attempts encountered errors.", mm.stats.Errors))
+			} else {
+				mm.status = MiningStatusCompleted
+				mm.addLogLocked(fmt.Sprintf("Mining session finished: %d completed, %d cache entries created, %d tokens generated.", mm.stats.Completed, mm.stats.CacheEntries, mm.stats.TokensGenerated))
+			}
+			mm.mu.Unlock()
+			mm.emitEvent("miner_complete", "Mining session finalized")
+		}()
+
+		minerInstance := NewCacheMiner(cfg, mm.database, nil)
+		finalStats, _ := minerInstance.MinePromptsWithProgress(
+			ctx,
+			prompts,
+			func(item PromptItem) {
+				mm.mu.Lock()
+				mm.currentPrompt = &item
+				mm.mu.Unlock()
+				mm.emitEvent("miner_progress", fmt.Sprintf("Mining prompt [%s]: %s", item.ID, item.UserPrompt))
+			},
+			func(item PromptItem, err error, newEntries int, tokens int) {
+				if err != nil {
+					mm.addLog(fmt.Sprintf("ERROR [%s]: %v", item.ID, err))
+					mm.emitEvent("miner_log", fmt.Sprintf("Failed [%s]: %v", item.ID, err))
+				} else {
+					mm.addLog(fmt.Sprintf("CACHED [%s]: +%d entries (%d tokens)", item.ID, newEntries, tokens))
+					mm.emitEvent("miner_log", fmt.Sprintf("Mined [%s] (+%d entries)", item.ID, newEntries))
+				}
+				mm.mu.Lock()
+				mm.stats.Completed++
+				if err != nil {
+					mm.stats.Errors++
+				} else {
+					mm.stats.CacheEntries += int64(newEntries)
+					mm.stats.TokensGenerated += int64(tokens)
+				}
+				mm.mu.Unlock()
+				mm.emitEvent("miner_progress", fmt.Sprintf("Progress: %d/%d prompts", mm.stats.Completed, mm.stats.TotalPrompts))
+			},
+		)
+
+		mm.mu.Lock()
+		mm.stats = finalStats
+		mm.mu.Unlock()
+	}()
+
+	return nil
+}
+
+// Stop gracefully cancels an ongoing mining session.
+func (mm *MiningManager) Stop() error {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+
+	if mm.status != MiningStatusRunning {
+		return nil
+	}
+
+	mm.status = MiningStatusStopping
+	if mm.cancelFunc != nil {
+		mm.cancelFunc()
+	}
+	mm.addLogLocked("Abort requested. Gracefully stopping workers...")
+	return nil
+}
+
+// Status returns the current runtime status of the mining manager.
+func (mm *MiningManager) Status() MiningStatusResponse {
+	mm.mu.RLock()
+	defer mm.mu.RUnlock()
+
+	var started *time.Time
+	var elapsed int64
+	if !mm.startedAt.IsZero() {
+		t := mm.startedAt
+		started = &t
+		if mm.status == MiningStatusRunning || mm.status == MiningStatusStopping {
+			elapsed = int64(time.Since(mm.startedAt).Seconds())
+		} else if mm.stats.Duration > 0 {
+			elapsed = int64(mm.stats.Duration.Seconds())
+		}
+	}
+
+	logsCopy := make([]string, len(mm.recentLogs))
+	copy(logsCopy, mm.recentLogs)
+
+	return MiningStatusResponse{
+		Status:        mm.status,
+		Provider:      mm.provider,
+		Category:      mm.category,
+		CurrentPrompt: mm.currentPrompt,
+		Stats:         mm.stats,
+		RecentLogs:    logsCopy,
+		StartedAt:     started,
+		ElapsedSec:    elapsed,
+	}
+}
+
+func (mm *MiningManager) addLog(msg string) {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.addLogLocked(msg)
+}
+
+func (mm *MiningManager) addLogLocked(msg string) {
+	formatted := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), msg)
+	mm.recentLogs = append(mm.recentLogs, formatted)
+	if len(mm.recentLogs) > 100 {
+		mm.recentLogs = mm.recentLogs[len(mm.recentLogs)-100:]
+	}
+}
+
+func (mm *MiningManager) emitEvent(eventType, message string) {
+	if mm.onProgress == nil {
+		return
+	}
+
+	mm.mu.RLock()
+	ev := MiningProgressEvent{
+		Type:          eventType,
+		Status:        mm.status,
+		CurrentPrompt: mm.currentPrompt,
+		Stats:         mm.stats,
+		LogMessage:    message,
+		Timestamp:     time.Now(),
+	}
+	mm.mu.RUnlock()
+
+	mm.onProgress(ev)
 }

@@ -515,3 +515,75 @@ func TestAdminSystemDiagnosticsAndVacuum(t *testing.T) {
 	}
 }
 
+func TestAdminMinerEndpoints(t *testing.T) {
+	r, database, _ := setupAdminTest(t)
+	defer database.Close()
+
+	// 1. Check initial status
+	reqStatus := httptest.NewRequest("GET", "/api/v1/miner/status", nil)
+	recStatus := httptest.NewRecorder()
+	r.ServeHTTP(recStatus, reqStatus)
+
+	if recStatus.Code != http.StatusOK {
+		t.Fatalf("expected 200 from miner/status, got %d", recStatus.Code)
+	}
+
+	var statusResp map[string]interface{}
+	if err := json.Unmarshal(recStatus.Body.Bytes(), &statusResp); err != nil {
+		t.Fatalf("failed to decode miner/status response: %v", err)
+	}
+	if statusResp["status"] != "idle" {
+		t.Errorf("expected miner status 'idle', got %v", statusResp["status"])
+	}
+
+	// 2. Check prompts audit
+	reqPrompts := httptest.NewRequest("GET", "/api/v1/miner/prompts?category=coding", nil)
+	recPrompts := httptest.NewRecorder()
+	r.ServeHTTP(recPrompts, reqPrompts)
+
+	if recPrompts.Code != http.StatusOK {
+		t.Fatalf("expected 200 from miner/prompts, got %d", recPrompts.Code)
+	}
+
+	var promptsResp struct {
+		Prompts []map[string]interface{} `json:"prompts"`
+		Summary map[string]interface{}   `json:"summary"`
+	}
+	if err := json.Unmarshal(recPrompts.Body.Bytes(), &promptsResp); err != nil {
+		t.Fatalf("failed to decode miner/prompts response: %v", err)
+	}
+	if len(promptsResp.Prompts) == 0 {
+		t.Errorf("expected non-empty prompts list")
+	}
+
+	// 3. Test start validation - missing API key for groq
+	startPayloadBad := `{"provider":"groq","category":"coding"}`
+	reqStartBad := httptest.NewRequest("POST", "/api/v1/miner/start", strings.NewReader(startPayloadBad))
+	recStartBad := httptest.NewRecorder()
+	r.ServeHTTP(recStartBad, reqStartBad)
+
+	if recStartBad.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for missing API key, got %d", recStartBad.Code)
+	}
+
+	// 4. Test start with ollama (does not require API key)
+	startPayloadOllama := `{"provider":"ollama","category":"coding","prompt_ids":["err-go-nil-pointer"],"workers":1,"rate_limit_rpm":10}`
+	reqStartOllama := httptest.NewRequest("POST", "/api/v1/miner/start", strings.NewReader(startPayloadOllama))
+	recStartOllama := httptest.NewRecorder()
+	r.ServeHTTP(recStartOllama, reqStartOllama)
+
+	if recStartOllama.Code != http.StatusOK {
+		t.Fatalf("expected 200 starting ollama miner, got %d: %s", recStartOllama.Code, recStartOllama.Body.String())
+	}
+
+	// 5. Test stop
+	reqStop := httptest.NewRequest("POST", "/api/v1/miner/stop", nil)
+	recStop := httptest.NewRecorder()
+	r.ServeHTTP(recStop, reqStop)
+
+	if recStop.Code != http.StatusOK {
+		t.Fatalf("expected 200 stopping miner, got %d", recStop.Code)
+	}
+}
+
+

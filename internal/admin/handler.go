@@ -30,9 +30,10 @@ type AdminHandler struct {
 	ledger      *ledger.Ledger
 	keyManager  *ledger.KeyManager
 	router      *router.Router
-	cacheStore  cache.Store
-	broadcaster *Broadcaster
-	startTime   time.Time
+	cacheStore    cache.Store
+	broadcaster   *Broadcaster
+	startTime     time.Time
+	miningManager *miner.MiningManager
 }
 
 // NewAdminHandler initializes administrative API endpoints.
@@ -40,7 +41,7 @@ func NewAdminHandler(cfg *config.Config, database *db.DB, led *ledger.Ledger, km
 	if b == nil {
 		b = NewBroadcaster()
 	}
-	return &AdminHandler{
+	ah := &AdminHandler{
 		cfg:         cfg,
 		database:    database,
 		ledger:      led,
@@ -50,6 +51,16 @@ func NewAdminHandler(cfg *config.Config, database *db.DB, led *ledger.Ledger, km
 		broadcaster: b,
 		startTime:   time.Now(),
 	}
+	if database != nil {
+		ah.miningManager = miner.NewMiningManager(database, func(ev miner.MiningProgressEvent) {
+			b.Broadcast(TelemetryEvent{
+				Type:      ev.Type,
+				Timestamp: ev.Timestamp,
+				Data:      ev,
+			})
+		})
+	}
+	return ah
 }
 
 // SetConfigPath overrides the config file path (useful for test isolation).
@@ -91,6 +102,12 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/moderate/approve", h.HandleModerateApprove)
 		r.Post("/moderate/reject", h.HandleModerateReject)
 		r.Delete("/moderate/clear", h.HandleModerateClear)
+
+		// Synthetic Cache Mining Endpoints
+		r.Get("/miner/status", h.HandleMinerStatus)
+		r.Get("/miner/prompts", h.HandleMinerPrompts)
+		r.Post("/miner/start", h.HandleMinerStart)
+		r.Post("/miner/stop", h.HandleMinerStop)
 	})
 }
 
@@ -1583,6 +1600,174 @@ func (h *AdminHandler) HandleProviderStats(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"stats": stats,
 	})
+}
+
+// HandleMinerStatus returns the current status and metrics of the synthetic cache mining worker.
+func (h *AdminHandler) HandleMinerStatus(w http.ResponseWriter, r *http.Request) {
+	if h.miningManager == nil {
+		writeJSON(w, http.StatusOK, miner.MiningStatusResponse{
+			Status: miner.MiningStatusIdle,
+		})
+		return
+	}
+	status := h.miningManager.Status()
+	writeJSON(w, http.StatusOK, status)
+}
+
+// HandleMinerPrompts audits the canonical prompt corpus against the current database cache.
+func (h *AdminHandler) HandleMinerPrompts(w http.ResponseWriter, r *http.Request) {
+	if h.database == nil {
+		writeError(w, http.StatusInternalServerError, "Database unavailable")
+		return
+	}
+	category := r.URL.Query().Get("category")
+	prompts, summary, err := miner.AuditCorpusStatus(h.database, category)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"prompts": prompts,
+		"summary": summary,
+	})
+}
+
+// MinerStartRequest defines the payload for initiating a synthetic mining session.
+type MinerStartRequest struct {
+	Provider     string   `json:"provider"`
+	Model        string   `json:"model"`
+	APIKey       string   `json:"api_key"`
+	BaseURL      string   `json:"base_url"`
+	Category     string   `json:"category"`
+	PromptIDs    []string `json:"prompt_ids"`
+	Workers      int      `json:"workers"`
+	RateLimitRPM int      `json:"rate_limit_rpm"`
+	TargetModels []string `json:"target_models"`
+}
+
+// HandleMinerStart starts a synthetic cache mining session in the background.
+func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) {
+	if h.miningManager == nil {
+		writeError(w, http.StatusInternalServerError, "Mining manager unavailable")
+		return
+	}
+
+	var req MinerStartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid JSON payload")
+		return
+	}
+
+	if req.Provider == "" {
+		req.Provider = "groq"
+	}
+	req.Provider = strings.ToLower(req.Provider)
+
+	// Resolve API key if not explicitly provided
+	apiKey := strings.TrimSpace(req.APIKey)
+	if apiKey == "" && h.cfg != nil {
+		switch req.Provider {
+		case "groq":
+			apiKey = h.cfg.Providers.Groq.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("GROQ_API_KEY")
+			}
+		case "nvidianim":
+			apiKey = h.cfg.Providers.NVIDIANIM.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("NVIDIA_NIM_API_KEY")
+			}
+		case "openrouter":
+			apiKey = h.cfg.Providers.OpenRouter.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("OPENROUTER_API_KEY")
+			}
+		}
+	}
+
+	if apiKey == "" && req.Provider != "ollama" {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Missing API key for provider '%s'. Please provide an API key or configure it in Providers settings.", req.Provider))
+		return
+	}
+
+	if req.Workers <= 0 {
+		req.Workers = 2
+	}
+	if req.RateLimitRPM <= 0 {
+		req.RateLimitRPM = 30
+	}
+	if len(req.TargetModels) == 0 {
+		req.TargetModels = []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
+	}
+
+	// Filter prompts
+	var promptsToMine []miner.PromptItem
+	if len(req.PromptIDs) > 0 {
+		allPrompts := miner.GetCuratedPrompts("all")
+		idMap := make(map[string]bool)
+		for _, id := range req.PromptIDs {
+			idMap[id] = true
+		}
+		for _, p := range allPrompts {
+			if idMap[p.ID] {
+				promptsToMine = append(promptsToMine, p)
+			}
+		}
+	} else {
+		promptsToMine = miner.GetCuratedPrompts(req.Category)
+	}
+
+	if len(promptsToMine) == 0 {
+		writeError(w, http.StatusBadRequest, "No matching prompts found in corpus to mine")
+		return
+	}
+
+	minerCfg := miner.MinerConfig{
+		Provider:     req.Provider,
+		APIKey:       apiKey,
+		BaseURL:      req.BaseURL,
+		Model:        req.Model,
+		Workers:      req.Workers,
+		RateLimitRPM: req.RateLimitRPM,
+		TargetModels: req.TargetModels,
+	}
+
+	if err := h.miningManager.Start(minerCfg, req.Category, promptsToMine); err != nil {
+		writeError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":        "started",
+		"provider":      req.Provider,
+		"category":      req.Category,
+		"total_prompts": len(promptsToMine),
+	})
+}
+
+// HandleMinerStop stops any active synthetic cache mining session.
+func (h *AdminHandler) HandleMinerStop(w http.ResponseWriter, r *http.Request) {
+	if h.miningManager == nil {
+		writeError(w, http.StatusInternalServerError, "Mining manager unavailable")
+		return
+	}
+	if err := h.miningManager.Stop(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status": "stopping",
+	})
+}
+
+// SetMiningManager overrides the default mining manager (useful for testing).
+func (h *AdminHandler) SetMiningManager(mm *miner.MiningManager) {
+	h.miningManager = mm
+}
+
+// MiningManager returns the current MiningManager.
+func (h *AdminHandler) MiningManager() *miner.MiningManager {
+	return h.miningManager
 }
 
 func writeJSON(w http.ResponseWriter, status int, data interface{}) {
