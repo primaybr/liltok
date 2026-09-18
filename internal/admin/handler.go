@@ -149,7 +149,7 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.database.QueryContext(r.Context(), `
-		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, provider,
+		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, COALESCE(requested_model, ''), provider,
 		       cache_status, cache_tier, prompt_tokens, completion_tokens,
 		       cached_tokens, latency_ms, cost_usd, saved_usd, status_code,
 		       COALESCE(error_message, '')
@@ -168,11 +168,14 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 		var l ledger.RequestLog
 		var ts string
 		if err := rows.Scan(
-			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.Provider,
+			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.RequestedModel, &l.Provider,
 			&l.CacheStatus, &l.CacheTier, &l.PromptTokens, &l.CompletionTokens,
 			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.SavedUSD,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
+			if l.RequestedModel == "" {
+				l.RequestedModel = l.Model
+			}
 			l.Timestamp = parseLogTimestamp(ts)
 			logs = append(logs, &l)
 		}
