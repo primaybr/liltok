@@ -58,9 +58,31 @@ trace.out
 Thumbs.db
 .vscode/
 .idea/
+.history/
 *.swp
 *~
 scratch/
 tmp/
 temp/
+
+# AI Agent Rules, Context & Tooling Metadata
+AGENTS.md
+agents.md
+GEMINI.md
+gemini.md
+CLAUDE.md
+claude.md
+.agents/
+.agent/
+_agents/
+_agent/
+.gemini/
+.claude/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.kilo/
+.antigravity/
+*.transcript.jsonl
 
