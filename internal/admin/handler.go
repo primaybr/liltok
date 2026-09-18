@@ -3,6 +3,7 @@ package admin
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -58,6 +59,7 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/overview", h.HandleOverview)
 		r.Get("/logs", h.HandleLogs)
+		r.Post("/logs/clear", h.HandleClearLogs)
 		r.Get("/cache", h.HandleListCache)
 		r.Delete("/cache/{hash}", h.HandleDeleteCacheEntry)
 		r.Post("/cache/purge", h.HandlePurgeCache)
@@ -109,20 +111,25 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]interface{}{
-		"status":           "healthy",
-		"version":          "0.1.0",
-		"uptime_seconds":   int64(time.Since(h.startTime).Seconds()),
-		"total_requests":   overview.TotalRequests,
-		"total_hits":       overview.TotalHits,
-		"local_hits":       overview.LocalHits,
-		"model_cache_hits": overview.ModelCacheHits,
-		"hit_rate_percent": overview.HitRatePercent,
-		"total_cost_usd":   overview.TotalCostUSD,
-		"total_saved_usd":  overview.TotalSavedUSD,
-		"avg_latency_ms":   overview.AvgLatencyMs,
-		"cache_entries":    totalEntries,
-		"active_listeners": h.broadcaster.ClientCount(),
-		"maintainer_mode":  h.cfg != nil && h.cfg.Maintainer.Enabled,
+		"status":                    "healthy",
+		"version":                   "0.1.0",
+		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
+		"total_requests":            overview.TotalRequests,
+		"total_hits":                overview.TotalHits,
+		"local_hits":                overview.LocalHits,
+		"model_cache_hits":          overview.ModelCacheHits,
+		"hit_rate_percent":          overview.HitRatePercent,
+		"total_tokens_in":           overview.TotalTokensIn,
+		"total_tokens_out":          overview.TotalTokensOut,
+		"total_cost_usd":            overview.TotalCostUSD,
+		"total_prompt_cost_usd":     overview.TotalPromptCostUSD,
+		"total_completion_cost_usd": overview.TotalCompletionCostUSD,
+		"gross_token_spend_usd":     overview.GrossTokenSpendUSD,
+		"total_saved_usd":           overview.TotalSavedUSD,
+		"avg_latency_ms":            overview.AvgLatencyMs,
+		"cache_entries":             totalEntries,
+		"active_listeners":          h.broadcaster.ClientCount(),
+		"maintainer_mode":           h.cfg != nil && h.cfg.Maintainer.Enabled,
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -151,7 +158,7 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.database.QueryContext(r.Context(), `
 		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, COALESCE(requested_model, ''), provider,
 		       cache_status, cache_tier, prompt_tokens, completion_tokens,
-		       cached_tokens, latency_ms, cost_usd, saved_usd, status_code,
+		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd, status_code,
 		       COALESCE(error_message, '')
 		FROM request_logs
 		ORDER BY timestamp DESC
@@ -170,7 +177,7 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 		if err := rows.Scan(
 			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.RequestedModel, &l.Provider,
 			&l.CacheStatus, &l.CacheTier, &l.PromptTokens, &l.CompletionTokens,
-			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.SavedUSD,
+			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.PromptCostUSD, &l.CompletionCostUSD, &l.SavedUSD,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
 			if l.RequestedModel == "" {
@@ -185,6 +192,44 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 		"limit":  limit,
 		"offset": offset,
 		"logs":   logs,
+	})
+}
+
+// HandleClearLogs purges all request logs from SQLite and broadcasts an SSE event.
+func (h *AdminHandler) HandleClearLogs(w http.ResponseWriter, r *http.Request) {
+	if h.database == nil {
+		writeError(w, http.StatusInternalServerError, "database connection unavailable")
+		return
+	}
+
+	ctx := r.Context()
+	res, err := h.database.ExecContext(ctx, "DELETE FROM request_logs")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to clear logs: %v", err))
+		return
+	}
+
+	rowsDeleted, _ := res.RowsAffected()
+
+	if r.URL.Query().Get("reset_spends") == "true" {
+		_, _ = h.database.ExecContext(ctx, "UPDATE api_keys SET current_spend_usd = 0.0")
+	}
+
+	// Broadcast SSE event so connected browser dashboards update instantly
+	if h.broadcaster != nil {
+		h.broadcaster.Broadcast(TelemetryEvent{
+			Type:      "logs_cleared",
+			Timestamp: time.Now(),
+			Data: map[string]interface{}{
+				"cleared_count": rowsDeleted,
+			},
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":        "success",
+		"message":       "Request logs successfully cleared",
+		"cleared_count": rowsDeleted,
 	})
 }
 

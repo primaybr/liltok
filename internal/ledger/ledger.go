@@ -26,6 +26,8 @@ type RequestLog struct {
 	CachedTokens     int       `json:"cached_tokens"`
 	LatencyMs        int64     `json:"latency_ms"`
 	CostUSD          float64   `json:"cost_usd"`
+	PromptCostUSD    float64   `json:"prompt_cost_usd"`
+	CompletionCostUSD float64  `json:"completion_cost_usd"`
 	SavedUSD         float64   `json:"saved_usd"`
 	StatusCode       int       `json:"status_code"`
 	ErrorMessage     string    `json:"error_message,omitempty"`
@@ -33,14 +35,19 @@ type RequestLog struct {
 
 // OverviewStats summarizes gateway performance and monetary savings.
 type OverviewStats struct {
-	TotalRequests  int64   `json:"total_requests"`
-	TotalHits      int64   `json:"total_hits"`
-	LocalHits      int64   `json:"local_hits"`
-	ModelCacheHits int64   `json:"model_cache_hits"`
-	HitRatePercent float64 `json:"hit_rate_percent"`
-	TotalCostUSD   float64 `json:"total_cost_usd"`
-	TotalSavedUSD  float64 `json:"total_saved_usd"`
-	AvgLatencyMs   float64 `json:"avg_latency_ms"`
+	TotalRequests          int64   `json:"total_requests"`
+	TotalHits              int64   `json:"total_hits"`
+	LocalHits              int64   `json:"local_hits"`
+	ModelCacheHits         int64   `json:"model_cache_hits"`
+	HitRatePercent         float64 `json:"hit_rate_percent"`
+	TotalTokensIn          int64   `json:"total_tokens_in"`
+	TotalTokensOut         int64   `json:"total_tokens_out"`
+	TotalCostUSD           float64 `json:"total_cost_usd"`
+	TotalPromptCostUSD     float64 `json:"total_prompt_cost_usd"`
+	TotalCompletionCostUSD float64 `json:"total_completion_cost_usd"`
+	GrossTokenSpendUSD     float64 `json:"gross_token_spend_usd"`
+	TotalSavedUSD          float64 `json:"total_saved_usd"`
+	AvgLatencyMs           float64 `json:"avg_latency_ms"`
 }
 
 // Ledger provides asynchronous persistent audit logging and spend accounting.
@@ -114,13 +121,13 @@ func (l *Ledger) persistLog(item *RequestLog) {
 		INSERT INTO request_logs (
 			request_id, timestamp, api_key_id, model, requested_model, provider,
 			cache_status, cache_tier, prompt_tokens, completion_tokens,
-			cached_tokens, latency_ms, cost_usd, saved_usd,
+			cached_tokens, latency_ms, cost_usd, prompt_cost_usd, completion_cost_usd, saved_usd,
 			status_code, error_message
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.RequestedModel, item.Provider,
 		item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
-		item.CachedTokens, item.LatencyMs, item.CostUSD, item.SavedUSD,
+		item.CachedTokens, item.LatencyMs, item.CostUSD, item.PromptCostUSD, item.CompletionCostUSD, item.SavedUSD,
 		item.StatusCode, item.ErrorMessage,
 	)
 
@@ -164,16 +171,31 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 			COUNT(*),
 			SUM(CASE WHEN cache_status = 'HIT' THEN 1 ELSE 0 END),
 			SUM(CASE WHEN (cache_tier = 'TIER2_PREFIX' OR cached_tokens > 0) AND cache_status != 'HIT' THEN 1 ELSE 0 END),
+			COALESCE(SUM(prompt_tokens), 0),
+			COALESCE(SUM(completion_tokens), 0),
 			COALESCE(SUM(cost_usd), 0.0),
+			COALESCE(SUM(prompt_cost_usd), 0.0),
+			COALESCE(SUM(completion_cost_usd), 0.0),
 			COALESCE(SUM(saved_usd), 0.0),
 			COALESCE(AVG(latency_ms), 0.0)
 		FROM request_logs
 	`)
 
-	var localHits, modelCacheHits sqlNullInt64
-	var totalCost, totalSaved, avgLatency sqlNullFloat64
+	var localHits, modelCacheHits, tokensIn, tokensOut sqlNullInt64
+	var totalCost, promptCost, completionCost, totalSaved, avgLatency sqlNullFloat64
 
-	err := row.Scan(&stats.TotalRequests, &localHits, &modelCacheHits, &totalCost, &totalSaved, &avgLatency)
+	err := row.Scan(
+		&stats.TotalRequests,
+		&localHits,
+		&modelCacheHits,
+		&tokensIn,
+		&tokensOut,
+		&totalCost,
+		&promptCost,
+		&completionCost,
+		&totalSaved,
+		&avgLatency,
+	)
 	if err != nil {
 		return stats, fmt.Errorf("failed to compute overview stats: %w", err)
 	}
@@ -181,8 +203,13 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 	stats.LocalHits = localHits.Int64
 	stats.ModelCacheHits = modelCacheHits.Int64
 	stats.TotalHits = stats.LocalHits + stats.ModelCacheHits
+	stats.TotalTokensIn = tokensIn.Int64
+	stats.TotalTokensOut = tokensOut.Int64
 	stats.TotalCostUSD = totalCost.Float64
+	stats.TotalPromptCostUSD = promptCost.Float64
+	stats.TotalCompletionCostUSD = completionCost.Float64
 	stats.TotalSavedUSD = totalSaved.Float64
+	stats.GrossTokenSpendUSD = stats.TotalCostUSD + stats.TotalSavedUSD
 	stats.AvgLatencyMs = avgLatency.Float64
 
 	if stats.TotalRequests > 0 {

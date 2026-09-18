@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS request_logs (
     cached_tokens INTEGER NOT NULL DEFAULT 0,
     latency_ms INTEGER NOT NULL DEFAULT 0,
     cost_usd REAL NOT NULL DEFAULT 0.0,
+    prompt_cost_usd REAL NOT NULL DEFAULT 0.0,
+    completion_cost_usd REAL NOT NULL DEFAULT 0.0,
     saved_usd REAL NOT NULL DEFAULT 0.0,
     status_code INTEGER NOT NULL DEFAULT 200,
     error_message TEXT

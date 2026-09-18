@@ -97,7 +97,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 			cfg.BaseURL = "https://api.groq.com/openai/v1"
 		}
 		if cfg.Model == "" {
-			cfg.Model = "llama-3.3-70b-versatile"
+			cfg.Model = "qwen/qwen3.8-27b"
 		}
 	}
 
@@ -176,13 +176,18 @@ func (m *CacheMiner) MinePrompts(ctx context.Context, prompts []PromptItem) (Min
 
 func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stats *MiningStats) error {
 	// 1. Generate canonical completion using free provider
+	maxTokens := 2048
+	if strings.ToLower(m.cfg.Provider) == "groq" {
+		maxTokens = 512
+	}
+
 	reqPayload := map[string]interface{}{
 		"model": m.cfg.Model,
 		"messages": []map[string]string{
 			{"role": "user", "content": item.UserPrompt},
 		},
 		"temperature": 0.0,
-		"max_tokens":  2048,
+		"max_tokens":  maxTokens,
 	}
 	if item.SystemPrompt != "" {
 		reqPayload["messages"] = []map[string]string{
@@ -197,29 +202,44 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 	}
 
 	targetURL := strings.TrimRight(m.cfg.BaseURL, "/") + "/chat/completions"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(jsonBytes))
-	if err != nil {
-		return fmt.Errorf("failed to create http request: %w", err)
-	}
 
-	httpReq.Header.Set("Content-Type", "application/json")
-	if m.cfg.APIKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
-	}
+	var respBytes []byte
+	maxRetries := 3
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		httpReq, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(jsonBytes))
+		if err != nil {
+			return fmt.Errorf("failed to create http request: %w", err)
+		}
 
-	resp, err := m.httpClient.Do(httpReq)
-	if err != nil {
-		return fmt.Errorf("http call to %s failed: %w", m.cfg.Provider, err)
-	}
-	defer resp.Body.Close()
+		httpReq.Header.Set("Content-Type", "application/json")
+		if m.cfg.APIKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+m.cfg.APIKey)
+		}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
+		resp, err := m.httpClient.Do(httpReq)
+		if err != nil {
+			return fmt.Errorf("http call to %s failed: %w", m.cfg.Provider, err)
+		}
 
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("provider %s returned status %d: %s", m.cfg.Provider, resp.StatusCode, string(respBytes))
+		respBytes, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return fmt.Errorf("failed to read response: %w", err)
+		}
+
+		if resp.StatusCode == 429 && attempt < maxRetries {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(time.Duration(attempt+1) * 3 * time.Second):
+				continue
+			}
+		}
+
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("provider %s returned status %d: %s", m.cfg.Provider, resp.StatusCode, string(respBytes))
+		}
+		break
 	}
 
 	var parsedResp struct {
