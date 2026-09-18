@@ -122,6 +122,7 @@
       <button id="tab-btn-analytics" class="tab-btn" onclick="switchTab('analytics')">Deep Analytics</button>
       <button id="tab-btn-logs" class="tab-btn" onclick="switchTab('logs')">Historical Logs</button>
       <button id="tab-btn-cache" class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
+      <button id="tab-btn-miner" class="tab-btn" onclick="switchTab('miner')">Cache Mining Studio</button>
       <button id="tab-btn-keys" class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
       <button id="tab-btn-routes" class="tab-btn" onclick="switchTab('routes')">Routes &amp; Priority</button>
       <button id="tab-btn-providers" class="tab-btn" onclick="switchTab('providers')">Providers &amp; Settings</button>
@@ -589,6 +590,220 @@
             </thead>
             <tbody id="cache-tbody">
               <tr><td colspan="7" style="text-align: center; color: var(--muted);">Loading cache...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CACHE MINING TAB -->
+    <div id="tab-miner" class="tab-content">
+      <div class="card" style="margin-bottom: 16px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(24, 24, 27, 1) 100%); border-color: rgba(16, 185, 129, 0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="badge badge-hit-exact" style="background: rgba(16, 185, 129, 0.2);">Zero-Cost Cache Synthesis</span>
+              <span style="font-size: 14px; font-weight: 600; color: #a7f3d0;">Synthetic Cache Mining Studio</span>
+            </div>
+            <p style="font-size: 13px; color: var(--muted); max-width: 850px;">Synthesize canonical LLM completions using free-tier providers ($0.00 spend) to pre-warm your SQLite database with 0ms cache hits for universal coding idioms, compiler errors, security audits, and git workflows.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" style="background: var(--accent); color: #000; font-weight: 600;" onclick="openPackModal()">Merge &amp; Pack Starter Cache</button>
+            <button class="btn btn-secondary" onclick="refreshMinerView()">Refresh Corpus</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MINER KPI CARDS -->
+      <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 20px;">
+        <div class="card">
+          <div class="card-title">Corpus Prompts</div>
+          <div class="card-value" id="miner-stat-total" style="color: #60a5fa;">0</div>
+          <div class="card-sub">Curated canonical prompts</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cached in Database</div>
+          <div class="card-value" id="miner-stat-cached" style="color: #34d399;">0</div>
+          <div class="card-sub" id="miner-stat-coverage">0.0% database coverage</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Missing / Pending</div>
+          <div class="card-value" id="miner-stat-missing" style="color: #fbbf24;">0</div>
+          <div class="card-sub">Available to pre-warm</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Session Mined Entries</div>
+          <div class="card-value" id="miner-stat-entries" style="color: #c084fc;">0</div>
+          <div class="card-sub" id="miner-stat-tokens">0 tokens generated</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Upstream Spend</div>
+          <div class="card-value" style="color: #34d399;">$0.0000</div>
+          <div class="card-sub"><span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 10px;">100% FREE TIER</span></div>
+        </div>
+      </div>
+
+      <!-- 2-COLUMN MINING CONTROL & MONITOR -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <!-- Left: Configuration Form -->
+        <div class="card">
+          <h3 style="font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 16px;">Mining Session Configuration</h3>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Free-Tier Provider</label>
+              <select id="miner-provider" class="form-input" onchange="onMinerProviderChange(this.value)">
+                <option value="groq" selected>Groq Free (Llama 3.3 70B, Qwen 2.5)</option>
+                <option value="nvidianim">NVIDIA NIM (Llama 3.1 70B)</option>
+                <option value="ollama">Local Ollama (Self-Hosted $0.00)</option>
+                <option value="openrouter">OpenRouter Free Models</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Corpus Category</label>
+              <select id="miner-category" class="form-input" onchange="onMinerCategoryChange(this.value)">
+                <option value="all" selected>All Categories</option>
+                <option value="coding">Coding Idioms &amp; Algorithms</option>
+                <option value="errors">Compiler &amp; Runtime Errors</option>
+                <option value="security">Security &amp; Hardening</option>
+                <option value="devops">DevOps, Docker &amp; K8s</option>
+                <option value="git">Git Workflows</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Generator Model (Optional)</label>
+              <input type="text" id="miner-model" class="form-input" placeholder="Default provider model" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">API Key (Optional override)</label>
+              <input type="password" id="miner-api-key" class="form-input" placeholder="Uses configured provider key" />
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Worker Concurrency</label>
+              <input type="number" id="miner-workers" class="form-input" value="2" min="1" max="8" />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Rate Limit (RPM)</label>
+              <input type="number" id="miner-rpm" class="form-input" value="30" min="1" max="120" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Target Models to Synthesize Cache For</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" id="miner-target-claude-sonnet-5" value="claude-sonnet-5" checked /> claude-sonnet-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" id="miner-target-claude-opus-5" value="claude-opus-5" checked /> claude-opus-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" id="miner-target-gpt-4o" value="gpt-4o" checked /> gpt-4o
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" id="miner-target-claude-35-sonnet" value="claude-3-5-sonnet-20241022" checked /> claude-3-5-sonnet-20241022
+              </label>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; margin-top: 18px;">
+            <button id="btn-miner-start" class="btn" style="flex: 1; padding: 10px 16px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;" onclick="startMiningSession()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Start Mining Session
+            </button>
+            <button id="btn-miner-selected" class="btn btn-secondary" style="padding: 10px 14px;" onclick="startMiningSelected()" disabled>
+              Mine Selected (0)
+            </button>
+            <button id="btn-miner-stop" class="btn btn-danger" style="padding: 10px 14px; opacity: 0.5;" onclick="stopMiningSession()" disabled>
+              Stop
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Live Session Monitor & Terminal Event Console -->
+        <div class="card" style="display: flex; flex-direction: column;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="chart-title">Live Mining Telemetry</span>
+              <span id="miner-status-badge" class="badge" style="background: rgba(113, 113, 122, 0.2); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.3);">IDLE</span>
+              <span id="miner-active-provider" class="badge" style="display: none; background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">GROQ</span>
+            </div>
+            <div style="font-family: var(--mono); font-size: 12px; color: var(--muted);" id="miner-elapsed">Elapsed: 00:00</div>
+          </div>
+
+          <!-- Progress bar -->
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; font-family: var(--mono); color: var(--muted); margin-bottom: 6px;">
+              <span id="miner-progress-label">0 / 0 Prompts Mined</span>
+              <span id="miner-progress-pct" style="color: var(--text); font-weight: 600;">0%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden;">
+              <div id="miner-progress-bar" style="width: 0%; height: 100%; background: #10b981; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Active Prompt Banner -->
+          <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+              <span style="color: var(--muted); font-size: 11px; text-transform: uppercase; font-weight: 600;">Current In-Flight Prompt</span>
+              <span id="miner-current-id" style="font-family: var(--mono); color: #60a5fa; font-size: 11px;">--</span>
+            </div>
+            <div id="miner-current-text" style="color: var(--text); font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No active mining operation</div>
+          </div>
+
+          <!-- Monospace Terminal Box -->
+          <div style="flex: 1; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Activity &amp; Diagnostics Console</span>
+              <button onclick="clearMinerConsole()" style="background: transparent; border: none; color: var(--muted); font-size: 11px; cursor: pointer; text-decoration: underline;">Clear</button>
+            </div>
+            <div id="miner-console" style="background: #09090b; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: var(--mono); font-size: 11px; line-height: 1.6; color: #38bdf8; height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;">[SYSTEM] Ready to synthesize cache completions. Select a category and start session.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROMPTS TABLE -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 16px; font-weight: 600;">Curated Prompt Corpus &amp; Coverage</h3>
+            <p style="font-size: 13px; color: var(--muted);">Full audit of canonical prompts, active database cache records, hit metrics, and synthesized schemas</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+            <input type="text" id="miner-table-search" class="form-input" style="width: 220px; padding: 6px 10px; font-size: 12px;" placeholder="Search prompts or tags..." oninput="filterMinerPromptsTable()" />
+            <select id="miner-filter-status" class="form-input" style="width: 150px; padding: 6px 10px; font-size: 12px;" onchange="filterMinerPromptsTable()">
+              <option value="all">All Prompts</option>
+              <option value="missing">Missing Only (Uncached)</option>
+              <option value="cached">Cached in Database</option>
+            </select>
+            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="selectMissingMinerPrompts()">Select All Missing</button>
+            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="clearSelectedMinerPrompts()">Clear Selection</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 36px; text-align: center;">
+                  <input type="checkbox" id="miner-check-all" onchange="toggleSelectAllMinerPrompts(this.checked)" />
+                </th>
+                <th style="width: 180px;">ID &amp; Category</th>
+                <th>Canonical Prompt &amp; Tags</th>
+                <th style="width: 130px;">Cache Status</th>
+                <th style="width: 80px; text-align: right;">Hits</th>
+                <th style="width: 220px;">Target Models Synthesized</th>
+                <th style="width: 100px; text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="miner-prompts-tbody">
+              <tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading prompt corpus...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1257,6 +1472,9 @@
         loadProviderStats();
       } else if (name === 'system') {
         loadSystemDiagnostics();
+      } else if (name === 'miner') {
+        loadMinerStatus();
+        loadMinerPrompts();
       } else if (name === 'moderate') {
         loadModerateStatus();
         loadModerateEntries();
@@ -2612,6 +2830,8 @@
             if (tabSys && tabSys.classList.contains('active')) {
               loadSystemDiagnostics();
             }
+          } else if (ev.type === 'miner_progress' || ev.type === 'miner_log' || ev.type === 'miner_complete') {
+            handleMinerEvent(ev);
           }
         } catch (err) {}
       };
@@ -3106,6 +3326,456 @@
           </tr>
         `).join('');
       } catch (e) {}
+    }
+
+    // CACHE MINING STUDIO FUNCTIONS
+    let _allMinerPrompts = [];
+    let _selectedPromptIds = new Set();
+    let _minerActiveStatus = 'idle';
+    let _minerElapsedSeconds = 0;
+    let _minerTimerInterval = null;
+
+    async function loadMinerStatus() {
+      try {
+        const res = await fetch('/api/v1/miner/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        updateMinerStatusUI(data);
+      } catch (e) {
+        console.error('Failed to load miner status', e);
+      }
+    }
+
+    async function loadMinerPrompts(category) {
+      try {
+        if (!category) {
+          const catSel = document.getElementById('miner-category');
+          category = catSel ? catSel.value : 'all';
+        }
+        const res = await fetch('/api/v1/miner/prompts?category=' + encodeURIComponent(category));
+        if (!res.ok) return;
+        const data = await res.json();
+        _allMinerPrompts = data.prompts || [];
+        updateMinerCorpusSummary(data.summary);
+        filterMinerPromptsTable();
+      } catch (e) {
+        console.error('Failed to load miner prompts', e);
+      }
+    }
+
+    function updateMinerCorpusSummary(summary) {
+      if (!summary) return;
+      const elTotal = document.getElementById('miner-stat-total');
+      const elCached = document.getElementById('miner-stat-cached');
+      const elCoverage = document.getElementById('miner-stat-coverage');
+      const elMissing = document.getElementById('miner-stat-missing');
+
+      if (elTotal) elTotal.textContent = summary.total_prompts || 0;
+      if (elCached) elCached.textContent = summary.total_cached || 0;
+      if (elMissing) elMissing.textContent = summary.total_missing || 0;
+
+      if (elCoverage) {
+        const pct = summary.total_prompts > 0 ? ((summary.total_cached / summary.total_prompts) * 100).toFixed(1) : '0.0';
+        elCoverage.textContent = pct + '% database coverage';
+      }
+    }
+
+    function updateMinerStatusUI(data) {
+      if (!data) return;
+      _minerActiveStatus = data.status || 'idle';
+      const badge = document.getElementById('miner-status-badge');
+      const provBadge = document.getElementById('miner-active-provider');
+      const btnStart = document.getElementById('btn-miner-start');
+      const btnStop = document.getElementById('btn-miner-stop');
+      const btnSelected = document.getElementById('btn-miner-selected');
+      const fillBar = document.getElementById('miner-progress-bar');
+      const labelCount = document.getElementById('miner-progress-label');
+      const labelPct = document.getElementById('miner-progress-pct');
+      const curPromptId = document.getElementById('miner-current-id');
+      const curPromptText = document.getElementById('miner-current-text');
+      const elEntries = document.getElementById('miner-stat-entries');
+      const elTokens = document.getElementById('miner-stat-tokens');
+
+      if (badge) {
+        badge.textContent = _minerActiveStatus.toUpperCase();
+        if (_minerActiveStatus === 'running') {
+          badge.style.background = 'rgba(16, 185, 129, 0.2)';
+          badge.style.color = '#34d399';
+          badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        } else if (_minerActiveStatus === 'stopping') {
+          badge.style.background = 'rgba(245, 158, 11, 0.2)';
+          badge.style.color = '#fbbf24';
+          badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        } else if (_minerActiveStatus === 'failed') {
+          badge.style.background = 'rgba(239, 68, 68, 0.2)';
+          badge.style.color = '#f87171';
+          badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        } else if (_minerActiveStatus === 'completed') {
+          badge.style.background = 'rgba(56, 189, 248, 0.2)';
+          badge.style.color = '#38bdf8';
+          badge.style.borderColor = 'rgba(56, 189, 248, 0.4)';
+        } else {
+          badge.style.background = 'rgba(113, 113, 122, 0.2)';
+          badge.style.color = '#a1a1aa';
+          badge.style.borderColor = 'rgba(113, 113, 122, 0.3)';
+        }
+      }
+
+      if (provBadge) {
+        if (data.provider) {
+          provBadge.style.display = 'inline-block';
+          provBadge.textContent = data.provider.toUpperCase();
+        } else {
+          provBadge.style.display = 'none';
+        }
+      }
+
+      const isRunning = (_minerActiveStatus === 'running');
+      if (btnStart) btnStart.disabled = isRunning;
+      if (btnStop) {
+        btnStop.disabled = !isRunning;
+        btnStop.style.opacity = isRunning ? '1' : '0.5';
+      }
+      if (btnSelected) {
+        btnSelected.disabled = isRunning || (_selectedPromptIds.size === 0);
+      }
+
+      // Progress
+      if (data.stats) {
+        const total = data.stats.total_prompts || 0;
+        const completed = data.stats.completed || 0;
+        const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+        if (fillBar) fillBar.style.width = pct + '%';
+        if (labelCount) labelCount.textContent = completed + ' / ' + total + ' Prompts Mined';
+        if (labelPct) labelPct.textContent = pct + '%';
+
+        if (elEntries) elEntries.textContent = '+' + (data.stats.cache_entries || 0);
+        if (elTokens) elTokens.textContent = (data.stats.tokens_generated || 0).toLocaleString() + ' tokens generated';
+      }
+
+      // Current prompt
+      if (data.current_prompt) {
+        if (curPromptId) curPromptId.textContent = data.current_prompt.id || '--';
+        if (curPromptText) curPromptText.textContent = data.current_prompt.user_prompt || '--';
+      } else if (!isRunning) {
+        if (curPromptId) curPromptId.textContent = '--';
+        if (curPromptText) curPromptText.textContent = (_minerActiveStatus === 'completed') ? 'Mining session complete.' : 'No active mining operation';
+      }
+
+      // Elapsed timer handling
+      _minerElapsedSeconds = data.elapsed_seconds || 0;
+      updateMinerElapsedDisplay();
+      if (isRunning && !_minerTimerInterval) {
+        _minerTimerInterval = setInterval(() => {
+          _minerElapsedSeconds++;
+          updateMinerElapsedDisplay();
+        }, 1000);
+      } else if (!isRunning && _minerTimerInterval) {
+        clearInterval(_minerTimerInterval);
+        _minerTimerInterval = null;
+      }
+
+      // Sync recent logs if console is empty
+      if (data.recent_logs && data.recent_logs.length > 0) {
+        const consoleEl = document.getElementById('miner-console');
+        if (consoleEl && consoleEl.textContent.includes('Ready to synthesize')) {
+          consoleEl.textContent = data.recent_logs.join('\n');
+          consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+      }
+    }
+
+    function updateMinerElapsedDisplay() {
+      const el = document.getElementById('miner-elapsed');
+      if (!el) return;
+      const mins = Math.floor(_minerElapsedSeconds / 60);
+      const secs = _minerElapsedSeconds % 60;
+      el.textContent = 'Elapsed: ' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+    }
+
+    function filterMinerPromptsTable() {
+      const searchInput = document.getElementById('miner-table-search');
+      const statusSelect = document.getElementById('miner-filter-status');
+      const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+      const filterStatus = statusSelect ? statusSelect.value : 'all';
+
+      const filtered = _allMinerPrompts.filter(item => {
+        const isCached = item.IsCached || item.is_cached;
+        if (filterStatus === 'missing' && isCached) return false;
+        if (filterStatus === 'cached' && !isCached) return false;
+        if (q) {
+          const pid = (item.ID || item.id || '').toLowerCase();
+          const pcat = (item.Category || item.category || '').toLowerCase();
+          const ptext = (item.UserPrompt || item.user_prompt || '').toLowerCase();
+          const ptags = (item.Tags || item.tags || []).some(t => t.toLowerCase().includes(q));
+          return pid.includes(q) || pcat.includes(q) || ptext.includes(q) || ptags;
+        }
+        return true;
+      });
+
+      renderMinerPromptsTable(filtered);
+    }
+
+    function renderMinerPromptsTable(prompts) {
+      const tbody = document.getElementById('miner-prompts-tbody');
+      if (!tbody) return;
+
+      if (!prompts || prompts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">No prompts match the current filter.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = prompts.map(item => {
+        const pid = item.ID || item.id;
+        const isChecked = _selectedPromptIds.has(pid);
+        const category = item.Category || item.category || 'general';
+        const userPrompt = item.UserPrompt || item.user_prompt || '';
+        const isCached = item.IsCached || item.is_cached;
+        const hitCount = item.HitCount || item.hit_count || 0;
+        const modelsCached = item.ModelsCached || item.models_cached || [];
+        const tags = item.Tags || item.tags || [];
+
+        const tagsHtml = tags.map(t => `<span style="display: inline-block; font-size: 10px; font-family: var(--mono); background: rgba(255,255,255,0.04); color: var(--muted); padding: 1px 5px; border-radius: 3px; margin-right: 4px;">#${escapeHTML(t)}</span>`).join('');
+
+        const statusBadge = isCached
+          ? `<span class="badge badge-hit-exact" style="font-size: 11px;">CACHED</span>`
+          : `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 11px;">MISSING</span>`;
+
+        let modelsHtml = '';
+        if (modelsCached.length > 0) {
+          modelsHtml = modelsCached.map(m => `<span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; font-size: 10px; margin: 1px 2px;">${escapeHTML(m)}</span>`).join('');
+        } else {
+          modelsHtml = `<span style="color: var(--muted); font-size: 11px;">None</span>`;
+        }
+
+        return `
+          <tr>
+            <td style="text-align: center;">
+              <input type="checkbox" value="${escapeHTML(pid)}" ${isChecked ? 'checked' : ''} onchange="toggleSelectMinerPrompt('${escapeHTML(pid)}', this.checked)" />
+            </td>
+            <td>
+              <div style="font-weight: 600; color: #93c5fd; font-size: 12px;">${escapeHTML(pid)}</div>
+              <div style="font-size: 11px; color: var(--muted); text-transform: uppercase;">${escapeHTML(category)}</div>
+            </td>
+            <td>
+              <div style="max-width: 460px; font-size: 12px; color: var(--text); white-space: normal; line-height: 1.4; margin-bottom: 4px;">
+                ${escapeHTML(userPrompt)}
+              </div>
+              <div>${tagsHtml}</div>
+            </td>
+            <td>${statusBadge}</td>
+            <td style="text-align: right; font-family: var(--mono); font-weight: 600; color: ${hitCount > 0 ? '#34d399' : 'var(--muted)'};">${hitCount}</td>
+            <td>${modelsHtml}</td>
+            <td style="text-align: right;">
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="mineSinglePrompt('${escapeHTML(pid)}')">
+                Mine
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function toggleSelectMinerPrompt(id, checked) {
+      if (checked) {
+        _selectedPromptIds.add(id);
+      } else {
+        _selectedPromptIds.delete(id);
+      }
+      updateMinerSelectedButton();
+    }
+
+    function toggleSelectAllMinerPrompts(checked) {
+      _allMinerPrompts.forEach(p => {
+        const pid = p.ID || p.id;
+        if (checked) {
+          _selectedPromptIds.add(pid);
+        } else {
+          _selectedPromptIds.delete(pid);
+        }
+      });
+      filterMinerPromptsTable();
+      updateMinerSelectedButton();
+    }
+
+    function selectMissingMinerPrompts() {
+      _selectedPromptIds.clear();
+      _allMinerPrompts.forEach(p => {
+        const isCached = p.IsCached || p.is_cached;
+        if (!isCached) {
+          _selectedPromptIds.add(p.ID || p.id);
+        }
+      });
+      filterMinerPromptsTable();
+      updateMinerSelectedButton();
+    }
+
+    function clearSelectedMinerPrompts() {
+      _selectedPromptIds.clear();
+      const checkAll = document.getElementById('miner-check-all');
+      if (checkAll) checkAll.checked = false;
+      filterMinerPromptsTable();
+      updateMinerSelectedButton();
+    }
+
+    function updateMinerSelectedButton() {
+      const btn = document.getElementById('btn-miner-selected');
+      if (!btn) return;
+      const count = _selectedPromptIds.size;
+      btn.textContent = `Mine Selected (${count})`;
+      btn.disabled = (_minerActiveStatus === 'running') || (count === 0);
+    }
+
+    function onMinerProviderChange(prov) {
+      const modelInput = document.getElementById('miner-model');
+      if (!modelInput) return;
+      if (prov === 'groq') {
+        modelInput.placeholder = 'qwen/qwen3.8-27b or llama-3.3-70b-versatile';
+      } else if (prov === 'nvidianim') {
+        modelInput.placeholder = 'meta/llama-3.1-70b-instruct';
+      } else if (prov === 'ollama') {
+        modelInput.placeholder = 'qwen2.5-coder:7b';
+      } else if (prov === 'openrouter') {
+        modelInput.placeholder = 'openrouter/free';
+      }
+    }
+
+    function onMinerCategoryChange(cat) {
+      loadMinerPrompts(cat);
+    }
+
+    function getTargetModelsSelection() {
+      const targets = [];
+      const sonnet5 = document.getElementById('miner-target-claude-sonnet-5');
+      const opus5 = document.getElementById('miner-target-claude-opus-5');
+      const gpt4o = document.getElementById('miner-target-gpt-4o');
+      const sonnet35 = document.getElementById('miner-target-claude-35-sonnet');
+
+      if (sonnet5 && sonnet5.checked) targets.push(sonnet5.value);
+      if (opus5 && opus5.checked) targets.push(opus5.value);
+      if (gpt4o && gpt4o.checked) targets.push(gpt4o.value);
+      if (sonnet35 && sonnet35.checked) targets.push(sonnet35.value);
+
+      if (targets.length === 0) {
+        targets.push('claude-sonnet-5', 'claude-opus-5', 'gpt-4o', 'claude-3-5-sonnet-20241022');
+      }
+      return targets;
+    }
+
+    async function startMiningSession(customPromptIds) {
+      const provEl = document.getElementById('miner-provider');
+      const catEl = document.getElementById('miner-category');
+      const modelEl = document.getElementById('miner-model');
+      const keyEl = document.getElementById('miner-api-key');
+      const workersEl = document.getElementById('miner-workers');
+      const rpmEl = document.getElementById('miner-rpm');
+
+      const payload = {
+        provider: provEl ? provEl.value : 'groq',
+        category: catEl ? catEl.value : 'all',
+        model: modelEl ? modelEl.value.trim() : '',
+        api_key: keyEl ? keyEl.value.trim() : '',
+        workers: workersEl ? parseInt(workersEl.value, 10) || 2 : 2,
+        rate_limit_rpm: rpmEl ? parseInt(rpmEl.value, 10) || 30 : 30,
+        target_models: getTargetModelsSelection(),
+      };
+
+      if (customPromptIds && customPromptIds.length > 0) {
+        payload.prompt_ids = customPromptIds;
+      }
+
+      try {
+        appendMinerLog(`[CLIENT] Initiating synthetic cache mining session (${payload.provider})...`);
+        const res = await fetch('/api/v1/miner/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          appendMinerLog(`[ERROR] Failed to start mining session: ${data.error || res.statusText}`);
+          alert(`Error starting mining: ${data.error || res.statusText}`);
+          return;
+        }
+
+        appendMinerLog(`[STARTED] Mining session started for ${data.total_prompts} prompts via ${data.provider}.`);
+        loadMinerStatus();
+      } catch (err) {
+        appendMinerLog(`[ERROR] Network error: ${err.message}`);
+      }
+    }
+
+    function startMiningSelected() {
+      if (_selectedPromptIds.size === 0) return;
+      const ids = Array.from(_selectedPromptIds);
+      startMiningSession(ids);
+    }
+
+    function mineSinglePrompt(promptId) {
+      if (!promptId) return;
+      startMiningSession([promptId]);
+    }
+
+    async function stopMiningSession() {
+      try {
+        appendMinerLog('[CLIENT] Requesting graceful abort...');
+        const res = await fetch('/api/v1/miner/stop', { method: 'POST' });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(`Failed to stop: ${data.error}`);
+          return;
+        }
+        appendMinerLog('[STOPPING] Cancellation signal dispatched.');
+        loadMinerStatus();
+      } catch (err) {
+        console.error('Failed to stop miner', err);
+      }
+    }
+
+    function handleMinerEvent(ev) {
+      if (!ev) return;
+      if (ev.type === 'miner_log' && ev.data) {
+        if (typeof ev.data === 'string') {
+          appendMinerLog(ev.data);
+        } else if (ev.data.log_message) {
+          appendMinerLog(ev.data.log_message);
+        }
+      } else if (ev.type === 'miner_progress' && ev.data) {
+        updateMinerStatusUI(ev.data);
+        if (ev.data.log_message) {
+          appendMinerLog(ev.data.log_message);
+        }
+      } else if (ev.type === 'miner_complete') {
+        loadMinerStatus();
+        loadMinerPrompts();
+        loadOverview();
+        const tabCache = document.getElementById('tab-cache');
+        if (tabCache && tabCache.classList.contains('active')) {
+          loadCacheEntries();
+        }
+        appendMinerLog('[COMPLETE] Mining session finalized.');
+      }
+    }
+
+    function appendMinerLog(msg) {
+      const consoleEl = document.getElementById('miner-console');
+      if (!consoleEl) return;
+      const ts = new Date().toTimeString().split(' ')[0];
+      consoleEl.textContent += `\n[${ts}] ${msg}`;
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    function clearMinerConsole() {
+      const consoleEl = document.getElementById('miner-console');
+      if (consoleEl) {
+        consoleEl.textContent = '[SYSTEM] Console cleared.';
+      }
+    }
+
+    function refreshMinerView() {
+      loadMinerStatus();
+      loadMinerPrompts();
     }
 
     // Global Listeners & Routing
