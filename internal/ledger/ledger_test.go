@@ -204,6 +204,24 @@ func TestLedger_RecordAndStats(t *testing.T) {
 	if stats.TotalHits != 2 {
 		t.Errorf("expected 2 total hits, got %d", stats.TotalHits)
 	}
+	if stats.Tier1ExactHits != 1 {
+		t.Errorf("expected 1 tier1 exact hit, got %d", stats.Tier1ExactHits)
+	}
+	if stats.Tier2PrefixHits != 1 {
+		t.Errorf("expected 1 tier2 prefix hit, got %d", stats.Tier2PrefixHits)
+	}
+	if stats.Misses != 1 {
+		t.Errorf("expected 1 miss, got %d", stats.Misses)
+	}
+	if stats.ProviderCounts["openai"] != 1 {
+		t.Errorf("expected 1 openai request, got %d", stats.ProviderCounts["openai"])
+	}
+	if stats.ProviderCounts["anthropic"] != 1 {
+		t.Errorf("expected 1 anthropic request, got %d", stats.ProviderCounts["anthropic"])
+	}
+	if stats.ProviderCounts["cache-local"] != 1 {
+		t.Errorf("expected 1 cache-local request, got %d", stats.ProviderCounts["cache-local"])
+	}
 	expectedHitRate := (2.0 / 3.0) * 100.0
 	if stats.HitRatePercent < expectedHitRate-0.1 || stats.HitRatePercent > expectedHitRate+0.1 {
 		t.Errorf("expected ~%.2f%% hit rate, got %f", expectedHitRate, stats.HitRatePercent)

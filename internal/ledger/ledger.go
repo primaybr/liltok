@@ -35,19 +35,24 @@ type RequestLog struct {
 
 // OverviewStats summarizes gateway performance and monetary savings.
 type OverviewStats struct {
-	TotalRequests          int64   `json:"total_requests"`
-	TotalHits              int64   `json:"total_hits"`
-	LocalHits              int64   `json:"local_hits"`
-	ModelCacheHits         int64   `json:"model_cache_hits"`
-	HitRatePercent         float64 `json:"hit_rate_percent"`
-	TotalTokensIn          int64   `json:"total_tokens_in"`
-	TotalTokensOut         int64   `json:"total_tokens_out"`
-	TotalCostUSD           float64 `json:"total_cost_usd"`
-	TotalPromptCostUSD     float64 `json:"total_prompt_cost_usd"`
-	TotalCompletionCostUSD float64 `json:"total_completion_cost_usd"`
-	GrossTokenSpendUSD     float64 `json:"gross_token_spend_usd"`
-	TotalSavedUSD          float64 `json:"total_saved_usd"`
-	AvgLatencyMs           float64 `json:"avg_latency_ms"`
+	TotalRequests          int64            `json:"total_requests"`
+	TotalHits              int64            `json:"total_hits"`
+	LocalHits              int64            `json:"local_hits"`
+	ModelCacheHits         int64            `json:"model_cache_hits"`
+	HitRatePercent         float64          `json:"hit_rate_percent"`
+	Tier1ExactHits         int64            `json:"tier1_exact_hits"`
+	Tier2PrefixHits        int64            `json:"tier2_prefix_hits"`
+	Tier3SemanticHits      int64            `json:"tier3_semantic_hits"`
+	Misses                 int64            `json:"misses"`
+	TotalTokensIn          int64            `json:"total_tokens_in"`
+	TotalTokensOut         int64            `json:"total_tokens_out"`
+	TotalCostUSD           float64          `json:"total_cost_usd"`
+	TotalPromptCostUSD     float64          `json:"total_prompt_cost_usd"`
+	TotalCompletionCostUSD float64          `json:"total_completion_cost_usd"`
+	GrossTokenSpendUSD     float64          `json:"gross_token_spend_usd"`
+	TotalSavedUSD          float64          `json:"total_saved_usd"`
+	AvgLatencyMs           float64          `json:"avg_latency_ms"`
+	ProviderCounts         map[string]int64 `json:"provider_counts"`
 }
 
 // Ledger provides asynchronous persistent audit logging and spend accounting.
@@ -162,6 +167,7 @@ func (l *Ledger) Record(item *RequestLog) {
 // GetOverviewStats computes real-time operational aggregates.
 func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 	var stats OverviewStats
+	stats.ProviderCounts = make(map[string]int64)
 	if l.db == nil {
 		return stats, nil
 	}
@@ -169,8 +175,10 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 	row := l.db.QueryRowContext(ctx, `
 		SELECT 
 			COUNT(*),
-			SUM(CASE WHEN cache_status = 'HIT' THEN 1 ELSE 0 END),
-			SUM(CASE WHEN (cache_tier = 'TIER2_PREFIX' OR cached_tokens > 0) AND cache_status != 'HIT' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN cache_status = 'HIT' AND (cache_tier = 'TIER1_EXACT' OR cache_tier IS NULL OR cache_tier = '' OR cache_tier NOT IN ('TIER2_PREFIX', 'TIER3_SEMANTIC')) THEN 1 ELSE 0 END),
+			SUM(CASE WHEN (cache_tier = 'TIER2_PREFIX' OR (cached_tokens IS NOT NULL AND cached_tokens > 0)) AND cache_status != 'HIT' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN cache_status = 'HIT' AND cache_tier = 'TIER3_SEMANTIC' THEN 1 ELSE 0 END),
+			SUM(CASE WHEN cache_status != 'HIT' AND (cache_tier != 'TIER2_PREFIX' OR cache_tier IS NULL) AND (cached_tokens IS NULL OR cached_tokens = 0) THEN 1 ELSE 0 END),
 			COALESCE(SUM(prompt_tokens), 0),
 			COALESCE(SUM(completion_tokens), 0),
 			COALESCE(SUM(cost_usd), 0.0),
@@ -181,13 +189,15 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 		FROM request_logs
 	`)
 
-	var localHits, modelCacheHits, tokensIn, tokensOut sqlNullInt64
+	var t1Hits, t2Hits, t3Hits, misses, tokensIn, tokensOut sqlNullInt64
 	var totalCost, promptCost, completionCost, totalSaved, avgLatency sqlNullFloat64
 
 	err := row.Scan(
 		&stats.TotalRequests,
-		&localHits,
-		&modelCacheHits,
+		&t1Hits,
+		&t2Hits,
+		&t3Hits,
+		&misses,
 		&tokensIn,
 		&tokensOut,
 		&totalCost,
@@ -200,8 +210,12 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 		return stats, fmt.Errorf("failed to compute overview stats: %w", err)
 	}
 
-	stats.LocalHits = localHits.Int64
-	stats.ModelCacheHits = modelCacheHits.Int64
+	stats.Tier1ExactHits = t1Hits.Int64
+	stats.Tier2PrefixHits = t2Hits.Int64
+	stats.Tier3SemanticHits = t3Hits.Int64
+	stats.Misses = misses.Int64
+	stats.LocalHits = stats.Tier1ExactHits + stats.Tier3SemanticHits
+	stats.ModelCacheHits = stats.Tier2PrefixHits
 	stats.TotalHits = stats.LocalHits + stats.ModelCacheHits
 	stats.TotalTokensIn = tokensIn.Int64
 	stats.TotalTokensOut = tokensOut.Int64
@@ -214,6 +228,24 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 
 	if stats.TotalRequests > 0 {
 		stats.HitRatePercent = (float64(stats.TotalHits) / float64(stats.TotalRequests)) * 100.0
+	}
+
+	// Compute all-time routing share across all recorded providers
+	pRows, err := l.db.QueryContext(ctx, `
+		SELECT provider, COUNT(*)
+		FROM request_logs
+		GROUP BY provider
+		ORDER BY COUNT(*) DESC
+	`)
+	if err == nil {
+		defer pRows.Close()
+		for pRows.Next() {
+			var prov string
+			var count int64
+			if err := pRows.Scan(&prov, &count); err == nil {
+				stats.ProviderCounts[prov] = count
+			}
+		}
 	}
 
 	return stats, nil
