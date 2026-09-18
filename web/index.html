@@ -68,6 +68,25 @@
     .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
     .form-input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--font); }
+    .btn-group { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
+    .btn-group-item { background: transparent; border: none; color: var(--muted); padding: 6px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .btn-group-item.active { background: #27272a; color: var(--text); }
+    .btn-group-item:hover:not(.active) { color: var(--text); }
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+    .filter-select, .filter-input { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 12px; font-family: var(--font); outline: none; }
+    .filter-select:focus, .filter-input:focus { border-color: var(--accent); }
+    .pagination-container { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; font-size: 12px; color: var(--muted); }
+    .page-btn { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-btn:hover:not(:disabled) { border-color: var(--accent); }
+    .drawer-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: flex-end; }
+    .drawer-backdrop.show { display: flex; }
+    .drawer { width: 620px; max-width: 90vw; height: 100%; background: #121214; border-left: 1px solid var(--border); padding: 24px; overflow-y: auto; box-shadow: -10px 0 25px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 16px; }
+    .grid-diag { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .diag-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+    .diag-item:last-child { border-bottom: none; }
+    .diag-label { color: var(--muted); font-size: 12px; }
+    .diag-value { font-family: var(--mono); font-weight: 600; color: var(--text); }
   </style>
 </head>
 <body>
@@ -99,11 +118,14 @@
     </header>
 
     <div class="nav-tabs">
-      <button class="tab-btn active" onclick="switchTab('overview')">Overview & Live Feed</button>
-      <button class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
-      <button class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
-      <button class="tab-btn" onclick="switchTab('routes')">Routes & Circuit Breakers</button>
-      <button class="tab-btn" onclick="switchTab('providers')">Providers &amp; Settings</button>
+      <button id="tab-btn-overview" class="tab-btn active" onclick="switchTab('overview')">Overview &amp; Live Feed</button>
+      <button id="tab-btn-analytics" class="tab-btn" onclick="switchTab('analytics')">Deep Analytics</button>
+      <button id="tab-btn-logs" class="tab-btn" onclick="switchTab('logs')">Historical Logs</button>
+      <button id="tab-btn-cache" class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
+      <button id="tab-btn-keys" class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
+      <button id="tab-btn-routes" class="tab-btn" onclick="switchTab('routes')">Routes &amp; Priority</button>
+      <button id="tab-btn-providers" class="tab-btn" onclick="switchTab('providers')">Providers &amp; Settings</button>
+      <button id="tab-btn-system" class="tab-btn" onclick="switchTab('system')">System Diagnostics</button>
       <button id="tab-btn-moderate" class="tab-btn" style="display: none; border: 1px dashed #f59e0b; color: #fbbf24;" onclick="switchTab('moderate')">Moderator Studio <span id="moderate-badge" class="badge" style="background: rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 10px; margin-left: 4px;">0</span></button>
     </div>
 
@@ -237,6 +259,287 @@
               <tr><td colspan="9" style="text-align: center; color: var(--muted);">Listening for inference requests...</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEEP ANALYTICS TAB -->
+    <div id="tab-analytics" class="tab-content">
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              Deep Analytics &amp; Unit Economics
+              <span class="badge badge-hit-prefix">Telemetry Engine</span>
+            </h3>
+            <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">Time-series analysis of token volumes, cumulative gross spend vs net savings, latency percentiles, and provider cost efficiencies.</p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="btn-group" id="analytics-range-group">
+              <button class="btn-group-item active" onclick="changeAnalyticsRange('24h')">24h</button>
+              <button class="btn-group-item" onclick="changeAnalyticsRange('7d')">7d</button>
+              <button class="btn-group-item" onclick="changeAnalyticsRange('30d')">30d</button>
+              <button class="btn-group-item" onclick="changeAnalyticsRange('all')">All Time</button>
+            </div>
+            <button class="btn btn-secondary" onclick="loadAnalytics(currentAnalyticsRange)" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Analytics KPI Strip -->
+      <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));">
+        <div class="card">
+          <div class="card-title">Token Ingest (Prompts)</div>
+          <div class="card-value" id="an-tokens-in" style="color: #60a5fa;">0</div>
+          <div class="card-sub" id="an-spend-in">Est. Spend: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Token Output (Completions)</div>
+          <div class="card-value" id="an-tokens-out" style="color: #a78bfa;">0</div>
+          <div class="card-sub" id="an-spend-out">Est. Spend: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Net Dollar Savings <span class="badge-est">ESTIMATED</span></div>
+          <div class="card-value" id="an-saved" style="color: #34d399;">$0.0000</div>
+          <div class="card-sub" id="an-gross-spend">Baseline Gross: $0.0000</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Savings ROI Multiplier</div>
+          <div class="card-value" id="an-roi" style="color: #f59e0b;">0.0x</div>
+          <div class="card-sub" id="an-roi-sub">Total Value / Realized Spend</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Latency Spectrum (p90 / p99)</div>
+          <div class="card-value" id="an-p90-p99" style="color: #38bdf8; font-size: 20px;">0ms / 0ms</div>
+          <div class="card-sub" id="an-p50">Median (p50): 0ms</div>
+        </div>
+      </div>
+
+      <!-- Time-Series Charts Grid -->
+      <div class="grid-charts" style="grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); margin-bottom: 24px;">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Token Ingest vs Generation Volume</div>
+              <div class="chart-subtitle">Prompt Tokens (Blue) vs Completion Tokens (Purple)</div>
+            </div>
+            <div style="font-size: 11px; font-family: var(--mono); color: var(--muted);" id="an-chart1-summary">Tokens In: 0 | Out: 0</div>
+          </div>
+          <div class="chart-body" style="height: 180px;">
+            <svg id="svg-token-timeseries" width="100%" height="180" viewBox="0 0 500 180" preserveAspectRatio="none" style="overflow: visible;">
+              <defs>
+                <linearGradient id="anGradIn" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.0"/>
+                </linearGradient>
+                <linearGradient id="anGradOut" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.3"/>
+                  <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path id="an-area-in" fill="url(#anGradIn)" d=""/>
+              <path id="an-path-in" fill="none" stroke="#3b82f6" stroke-width="2" d=""/>
+              <path id="an-area-out" fill="url(#anGradOut)" d=""/>
+              <path id="an-path-out" fill="none" stroke="#8b5cf6" stroke-width="2" d=""/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Financial Value &amp; Savings Trajectory</div>
+              <div class="chart-subtitle">Baseline Commercial Gross (Gray) vs Actual Spend (Amber) vs Net Savings (Green)</div>
+            </div>
+            <div style="font-size: 11px; font-family: var(--mono); color: var(--muted);" id="an-chart2-summary">Saved: $0.00</div>
+          </div>
+          <div class="chart-body" style="height: 180px;">
+            <svg id="svg-financial-timeseries" width="100%" height="180" viewBox="0 0 500 180" preserveAspectRatio="none" style="overflow: visible;">
+              <defs>
+                <linearGradient id="anGradSaved" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#10b981" stop-opacity="0.35"/>
+                  <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+                </linearGradient>
+              </defs>
+              <path id="an-area-saved" fill="url(#anGradSaved)" d=""/>
+              <path id="an-path-saved" fill="none" stroke="#10b981" stroke-width="2" d=""/>
+              <path id="an-path-gross" fill="none" stroke="#71717a" stroke-width="1.5" stroke-dasharray="4 2" d=""/>
+              <path id="an-path-cost" fill="none" stroke="#f59e0b" stroke-width="2" d=""/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Provider Unit Economics Matrix Table -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div style="margin-bottom: 16px;">
+          <h4 style="font-size: 15px; font-weight: 600;">Provider Unit Economics &amp; Execution Share</h4>
+          <p style="font-size: 12px; color: var(--muted);">Per-provider throughput, spend allocation, realized cost avoidance, and cache efficiency.</p>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Provider</th>
+                <th>Requests</th>
+                <th>Tokens In</th>
+                <th>Tokens Out</th>
+                <th>Gross Spend <span class="badge-est">EST.</span></th>
+                <th>Dollars Saved <span class="badge-est">EST.</span></th>
+                <th>Avg Latency</th>
+                <th>Cache Tiers (Exact / Prefix / Miss)</th>
+              </tr>
+            </thead>
+            <tbody id="an-provider-table-body">
+              <tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 24px;">Loading provider matrix...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Model Unit Economics Table -->
+      <div class="card">
+        <div style="margin-bottom: 16px;">
+          <h4 style="font-size: 15px; font-weight: 600;">Model Unit Economics &amp; Cost Per Million Tokens</h4>
+          <p style="font-size: 12px; color: var(--muted);">Effective pricing efficiency across appointed models.</p>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Appointed Model</th>
+                <th>Requests</th>
+                <th>Tokens In</th>
+                <th>Tokens Out</th>
+                <th>Total Tokens</th>
+                <th>Realized Spend <span class="badge-est">EST.</span></th>
+                <th>Dollars Saved <span class="badge-est">EST.</span></th>
+                <th>Effective $/1M Tokens</th>
+                <th>Avg Latency</th>
+              </tr>
+            </thead>
+            <tbody id="an-model-table-body">
+              <tr><td colspan="9" style="text-align: center; color: var(--muted); padding: 24px;">Loading model matrix...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORICAL LOGS TAB -->
+    <div id="tab-logs" class="tab-content">
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              Historical Logs &amp; Audit Explorer
+              <span class="badge badge-hit-prefix">Full Ledger</span>
+            </h3>
+            <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">Search, filter, and inspect all historical inference transactions with model provenance, exact token billing, and error payloads.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="exportLogs('csv')" title="Export filtered logs as CSV" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export CSV
+            </button>
+            <button class="btn btn-secondary" onclick="exportLogs('json')" title="Export filtered logs as JSON" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              Export JSON
+            </button>
+            <button class="btn btn-secondary" onclick="queryLogs(currentLogsPage)" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="filter-bar">
+          <select id="flt-provider" class="filter-select" onchange="queryLogs(1)">
+            <option value="all">All Providers</option>
+            <option value="cache-local">Local Cache</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="groq">Groq</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="nvidianim">NVIDIA NIM</option>
+            <option value="openai">OpenAI</option>
+          </select>
+
+          <select id="flt-cache-status" class="filter-select" onchange="queryLogs(1)">
+            <option value="all">All Cache Statuses</option>
+            <option value="HIT">All Cache Hits</option>
+            <option value="TIER1_EXACT">Tier-1 Exact Hits</option>
+            <option value="TIER2_PREFIX">Tier-2 KV Prefix Hits</option>
+            <option value="TIER3_SEMANTIC">Tier-3 Semantic Hits</option>
+            <option value="MISS">Full Misses</option>
+          </select>
+
+          <select id="flt-time-range" class="filter-select" onchange="queryLogs(1)">
+            <option value="all">All Time</option>
+            <option value="1h">Last 1 Hour</option>
+            <option value="24h">Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+          </select>
+
+          <select id="flt-status-code" class="filter-select" onchange="queryLogs(1)">
+            <option value="all">All Status Codes</option>
+            <option value="200">200 OK</option>
+            <option value="4xx">4xx Client Errors</option>
+            <option value="5xx">5xx Upstream Errors</option>
+          </select>
+
+          <input id="flt-search" type="text" class="filter-input" placeholder="Search Request ID, model, error..." style="flex: 1; min-width: 180px;" onkeydown="if(event.key==='Enter') queryLogs(1);" />
+
+          <button class="btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600;" onclick="queryLogs(1)">Filter</button>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="resetLogsFilter()">Reset</button>
+        </div>
+
+        <!-- Filter Summary Badge -->
+        <div id="logs-query-summary" style="font-size: 12px; color: var(--muted); font-family: var(--mono); padding: 4px 0;">
+          Showing 0 matching logs
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Request ID</th>
+                <th>Appointed Model</th>
+                <th>Provider</th>
+                <th>Cache Tier</th>
+                <th>Prompt / Comp</th>
+                <th>Cost <span class="badge-est">EST.</span></th>
+                <th>Saved <span class="badge-est">EST.</span></th>
+                <th>Latency</th>
+                <th>Status</th>
+                <th>Inspect</th>
+              </tr>
+            </thead>
+            <tbody id="hist-logs-tbody">
+              <tr><td colspan="11" style="text-align: center; color: var(--muted); padding: 24px;">Loading logs...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="pagination-container">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>Page Size:</span>
+            <select id="hist-page-size" class="filter-select" onchange="queryLogs(1)" style="padding: 3px 8px; font-size: 11px;">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span id="hist-page-info">Page 1 of 1 (0 total)</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="hist-btn-first" class="page-btn" onclick="queryLogs(1)">&laquo; First</button>
+            <button id="hist-btn-prev" class="page-btn" onclick="queryLogs(currentLogsPage - 1)">&lsaquo; Prev</button>
+            <span id="hist-current-page-num" style="padding: 5px 10px; font-family: var(--mono); font-weight: 600;">1</span>
+            <button id="hist-btn-next" class="page-btn" onclick="queryLogs(currentLogsPage + 1)">Next &rsaquo;</button>
+            <button id="hist-btn-last" class="page-btn" onclick="queryLogs(currentLogsTotalPages)">Last &raquo;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -519,6 +822,197 @@
         </div>
       </div>
     </div>
+
+    <!-- SYSTEM HEALTH & DIAGNOSTICS TAB -->
+    <div id="tab-system" class="tab-content">
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              System Health &amp; Engine Diagnostics
+              <span class="badge badge-hit-exact">Zero-Overhead Node</span>
+            </h3>
+            <p style="font-size: 13px; color: var(--muted); margin-top: 4px;">Go runtime virtual memory metrics, SQLite persistent storage telemetry, active circuit breaker health, and database optimization.</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn" style="background: #3b82f6; color: #fff; font-weight: 600; font-size: 12px; padding: 6px 14px;" onclick="runSystemVacuum()">
+              Vacuum &amp; Reclaim Disk
+            </button>
+            <button class="btn btn-secondary" onclick="loadSystemDiagnostics()" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Diagnostic Grid -->
+      <div class="grid-diag">
+        <!-- Card 1: Go Runtime Telemetry -->
+        <div class="card">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #38bdf8; display: flex; align-items: center; gap: 8px;">
+            Go Runtime &amp; Virtual Process
+          </h4>
+          <div class="diag-item">
+            <span class="diag-label">Process Memory (Alloc / Sys)</span>
+            <span class="diag-value" id="sys-alloc-sys">0.0 MB / 0.0 MB</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Heap In-Use</span>
+            <span class="diag-value" id="sys-heap-inuse">0.0 MB</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Stack In-Use</span>
+            <span class="diag-value" id="sys-stack-inuse">0.0 KB</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Garbage Collector (Cycles / Total Pause)</span>
+            <span class="diag-value" id="sys-gc-stats">0 GCs / 0.0ms pause</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Active Goroutines</span>
+            <span class="diag-value" id="sys-goroutines" style="color: #34d399;">0</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Platform / Go Version</span>
+            <span class="diag-value" id="sys-platform">-</span>
+          </div>
+        </div>
+
+        <!-- Card 2: SQLite Storage & Table Health -->
+        <div class="card">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #a78bfa; display: flex; align-items: center; gap: 8px;">
+            SQLite Persistent Storage &amp; WAL
+          </h4>
+          <div class="diag-item">
+            <span class="diag-label">Database Path</span>
+            <span class="diag-value" id="sys-db-path" style="font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">~/.liltok/liltok.db</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Physical File Size</span>
+            <span class="diag-value" id="sys-db-size">0.0 MB</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">WAL Journal Size</span>
+            <span class="diag-value" id="sys-wal-size">0.0 MB</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Total Cache Entries</span>
+            <span class="diag-value" id="sys-cache-count">0</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Total Request Audit Logs</span>
+            <span class="diag-value" id="sys-logs-count">0</span>
+          </div>
+          <div class="diag-item">
+            <span class="diag-label">Journal Mode &amp; Page Size</span>
+            <span class="diag-value" id="sys-pragma-mode">WAL (4096B)</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Circuit Breakers Monitor -->
+        <div class="card" style="grid-column: 1 / -1;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="font-size: 14px; font-weight: 600; color: #f59e0b; display: flex; align-items: center; gap: 8px;">
+              Provider Circuit Breakers &amp; Outage Protection
+            </h4>
+            <button class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;" onclick="resetCircuitBreakers()">
+              Reset All Breakers
+            </button>
+          </div>
+          <div id="sys-breakers-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+            <div style="text-align: center; color: var(--muted); padding: 16px;">Loading circuit breaker telemetry...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG INSPECTOR DRAWER -->
+  <div id="log-drawer-backdrop" class="drawer-backdrop" onclick="closeLogDrawer(event)">
+    <div class="drawer" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="insp-tier-badge" class="badge badge-hit-exact">LOCAL EXACT</span>
+          <span id="insp-req-id" style="font-family: var(--mono); font-size: 14px; font-weight: 700;">req_123456</span>
+        </div>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="closeLogDrawer()">Close</button>
+      </div>
+
+      <!-- Provenance Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">Model Provenance &amp; Routing</div>
+        <div class="diag-item">
+          <span class="diag-label">Appointed Model</span>
+          <span class="diag-value" id="insp-appointed-model" style="color: #38bdf8;">-</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Requested Client Model</span>
+          <span class="diag-value" id="insp-requested-model">-</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Execution Provider</span>
+          <span class="diag-value" id="insp-provider">-</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Timestamp</span>
+          <span class="diag-value" id="insp-timestamp">-</span>
+        </div>
+      </div>
+
+      <!-- Financial & Token Ledger Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">Token Ingest &amp; Expenditure Breakdown</div>
+        <div class="diag-item">
+          <span class="diag-label">Prompt Tokens (In)</span>
+          <span class="diag-value" id="insp-prompt-tokens" style="color: #60a5fa;">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Prompt Estimated Spend</span>
+          <span class="diag-value" id="insp-prompt-spend">$0.0000</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Completion Tokens (Out)</span>
+          <span class="diag-value" id="insp-comp-tokens" style="color: #a78bfa;">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Completion Estimated Spend</span>
+          <span class="diag-value" id="insp-comp-spend">$0.0000</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Cached Tokens (KV Hit)</span>
+          <span class="diag-value" id="insp-cached-tokens" style="color: #34d399;">0</span>
+        </div>
+        <div class="diag-item" style="border-top: 1px dashed var(--border); margin-top: 6px; padding-top: 10px;">
+          <span class="diag-label" style="font-weight: 600; color: var(--text);">Total Realized Spend</span>
+          <span class="diag-value" id="insp-total-spend" style="font-size: 15px; color: #f59e0b;">$0.0000</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label" style="font-weight: 600; color: var(--text);">Net Dollar Savings</span>
+          <span class="diag-value" id="insp-saved-spend" style="font-size: 15px; color: #34d399;">$0.0000</span>
+        </div>
+      </div>
+
+      <!-- Performance & Diagnostics Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">Network Performance</div>
+        <div class="diag-item">
+          <span class="diag-label">Roundtrip Latency</span>
+          <span class="diag-value" id="insp-latency">0ms</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">HTTP Status Code</span>
+          <span class="diag-value" id="insp-status-code">200</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Virtual API Key ID</span>
+          <span class="diag-value" id="insp-key-id">-</span>
+        </div>
+      </div>
+
+      <!-- Error Payload Block (Hidden if no error) -->
+      <div id="insp-error-container" class="card" style="display: none; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #f87171; margin-bottom: 8px;">Error Diagnostic Payload</div>
+        <pre id="insp-error-text" style="font-family: var(--mono); font-size: 12px; color: #fca5a5; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
+      </div>
+    </div>
   </div>
 
   <!-- MODERATOR DETAIL MODAL -->
@@ -688,21 +1182,667 @@
       }
     }
 
-    function switchTab(name) {
+    let currentAnalyticsRange = '24h';
+    let currentLogsPage = 1;
+    let currentLogsTotalPages = 1;
+    let _currentFilteredLogs = [];
+
+    function escapeHTML(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    function switchTab(name, updateHash = true) {
+      if (!name) name = 'overview';
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById('tab-' + name).classList.add('active');
-      if (name === 'cache') loadCacheEntries();
-      if (name === 'keys') loadKeys();
-      if (name === 'routes') loadRoutes();
-      if (name === 'providers') {
+      const btn = document.getElementById('tab-btn-' + name);
+      if (btn) btn.classList.add('active');
+      const content = document.getElementById('tab-' + name);
+      if (content) content.classList.add('active');
+
+      if (updateHash && window.location.hash !== '#' + name) {
+        history.replaceState(null, '', '#' + name);
+      }
+
+      if (name === 'overview') {
+        loadOverview();
+        loadRecentLogs();
+      } else if (name === 'analytics') {
+        loadAnalytics(currentAnalyticsRange);
+      } else if (name === 'logs') {
+        queryLogs(currentLogsPage);
+      } else if (name === 'cache') {
+        loadCacheEntries();
+      } else if (name === 'keys') {
+        loadKeys();
+      } else if (name === 'routes') {
+        loadRoutes();
+      } else if (name === 'providers') {
         loadProviders();
         loadProviderStats();
-      }
-      if (name === 'moderate') {
+      } else if (name === 'system') {
+        loadSystemDiagnostics();
+      } else if (name === 'moderate') {
         loadModerateStatus();
         loadModerateEntries();
+      }
+    }
+
+    // ANALYTICS FUNCTIONS
+    function changeAnalyticsRange(range) {
+      currentAnalyticsRange = range;
+      const group = document.getElementById('analytics-range-group');
+      if (group) {
+        group.querySelectorAll('.btn-group-item').forEach(b => {
+          const text = b.innerText.toLowerCase();
+          if (text.includes(range) || (range === 'all' && text.includes('all'))) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
+      }
+      loadAnalytics(range);
+    }
+
+    async function loadAnalytics(range) {
+      try {
+        const res = await fetch('/api/v1/analytics?range=' + (range || currentAnalyticsRange || '24h'));
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // 1. KPI Cards
+        const sum = data.summary || {};
+        const pctl = data.percentiles || {};
+
+        const elIn = document.getElementById('an-tokens-in');
+        if (elIn) elIn.innerText = formatTokens(sum.total_tokens_in || 0);
+        const elSpendIn = document.getElementById('an-spend-in');
+        if (elSpendIn) elSpendIn.innerText = 'Est. Spend: ' + formatCurrency(sum.total_prompt_cost_usd || 0);
+
+        const elOut = document.getElementById('an-tokens-out');
+        if (elOut) elOut.innerText = formatTokens(sum.total_tokens_out || 0);
+        const elSpendOut = document.getElementById('an-spend-out');
+        if (elSpendOut) elSpendOut.innerText = 'Est. Spend: ' + formatCurrency(sum.total_completion_cost_usd || 0);
+
+        const elSaved = document.getElementById('an-saved');
+        if (elSaved) elSaved.innerText = formatCurrency(sum.total_saved_usd || 0);
+        const elGross = document.getElementById('an-gross-spend');
+        if (elGross) elGross.innerText = 'Baseline Gross: ' + formatCurrency(sum.gross_token_spend_usd || 0);
+
+        const elRoi = document.getElementById('an-roi');
+        if (elRoi) elRoi.innerText = (sum.roi_multiplier || 0).toFixed(1) + 'x';
+
+        const elP90P99 = document.getElementById('an-p90-p99');
+        if (elP90P99) elP90P99.innerText = Math.round(pctl.p90 || 0) + 'ms / ' + Math.round(pctl.p99 || 0) + 'ms';
+        const elP50 = document.getElementById('an-p50');
+        if (elP50) elP50.innerText = 'Median (p50): ' + Math.round(pctl.p50 || 0) + 'ms | p75: ' + Math.round(pctl.p75 || 0) + 'ms';
+
+        // 2. SVG Charts
+        renderTokenTimeseries(data.time_series || []);
+        renderFinancialTimeseries(data.time_series || []);
+
+        // 3. Provider Matrix
+        const pTbody = document.getElementById('an-provider-table-body');
+        if (pTbody) {
+          if (!data.providers || data.providers.length === 0) {
+            pTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 20px;">No provider telemetry recorded for selected window.</td></tr>';
+          } else {
+            pTbody.innerHTML = data.providers.map(p => `
+              <tr>
+                <td style="font-weight: 700; text-transform: uppercase;">${escapeHTML(p.provider)}</td>
+                <td>${(p.requests || 0).toLocaleString()}</td>
+                <td style="color: #60a5fa;">${formatTokens(p.tokens_in)}</td>
+                <td style="color: #a78bfa;">${formatTokens(p.tokens_out)}</td>
+                <td>${formatCurrency(p.total_cost_usd)}</td>
+                <td style="color: #34d399; font-weight: 600;">${formatCurrency(p.total_saved_usd)}</td>
+                <td>${(p.avg_latency_ms || 0).toFixed(1)}ms</td>
+                <td>
+                  <span class="badge badge-hit-exact" title="Tier-1 Exact">${p.exact_hits || 0}</span> /
+                  <span class="badge badge-hit-prefix" title="Tier-2 Prefix">${p.prefix_hits || 0}</span> /
+                  <span class="badge badge-miss" title="Full Miss">${p.misses || 0}</span>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+
+        // 4. Model Matrix
+        const mTbody = document.getElementById('an-model-table-body');
+        if (mTbody) {
+          if (!data.models || data.models.length === 0) {
+            mTbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted); padding: 20px;">No model telemetry recorded for selected window.</td></tr>';
+          } else {
+            mTbody.innerHTML = data.models.map(m => {
+              const totTokens = (m.tokens_in || 0) + (m.tokens_out || 0);
+              return `
+                <tr>
+                  <td style="font-weight: 600; color: #38bdf8;">${escapeHTML(m.model)}</td>
+                  <td>${(m.requests || 0).toLocaleString()}</td>
+                  <td style="color: #60a5fa;">${formatTokens(m.tokens_in)}</td>
+                  <td style="color: #a78bfa;">${formatTokens(m.tokens_out)}</td>
+                  <td>${formatTokens(totTokens)}</td>
+                  <td>${formatCurrency(m.total_cost_usd)}</td>
+                  <td style="color: #34d399; font-weight: 600;">${formatCurrency(m.total_saved_usd)}</td>
+                  <td style="color: #f59e0b; font-weight: 600;">$${(m.cost_per_million || 0).toFixed(4)}</td>
+                  <td>${(m.avg_latency_ms || 0).toFixed(1)}ms</td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load analytics:', e);
+      }
+    }
+
+    function renderTokenTimeseries(buckets) {
+      const svg = document.getElementById('svg-token-timeseries');
+      const pathIn = document.getElementById('an-path-in');
+      const areaIn = document.getElementById('an-area-in');
+      const pathOut = document.getElementById('an-path-out');
+      const areaOut = document.getElementById('an-area-out');
+      const summary = document.getElementById('an-chart1-summary');
+      if (!svg || !pathIn || !areaIn || !pathOut || !areaOut) return;
+
+      if (!buckets || buckets.length === 0) {
+        pathIn.setAttribute('d', '');
+        areaIn.setAttribute('d', '');
+        pathOut.setAttribute('d', '');
+        areaOut.setAttribute('d', '');
+        if (summary) summary.innerText = 'Tokens In: 0 | Out: 0';
+        return;
+      }
+
+      let totIn = 0, totOut = 0;
+      let maxVal = 100;
+      buckets.forEach(b => {
+        const tin = Number(b.tokens_in) || 0;
+        const tout = Number(b.tokens_out) || 0;
+        totIn += tin;
+        totOut += tout;
+        if (tin > maxVal) maxVal = tin;
+        if (tout > maxVal) maxVal = tout;
+      });
+
+      if (summary) {
+        summary.innerText = `Tokens In: ${formatTokens(totIn)} | Out: ${formatTokens(totOut)}`;
+      }
+
+      const width = 500;
+      const height = 180;
+      const padTop = 15;
+      const padBottom = 15;
+      const usableHeight = height - padTop - padBottom;
+
+      const ptsIn = buckets.map((b, i) => {
+        const x = buckets.length > 1 ? (i / (buckets.length - 1)) * width : width / 2;
+        const val = Number(b.tokens_in) || 0;
+        const y = padTop + usableHeight - (val / maxVal) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      const ptsOut = buckets.map((b, i) => {
+        const x = buckets.length > 1 ? (i / (buckets.length - 1)) * width : width / 2;
+        const val = Number(b.tokens_out) || 0;
+        const y = padTop + usableHeight - (val / maxVal) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      function buildPathAndArea(pts) {
+        if (pts.length === 1) {
+          return {
+            path: `M 0,${pts[0].y} L ${width},${pts[0].y}`,
+            area: `M 0,${pts[0].y} L ${width},${pts[0].y} L ${width},${height} L 0,${height} Z`
+          };
+        }
+        let d = `M ${pts[0].x},${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          d += ` L ${pts[i].x},${pts[i].y}`;
+        }
+        const a = `${d} L ${pts[pts.length - 1].x},${height} L ${pts[0].x},${height} Z`;
+        return { path: d, area: a };
+      }
+
+      const resIn = buildPathAndArea(ptsIn);
+      pathIn.setAttribute('d', resIn.path);
+      areaIn.setAttribute('d', resIn.area);
+
+      const resOut = buildPathAndArea(ptsOut);
+      pathOut.setAttribute('d', resOut.path);
+      areaOut.setAttribute('d', resOut.area);
+    }
+
+    function renderFinancialTimeseries(buckets) {
+      const svg = document.getElementById('svg-financial-timeseries');
+      const pathSaved = document.getElementById('an-path-saved');
+      const areaSaved = document.getElementById('an-area-saved');
+      const pathGross = document.getElementById('an-path-gross');
+      const pathCost = document.getElementById('an-path-cost');
+      const summary = document.getElementById('an-chart2-summary');
+      if (!svg || !pathSaved || !areaSaved || !pathGross || !pathCost) return;
+
+      if (!buckets || buckets.length === 0) {
+        pathSaved.setAttribute('d', '');
+        areaSaved.setAttribute('d', '');
+        pathGross.setAttribute('d', '');
+        pathCost.setAttribute('d', '');
+        if (summary) summary.innerText = 'Saved: $0.0000 | Spent: $0.0000';
+        return;
+      }
+
+      let totSaved = 0, totCost = 0;
+      let maxVal = 0.05;
+      buckets.forEach(b => {
+        const s = Number(b.saved_usd) || 0;
+        const c = Number(b.cost_usd) || 0;
+        const g = s + c;
+        totSaved += s;
+        totCost += c;
+        if (s > maxVal) maxVal = s;
+        if (c > maxVal) maxVal = c;
+        if (g > maxVal) maxVal = g;
+      });
+
+      if (summary) {
+        summary.innerText = `Saved: ${formatCurrency(totSaved)} | Spent: ${formatCurrency(totCost)}`;
+      }
+
+      const width = 500;
+      const height = 180;
+      const padTop = 15;
+      const padBottom = 15;
+      const usableHeight = height - padTop - padBottom;
+
+      const ptsSaved = buckets.map((b, i) => {
+        const x = buckets.length > 1 ? (i / (buckets.length - 1)) * width : width / 2;
+        const val = Number(b.saved_usd) || 0;
+        const y = padTop + usableHeight - (val / maxVal) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      const ptsGross = buckets.map((b, i) => {
+        const x = buckets.length > 1 ? (i / (buckets.length - 1)) * width : width / 2;
+        const val = (Number(b.saved_usd) || 0) + (Number(b.cost_usd) || 0);
+        const y = padTop + usableHeight - (val / maxVal) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      const ptsCost = buckets.map((b, i) => {
+        const x = buckets.length > 1 ? (i / (buckets.length - 1)) * width : width / 2;
+        const val = Number(b.cost_usd) || 0;
+        const y = padTop + usableHeight - (val / maxVal) * usableHeight;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+
+      function buildLine(pts) {
+        if (pts.length === 1) {
+          return `M 0,${pts[0].y} L ${width},${pts[0].y}`;
+        }
+        let d = `M ${pts[0].x},${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+          d += ` L ${pts[i].x},${pts[i].y}`;
+        }
+        return d;
+      }
+
+      const dSaved = buildLine(ptsSaved);
+      pathSaved.setAttribute('d', dSaved);
+      const aSaved = ptsSaved.length === 1
+        ? `M 0,${ptsSaved[0].y} L ${width},${ptsSaved[0].y} L ${width},${height} L 0,${height} Z`
+        : `${dSaved} L ${ptsSaved[ptsSaved.length - 1].x},${height} L ${ptsSaved[0].x},${height} Z`;
+      areaSaved.setAttribute('d', aSaved);
+
+      pathGross.setAttribute('d', buildLine(ptsGross));
+      pathCost.setAttribute('d', buildLine(ptsCost));
+    }
+
+    // HISTORICAL LOGS FUNCTIONS
+    async function queryLogs(page) {
+      currentLogsPage = Math.max(1, page || 1);
+      const fltProv = document.getElementById('flt-provider') ? document.getElementById('flt-provider').value : 'all';
+      const fltCache = document.getElementById('flt-cache-status') ? document.getElementById('flt-cache-status').value : 'all';
+      const fltTime = document.getElementById('flt-time-range') ? document.getElementById('flt-time-range').value : 'all';
+      const fltStatus = document.getElementById('flt-status-code') ? document.getElementById('flt-status-code').value : 'all';
+      const fltSearch = document.getElementById('flt-search') ? document.getElementById('flt-search').value.trim() : '';
+      const pageSize = document.getElementById('hist-page-size') ? parseInt(document.getElementById('hist-page-size').value) || 25 : 25;
+
+      const params = new URLSearchParams({
+        page: currentLogsPage,
+        page_size: pageSize,
+        provider: fltProv,
+        cache_status: fltCache,
+        time_range: fltTime,
+        status_code: fltStatus,
+        search: fltSearch
+      });
+
+      const tbody = document.getElementById('hist-logs-tbody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--muted); padding: 24px;">Querying audit logs...</td></tr>';
+      }
+
+      try {
+        const res = await fetch('/api/v1/logs/query?' + params.toString());
+        if (!res.ok) throw new Error('Query failed');
+        const data = await res.json();
+
+        currentLogsPage = data.page || 1;
+        currentLogsTotalPages = data.total_pages || 1;
+        _currentFilteredLogs = data.logs || [];
+
+        // Summary Line
+        const s = data.summary || {};
+        const sumEl = document.getElementById('logs-query-summary');
+        if (sumEl) {
+          sumEl.innerText = `Showing ${_currentFilteredLogs.length} of ${(data.total_count || 0).toLocaleString()} matching logs | Spend: ${formatCurrency(s.cost_usd)} | Saved: ${formatCurrency(s.saved_usd)} | Tokens: ${formatTokens((s.tokens_in || 0) + (s.tokens_out || 0))}`;
+        }
+
+        // Table Rows
+        if (!tbody) return;
+        if (_currentFilteredLogs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: var(--muted); padding: 28px;">No matching inference logs found for current filters.</td></tr>';
+        } else {
+          tbody.innerHTML = _currentFilteredLogs.map(l => {
+            let dateObj = l.timestamp ? new Date(l.timestamp) : new Date();
+            if (isNaN(dateObj.getTime()) || dateObj.getFullYear() < 2000) dateObj = new Date();
+            const timeStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+
+            let tokensDisplay = `${l.prompt_tokens} / ${l.completion_tokens}`;
+            if (l.cached_tokens && l.cached_tokens > 0) {
+              tokensDisplay = `${l.prompt_tokens} <span style="color: #38bdf8; font-size: 11px;">(${l.cached_tokens} kv-hit)</span> / ${l.completion_tokens}`;
+            }
+
+            let modelHtml = `<span style="font-weight: 600;">${escapeHTML(l.model || '-')}</span>`;
+            if (l.requested_model && l.requested_model !== l.model) {
+              modelHtml += `<div style="font-size: 11px; color: var(--muted); margin-top: 2px;">from ${escapeHTML(l.requested_model)}</div>`;
+            }
+
+            let statusBadge = '<span class="badge badge-hit-exact">200 OK</span>';
+            if (l.status_code >= 500) {
+              statusBadge = `<span class="badge badge-open">${l.status_code}</span>`;
+            } else if (l.status_code >= 400) {
+              statusBadge = `<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">${l.status_code}</span>`;
+            }
+
+            return `
+              <tr>
+                <td style="color: var(--muted); font-size: 11px;">${timeStr}</td>
+                <td title="${escapeHTML(l.request_id)}">${escapeHTML(l.request_id ? l.request_id.slice(-8) : '-')}</td>
+                <td>${modelHtml}</td>
+                <td style="text-transform: uppercase; font-weight: 600;">${escapeHTML(l.provider || '-')}</td>
+                <td>${getTierBadge(l.cache_status, l.cache_tier, l.cached_tokens)}</td>
+                <td>${tokensDisplay}</td>
+                <td>${formatCurrency(l.cost_usd)}</td>
+                <td style="color: #34d399; font-weight: 600;">${formatCurrency(l.saved_usd)}</td>
+                <td>${l.latency_ms}ms</td>
+                <td>${statusBadge}</td>
+                <td>
+                  <button class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="inspectLog('${escapeHTML(l.request_id)}')">Inspect</button>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+
+        // Pagination controls
+        const pageInfo = document.getElementById('hist-page-info');
+        if (pageInfo) {
+          pageInfo.innerText = `Page ${data.page} of ${Math.max(1, data.total_pages)} (${(data.total_count || 0).toLocaleString()} total)`;
+        }
+        const pageNum = document.getElementById('hist-current-page-num');
+        if (pageNum) pageNum.innerText = data.page;
+
+        const btnFirst = document.getElementById('hist-btn-first');
+        if (btnFirst) btnFirst.disabled = data.page <= 1;
+        const btnPrev = document.getElementById('hist-btn-prev');
+        if (btnPrev) btnPrev.disabled = data.page <= 1;
+        const btnNext = document.getElementById('hist-btn-next');
+        if (btnNext) btnNext.disabled = data.page >= data.total_pages || data.total_pages <= 1;
+        const btnLast = document.getElementById('hist-btn-last');
+        if (btnLast) btnLast.disabled = data.page >= data.total_pages || data.total_pages <= 1;
+
+      } catch (err) {
+        if (tbody) {
+          tbody.innerHTML = `<tr><td colspan="11" style="text-align: center; color: #fca5a5; padding: 24px;">Failed to query logs: ${escapeHTML(err.message)}</td></tr>`;
+        }
+      }
+    }
+
+    function resetLogsFilter() {
+      const fltProv = document.getElementById('flt-provider');
+      if (fltProv) fltProv.value = 'all';
+      const fltCache = document.getElementById('flt-cache-status');
+      if (fltCache) fltCache.value = 'all';
+      const fltTime = document.getElementById('flt-time-range');
+      if (fltTime) fltTime.value = 'all';
+      const fltStatus = document.getElementById('flt-status-code');
+      if (fltStatus) fltStatus.value = 'all';
+      const fltSearch = document.getElementById('flt-search');
+      if (fltSearch) fltSearch.value = '';
+      queryLogs(1);
+    }
+
+    function exportLogs(format) {
+      const fltProv = document.getElementById('flt-provider') ? document.getElementById('flt-provider').value : 'all';
+      const fltCache = document.getElementById('flt-cache-status') ? document.getElementById('flt-cache-status').value : 'all';
+      const fltTime = document.getElementById('flt-time-range') ? document.getElementById('flt-time-range').value : 'all';
+      const fltStatus = document.getElementById('flt-status-code') ? document.getElementById('flt-status-code').value : 'all';
+      const fltSearch = document.getElementById('flt-search') ? document.getElementById('flt-search').value.trim() : '';
+
+      const params = new URLSearchParams({
+        format: format || 'csv',
+        provider: fltProv,
+        cache_status: fltCache,
+        time_range: fltTime,
+        status_code: fltStatus,
+        search: fltSearch
+      });
+
+      window.location.href = '/api/v1/logs/export?' + params.toString();
+    }
+
+    async function inspectLog(requestId) {
+      let log = (_currentFilteredLogs || []).find(l => l.request_id === requestId);
+      if (!log) {
+        log = (_recentLogs || []).find(l => l.request_id === requestId);
+      }
+      if (!log) {
+        try {
+          const res = await fetch('/api/v1/logs/query?search=' + encodeURIComponent(requestId) + '&page_size=1');
+          if (res.ok) {
+            const data = await res.json();
+            if (data.logs && data.logs.length > 0) {
+              log = data.logs[0];
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (!log) {
+        alert('Log details not found for ID: ' + requestId);
+        return;
+      }
+
+      // Populate Drawer
+      const badgeEl = document.getElementById('insp-tier-badge');
+      if (badgeEl) badgeEl.innerHTML = getTierBadge(log.cache_status, log.cache_tier, log.cached_tokens);
+      const reqIdEl = document.getElementById('insp-req-id');
+      if (reqIdEl) reqIdEl.innerText = log.request_id || '-';
+
+      const appModelEl = document.getElementById('insp-appointed-model');
+      if (appModelEl) appModelEl.innerText = log.model || '-';
+      const reqModelEl = document.getElementById('insp-requested-model');
+      if (reqModelEl) reqModelEl.innerText = log.requested_model || log.model || '-';
+      const provEl = document.getElementById('insp-provider');
+      if (provEl) provEl.innerText = (log.provider || '-').toUpperCase();
+      const tsEl = document.getElementById('insp-timestamp');
+      if (tsEl) {
+        let d = log.timestamp ? new Date(log.timestamp) : new Date();
+        tsEl.innerText = d.toLocaleString();
+      }
+
+      const promptTokEl = document.getElementById('insp-prompt-tokens');
+      if (promptTokEl) promptTokEl.innerText = (log.prompt_tokens || 0).toLocaleString();
+      const promptSpendEl = document.getElementById('insp-prompt-spend');
+      if (promptSpendEl) promptSpendEl.innerText = formatCurrency(log.prompt_cost_usd || 0);
+
+      const compTokEl = document.getElementById('insp-comp-tokens');
+      if (compTokEl) compTokEl.innerText = (log.completion_tokens || 0).toLocaleString();
+      const compSpendEl = document.getElementById('insp-comp-spend');
+      if (compSpendEl) compSpendEl.innerText = formatCurrency(log.completion_cost_usd || 0);
+
+      const cachedTokEl = document.getElementById('insp-cached-tokens');
+      if (cachedTokEl) cachedTokEl.innerText = (log.cached_tokens || 0).toLocaleString();
+
+      const totalSpendEl = document.getElementById('insp-total-spend');
+      if (totalSpendEl) totalSpendEl.innerText = formatCurrency(log.cost_usd || 0);
+      const savedSpendEl = document.getElementById('insp-saved-spend');
+      if (savedSpendEl) savedSpendEl.innerText = formatCurrency(log.saved_usd || 0);
+
+      const latEl = document.getElementById('insp-latency');
+      if (latEl) latEl.innerText = `${log.latency_ms || 0}ms`;
+      const statusEl = document.getElementById('insp-status-code');
+      if (statusEl) statusEl.innerText = log.status_code || 200;
+      const keyEl = document.getElementById('insp-key-id');
+      if (keyEl) keyEl.innerText = log.api_key_id || 'master-console';
+
+      const errContainer = document.getElementById('insp-error-container');
+      const errText = document.getElementById('insp-error-text');
+      if (errContainer && errText) {
+        if (log.error_message) {
+          errContainer.style.display = 'block';
+          errText.innerText = log.error_message;
+        } else {
+          errContainer.style.display = 'none';
+          errText.innerText = '';
+        }
+      }
+
+      const drawer = document.getElementById('log-drawer-backdrop');
+      if (drawer) drawer.classList.add('show');
+    }
+
+    function closeLogDrawer(event) {
+      if (event && event.target && event.target.id !== 'log-drawer-backdrop') {
+        return;
+      }
+      const drawer = document.getElementById('log-drawer-backdrop');
+      if (drawer) drawer.classList.remove('show');
+    }
+
+    // SYSTEM DIAGNOSTICS FUNCTIONS
+    async function loadSystemDiagnostics() {
+      try {
+        const res = await fetch('/api/v1/system');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const rt = data.runtime || {};
+        const db = data.database || {};
+        const cbs = data.circuit_breakers || [];
+
+        // Runtime Stats
+        const elAllocSys = document.getElementById('sys-alloc-sys');
+        if (elAllocSys) elAllocSys.innerText = `${(rt.alloc_mb || 0).toFixed(2)} MB / ${(rt.sys_mb || 0).toFixed(2)} MB`;
+        const elHeap = document.getElementById('sys-heap-inuse');
+        if (elHeap) elHeap.innerText = `${(rt.heap_inuse_mb || 0).toFixed(2)} MB`;
+        const elStack = document.getElementById('sys-stack-inuse');
+        if (elStack) elStack.innerText = `${((rt.stack_inuse_bytes || 0) / 1024).toFixed(1)} KB`;
+        const elGc = document.getElementById('sys-gc-stats');
+        if (elGc) elGc.innerText = `${rt.num_gc || 0} GCs / ${(rt.gc_pause_total_ms || 0).toFixed(1)}ms pause`;
+        const elGoro = document.getElementById('sys-goroutines');
+        if (elGoro) elGoro.innerText = rt.goroutines || 0;
+        const elPlat = document.getElementById('sys-platform');
+        if (elPlat) elPlat.innerText = `${rt.os || '-'}/${rt.arch || '-'} (${rt.go_version || '-'})`;
+
+        // Database Stats
+        const elDbPath = document.getElementById('sys-db-path');
+        if (elDbPath) {
+          elDbPath.innerText = db.path || '~/.liltok/liltok.db';
+          elDbPath.title = db.path || '';
+        }
+        const elDbSize = document.getElementById('sys-db-size');
+        if (elDbSize) elDbSize.innerText = `${(db.db_size_mb || 0).toFixed(2)} MB`;
+        const elWalSize = document.getElementById('sys-wal-size');
+        if (elWalSize) elWalSize.innerText = `${((db.wal_size_bytes || 0) / 1024).toFixed(1)} KB`;
+        const elCacheCount = document.getElementById('sys-cache-count');
+        if (elCacheCount) elCacheCount.innerText = (db.cache_entries_count || 0).toLocaleString();
+        const elLogsCount = document.getElementById('sys-logs-count');
+        if (elLogsCount) elLogsCount.innerText = (db.request_logs_count || 0).toLocaleString();
+        const elPragma = document.getElementById('sys-pragma-mode');
+        if (elPragma) {
+          const mode = db.journal_mode ? db.journal_mode.toUpperCase() : 'WAL';
+          elPragma.innerText = `${mode} (${db.page_size || 4096}B pages, ${db.page_count || 0} pages)`;
+        }
+
+        // Circuit Breakers
+        const cbContainer = document.getElementById('sys-breakers-container');
+        if (cbContainer) {
+          if (!cbs || cbs.length === 0) {
+            cbContainer.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 16px;">No circuit breakers registered.</div>';
+          } else {
+            cbContainer.innerHTML = cbs.map(cb => {
+              let badge = '<span class="badge badge-hit-exact">CLOSED (HEALTHY)</span>';
+              let borderStyle = 'var(--border)';
+              if (cb.state === 'OPEN') {
+                badge = '<span class="badge badge-open">OPEN (TRIPPED)</span>';
+                borderStyle = 'rgba(239, 68, 68, 0.4)';
+              } else if (cb.state === 'HALF-OPEN') {
+                badge = '<span class="badge badge-hit-prefix">HALF-OPEN (PROBING)</span>';
+                borderStyle = 'rgba(56, 189, 248, 0.4)';
+              }
+
+              const name = cb.name || cb.provider || 'unknown';
+              const failures = cb.consecutive_failures != null ? cb.consecutive_failures : (cb.failures || 0);
+              const remainingSec = cb.cooldown_remaining_seconds != null ? Math.round(cb.cooldown_remaining_seconds) : 0;
+              let cooldownNotice = '';
+              if (cb.state === 'OPEN' && remainingSec > 0) {
+                cooldownNotice = `<div style="font-size: 11px; color: #fb7185; margin-top: 4px;">Cooldown remaining: ${remainingSec}s</div>`;
+              }
+
+              return `
+                <div class="card" style="border-color: ${borderStyle}; padding: 14px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-weight: 700; text-transform: uppercase;">${escapeHTML(name)}</span>
+                    ${badge}
+                  </div>
+                  <div style="font-size: 11px; color: var(--muted); display: flex; flex-direction: column; gap: 3px;">
+                    <div>Consecutive Failures: <strong style="color: var(--text);">${failures}</strong> / 5 threshold</div>
+                    <div>Outage Protection: <strong style="color: var(--text);">Auto-Failover Active</strong></div>
+                    ${cooldownNotice}
+                  </div>
+                </div>
+              `;
+            }).join('');
+          }
+        }
+
+      } catch (e) {
+        console.error('Failed to load system diagnostics:', e);
+      }
+    }
+
+    async function runSystemVacuum() {
+      if (!confirm('Execute PRAGMA optimize and VACUUM on SQLite database? This reclaims unallocated pages and compacts physical disk space.')) return;
+      try {
+        const res = await fetch('/api/v1/system/vacuum', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Database vacuum completed! Current database size: ' + (data.db_size_mb || 0).toFixed(2) + ' MB');
+          loadSystemDiagnostics();
+        } else {
+          alert('Vacuum failed: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Vacuum request failed: ' + err.message);
       }
     }
 
@@ -898,6 +2038,7 @@
         else if (p === 'gemini') p = 'Gemini';
         else if (p === 'anthropic') p = 'Anthropic';
         else if (p === 'openai') p = 'OpenAI';
+        else if (p === 'openrouter') p = 'OpenRouter';
         counts[p] = (counts[p] || 0) + 1;
       });
 
@@ -914,6 +2055,7 @@
         'Gemini': '#38bdf8',
         'Anthropic': '#c084fc',
         'OpenAI': '#10a37f',
+        'OpenRouter': '#6366f1',
         'unknown': '#a1a1aa'
       };
 
@@ -1291,12 +2433,37 @@
           } else if (ev.type === 'breakers_reset') {
             loadRoutes();
             loadProviders();
+            const tabSys = document.getElementById('tab-system');
+            if (tabSys && tabSys.classList.contains('active')) {
+              loadSystemDiagnostics();
+            }
           } else if (ev.type === 'providers_updated') {
             loadProviders();
             loadProviderStats();
           } else if (ev.type === 'request') {
             prependLiveLogRow(ev.data);
             loadOverview();
+          } else if (ev.type === 'logs_cleared') {
+            const tbody = document.getElementById('logs-tbody');
+            if (tbody) {
+              tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted);">Logs cleared. Listening for inference requests...</td></tr>';
+            }
+            _seenLogIds.clear();
+            _recentLogs = [];
+            renderCharts();
+            loadOverview();
+            const tabLogs = document.getElementById('tab-logs');
+            if (tabLogs && tabLogs.classList.contains('active')) {
+              queryLogs(1);
+            }
+            const tabAn = document.getElementById('tab-analytics');
+            if (tabAn && tabAn.classList.contains('active')) {
+              loadAnalytics(currentAnalyticsRange);
+            }
+            const tabSys = document.getElementById('tab-system');
+            if (tabSys && tabSys.classList.contains('active')) {
+              loadSystemDiagnostics();
+            }
           }
         } catch (err) {}
       };
@@ -1524,17 +2691,6 @@
 
     function closeModDetailModal() {
       document.getElementById('mod-detail-modal').classList.remove('show');
-    }
-
-    function escapeHTML(str) {
-      if (!str) return '';
-      return str.replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag] || tag));
     }
 
     // PROVIDER SETTINGS & MONITORING FUNCTIONS
@@ -1804,39 +2960,40 @@
       } catch (e) {}
     }
 
-    function initSSE() {
-      if (!window.EventSource) return;
-      const es = new EventSource('/api/v1/events');
-      es.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload.type === 'request' && payload.data) {
-            prependLiveLogRow(payload.data);
-            loadOverview();
-          } else if (payload.type === 'logs_cleared') {
-            const tbody = document.getElementById('logs-tbody');
-            if (tbody) {
-              tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted);">Logs cleared. Listening for inference requests...</td></tr>';
-            }
-            _seenLogIds.clear();
-            _recentLogs = [];
-            renderCharts();
-            loadOverview();
-          }
-        } catch (e) {}
-      };
-    }
+    // Global Listeners & Routing
+    window.addEventListener('hashchange', () => {
+      const hash = location.hash.replace(/^#/, '');
+      if (hash) {
+        switchTab(hash, false);
+      }
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeLogDrawer();
+        closeClearLogsModal();
+        closeKeyModal();
+        closePackModal();
+        if (typeof closeModDetailModal === 'function') closeModDetailModal();
+      }
+    });
 
     // Initialize
-    loadOverview();
+    const initialTab = location.hash.replace(/^#/, '') || 'overview';
+    switchTab(initialTab, false);
     loadRoutes();
     loadProviders();
     loadProviderStats();
-    loadRecentLogs();
+
     window.addEventListener('load', () => {
       setTimeout(initSSE, 200);
     });
-    setInterval(loadOverview, 5000);
+    setInterval(() => {
+      const activeOverview = document.getElementById('tab-overview');
+      if (activeOverview && activeOverview.classList.contains('active')) {
+        loadOverview();
+      }
+    }, 5000);
   </script>
 </body>
 </html>

@@ -77,6 +77,13 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 
 	// Resolve provider defaults
 	switch strings.ToLower(cfg.Provider) {
+	case "openrouter":
+		if cfg.BaseURL == "" {
+			cfg.BaseURL = "https://openrouter.ai/api/v1"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "openrouter/free"
+		}
 	case "nvidianim":
 		if cfg.BaseURL == "" {
 			cfg.BaseURL = "https://integrate.api.nvidia.com/v1"

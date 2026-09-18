@@ -69,6 +69,7 @@ func TestLoadWithEnvOverrides(t *testing.T) {
 	t.Setenv("LILTOK_HOST", "192.168.1.50")
 	t.Setenv("OPENAI_API_KEY", "sk-test-key-12345")
 	t.Setenv("ANTHROPIC_API_KEY", "ant-test-key-67890")
+	t.Setenv("OPENROUTER_API_KEY", "sk-or-v1-test-key")
 
 	cfg, err := Load("")
 	if err != nil {
@@ -86,6 +87,9 @@ func TestLoadWithEnvOverrides(t *testing.T) {
 	}
 	if cfg.Providers.Anthropic.APIKey != "ant-test-key-67890" {
 		t.Errorf("expected Anthropic key from env, got %s", cfg.Providers.Anthropic.APIKey)
+	}
+	if cfg.Providers.OpenRouter.APIKey != "sk-or-v1-test-key" {
+		t.Errorf("expected OpenRouter key from env, got %s", cfg.Providers.OpenRouter.APIKey)
 	}
 }
 
@@ -108,15 +112,19 @@ providers:
   gemini:
     api_key: ""
     base_url: "https://generativelanguage.googleapis.com"
+  openrouter:
+    api_key: ""
+    base_url: "https://openrouter.ai/api/v1"
 `
 	if err := os.WriteFile(configFile, []byte(initialYAML), 0644); err != nil {
 		t.Fatalf("failed to write test config: %v", err)
 	}
 
 	newProviders := ProvidersConfig{
-		OpenAI: ProviderCreds{APIKey: "sk-new-key", BaseURL: "https://api.openai.com/v1"},
-		Groq:   ProviderCreds{APIKey: "gsk_test123", BaseURL: "https://api.groq.com/openai/v1"},
-		Gemini: ProviderCreds{APIKey: "gem-key-1,gem-key-2", BaseURL: "https://generativelanguage.googleapis.com"},
+		OpenAI:     ProviderCreds{APIKey: "sk-new-key", BaseURL: "https://api.openai.com/v1"},
+		Groq:       ProviderCreds{APIKey: "gsk_test123", BaseURL: "https://api.groq.com/openai/v1"},
+		Gemini:     ProviderCreds{APIKey: "gem-key-1,gem-key-2", BaseURL: "https://generativelanguage.googleapis.com"},
+		OpenRouter: ProviderCreds{APIKey: "sk-or-v1-new-key", BaseURL: "https://openrouter.ai/api/v1"},
 	}
 
 	if err := PersistProviders(configFile, newProviders); err != nil {
@@ -133,6 +141,9 @@ providers:
 	}
 	if reloaded.Providers.Gemini.APIKey != "gem-key-1,gem-key-2" {
 		t.Errorf("expected Gemini keys 'gem-key-1,gem-key-2', got %q", reloaded.Providers.Gemini.APIKey)
+	}
+	if reloaded.Providers.OpenRouter.APIKey != "sk-or-v1-new-key" {
+		t.Errorf("expected OpenRouter key 'sk-or-v1-new-key', got %q", reloaded.Providers.OpenRouter.APIKey)
 	}
 	if reloaded.Providers.OpenAI.APIKey != "sk-new-key" {
 		t.Errorf("expected OpenAI key 'sk-new-key', got %q", reloaded.Providers.OpenAI.APIKey)

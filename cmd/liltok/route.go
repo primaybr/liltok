@@ -36,7 +36,7 @@ func newRouteStatusCommand() *cobra.Command {
 			client := &http.Client{Timeout: 5 * time.Second}
 			resp, err := client.Get(gatewayURL + "/api/v1/routes")
 			if err != nil {
-				cfg, loadErr := config.Load("")
+				cfg, loadErr := config.Load(resolveConfigPath(configPath))
 				if loadErr == nil {
 					fmt.Printf("Liltok Gateway: OFFLINE\nConfigured Strategy: %s (from liltok.yaml)\n", cfg.Routes.DefaultStrategy)
 					return nil
@@ -108,8 +108,13 @@ func newRouteSwitchCommand() *cobra.Command {
 			client := &http.Client{Timeout: 5 * time.Second}
 			resp, err := client.Post(gatewayURL+"/api/v1/routes/strategy", "application/json", bytes.NewReader(payload))
 			if err != nil {
-				if persistErr := config.PersistDefaultStrategy("", strategy); persistErr == nil {
-					fmt.Printf("Gateway offline. Updated ~/.liltok/liltok.yaml strategy to %q\n", strategy)
+				targetCfg := resolveConfigPath(configPath)
+				if persistErr := config.PersistDefaultStrategy(targetCfg, strategy); persistErr == nil {
+					disp := targetCfg
+					if disp == "" {
+						disp = "~/.liltok/liltok.yaml"
+					}
+					fmt.Printf("Gateway offline. Updated %s strategy to %q\n", disp, strategy)
 					return nil
 				}
 				return fmt.Errorf("failed to connect to gateway at %s and failed to update config: %w", gatewayURL, err)
@@ -122,7 +127,7 @@ func newRouteSwitchCommand() *cobra.Command {
 
 			fmt.Printf("Successfully switched active routing priority to: %s\n", strings.ToUpper(strategy))
 			if strategy == "free-first" {
-				fmt.Println("Zero-cost routing active: requests will route to Groq, Gemini Free, and NVIDIA NIM ($0.00 spend).")
+				fmt.Println("Zero-cost routing active: requests will route to Groq, Gemini Free, NVIDIA NIM, and OpenRouter Free ($0.00 spend).")
 			}
 			return nil
 		},

@@ -51,17 +51,7 @@ and resilient routing.`,
 		Short: "Start the liltok AI Gateway and Router",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Resolve config path
-			cfgPath := configPath
-			if cfgPath == "" {
-				home, err := os.UserHomeDir()
-				if err == nil {
-					candidate := filepath.Join(home, ".liltok", "liltok.yaml")
-					if _, err := os.Stat(candidate); err == nil {
-						cfgPath = candidate
-					}
-				}
-			}
-
+			cfgPath := resolveConfigPath(configPath)
 			cfg, err := config.Load(cfgPath)
 			if err != nil {
 				return fmt.Errorf("error loading configuration: %w", err)
@@ -235,6 +225,9 @@ providers:
   gemini:
     api_key: ""
     base_url: "https://generativelanguage.googleapis.com"
+  openrouter:
+    api_key: ""
+    base_url: "https://openrouter.ai/api/v1"
   ollama:
     base_url: "http://localhost:11434"
 
@@ -270,3 +263,29 @@ routes:
 		os.Exit(1)
 	}
 }
+
+// resolveConfigPath finds the active configuration file:
+// 1. Explicit path passed by flag (--config / -c)
+// 2. Current working directory: ./liltok.yaml
+// 3. Configs directory: ./configs/liltok.yaml
+// 4. User home directory: ~/.liltok/liltok.yaml
+func resolveConfigPath(explicit string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if _, err := os.Stat("liltok.yaml"); err == nil {
+		return "liltok.yaml"
+	}
+	if _, err := os.Stat(filepath.Join("configs", "liltok.yaml")); err == nil {
+		return filepath.Join("configs", "liltok.yaml")
+	}
+	home, err := os.UserHomeDir()
+	if err == nil {
+		candidate := filepath.Join(home, ".liltok", "liltok.yaml")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return ""
+}
+

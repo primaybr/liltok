@@ -55,8 +55,9 @@ type ProvidersConfig struct {
 	Anthropic ProviderCreds `yaml:"anthropic"`
 	NVIDIANIM ProviderCreds `yaml:"nvidianim"`
 	Groq      ProviderCreds `yaml:"groq"`
-	Gemini    ProviderCreds `yaml:"gemini"`
-	Ollama    ProviderCreds `yaml:"ollama"`
+	Gemini     ProviderCreds `yaml:"gemini"`
+	OpenRouter ProviderCreds `yaml:"openrouter"`
+	Ollama     ProviderCreds `yaml:"ollama"`
 }
 
 // RouteConfig specifies default routing strategies and fallback options.
@@ -149,6 +150,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("GEMINI_API_KEY"); v != "" {
 		cfg.Providers.Gemini.APIKey = v
+	}
+	if v := os.Getenv("OPENROUTER_API_KEY"); v != "" {
+		cfg.Providers.OpenRouter.APIKey = v
+	}
+	if v := os.Getenv("OPENROUTER_BASE_URL"); v != "" {
+		cfg.Providers.OpenRouter.BaseURL = v
 	}
 	if v := os.Getenv("OLLAMA_BASE_URL"); v != "" {
 		cfg.Providers.Ollama.BaseURL = v
@@ -250,6 +257,8 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 			return p.Groq, true
 		case "gemini":
 			return p.Gemini, true
+		case "openrouter":
+			return p.OpenRouter, true
 		case "ollama":
 			return p.Ollama, true
 		default:

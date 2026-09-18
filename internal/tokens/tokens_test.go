@@ -138,4 +138,20 @@ func TestPricingRegistry_CalculateForRouting(t *testing.T) {
 	if savedPaid != 0.0 {
 		t.Errorf("Expected $0.00 saved when fulfilled by anthropic without cache, got %f", savedPaid)
 	}
+
+	// claude-sonnet-5 routed to openrouter (free tier)
+	costOR, savedOR := reg.CalculateForRouting("claude-sonnet-5", "openrouter", 29_975, 113, 0, "MISS", "NONE")
+	if costOR != 0.0 {
+		t.Errorf("Expected $0.00 cost when fulfilled by openrouter free tier, got %f", costOR)
+	}
+	if savedOR != 0.09162 {
+		t.Errorf("Expected $0.09162 saved when fulfilled by openrouter, got %f", savedOR)
+	}
+
+	// openrouter/free direct pricing check
+	costDirect, savedDirect := reg.Calculate("openrouter/free", 10_000, 1_000, 0, "MISS", "NONE")
+	if costDirect != 0.0 || savedDirect != 0.0 {
+		t.Errorf("Expected $0.00 cost and saved for openrouter/free direct, got cost=%f saved=%f", costDirect, savedDirect)
+	}
 }
+

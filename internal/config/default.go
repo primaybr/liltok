@@ -44,6 +44,9 @@ func DefaultConfig() *Config {
 			Gemini: ProviderCreds{
 				BaseURL: "https://generativelanguage.googleapis.com",
 			},
+			OpenRouter: ProviderCreds{
+				BaseURL: "https://openrouter.ai/api/v1",
+			},
 			Ollama: ProviderCreds{
 				BaseURL: "http://localhost:11434",
 			},

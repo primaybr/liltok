@@ -97,3 +97,8 @@ func (d *DB) Migrate() error {
 
 	return nil
 }
+
+// Path returns the SQLite database file path.
+func (d *DB) Path() string {
+	return d.path
+}

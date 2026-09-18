@@ -65,6 +65,13 @@ func NewRouter(cfg *config.Config) *Router {
 	r.registerProvider(openai.NewAdapter("groq", provider.TierFree, groqURL, cfg.Providers.Groq.APIKey))
 
 	r.registerProvider(gemini.NewAdapter(cfg.Providers.Gemini.BaseURL, cfg.Providers.Gemini.APIKey))
+
+	orURL := cfg.Providers.OpenRouter.BaseURL
+	if orURL == "" {
+		orURL = "https://openrouter.ai/api/v1"
+	}
+	r.registerProvider(openai.NewOpenRouterAdapter(cfg.Providers.OpenRouter.APIKey, orURL))
+
 	r.registerProvider(openai.NewOllamaAdapter(cfg.Providers.Ollama.BaseURL))
 
 	// Register Default Fallback Routes
@@ -102,10 +109,11 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/muse-glimmer-30b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
+			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
 		},
 	}
 
-	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM
+	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free
 	r.routes["free-first"] = Route{
 		ID:       "free-first",
 		Strategy: "free_first",
@@ -126,6 +134,7 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/muse-glimmer-30b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
+			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
 		},
 	}
 
@@ -213,6 +222,13 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		// Target Anthropic first, fallback to all rolling free targets
 		targets := []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: requestedModel},
+		}
+		targets = append(targets, r.routes["free-first"].Targets...)
+		return targets
+	}
+	if strings.HasPrefix(lowerModel, "openrouter/") {
+		targets := []TargetSpec{
+			{ProviderName: "openrouter", UpstreamModel: requestedModel},
 		}
 		targets = append(targets, r.routes["free-first"].Targets...)
 		return targets
@@ -401,6 +417,19 @@ func (r *Router) CircuitBreakers() map[string]*CircuitBreaker {
 	return res
 }
 
+// CircuitBreakerSnapshots returns an ordered snapshot slice of all active circuit breakers.
+func (r *Router) CircuitBreakerSnapshots() []CircuitBreakerSnapshot {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	res := make([]CircuitBreakerSnapshot, 0, len(r.breakers))
+	for _, cb := range r.breakers {
+		if cb != nil {
+			res = append(res, cb.Snapshot())
+		}
+	}
+	return res
+}
+
 // UpdateProvider dynamically updates credentials and base URL for a named provider.
 func (r *Router) UpdateProvider(name string, creds config.ProviderCreds) error {
 	r.mu.Lock()
@@ -419,6 +448,8 @@ func (r *Router) UpdateProvider(name string, creds config.ProviderCreds) error {
 			r.cfg.Providers.Groq = creds
 		case "gemini":
 			r.cfg.Providers.Gemini = creds
+		case "openrouter":
+			r.cfg.Providers.OpenRouter = creds
 		case "ollama":
 			r.cfg.Providers.Ollama = creds
 		}
