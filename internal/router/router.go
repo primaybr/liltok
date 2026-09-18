@@ -80,7 +80,7 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> GPT-20B)
+	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B)
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
@@ -94,7 +94,12 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
+			{ProviderName: "nvidianim", UpstreamModel: "poolside/laguna-xs-2.1"},
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 		},
 	}
 
@@ -111,7 +116,12 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
+			{ProviderName: "nvidianim", UpstreamModel: "poolside/laguna-xs-2.1"},
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 		},
 	}
 
@@ -211,6 +221,8 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 	return []TargetSpec{
 		{ProviderName: "openai", UpstreamModel: requestedModel},
 		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
+		{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
+		{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 		{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 	}
 }
