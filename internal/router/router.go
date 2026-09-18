@@ -95,10 +95,12 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
-			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 			{ProviderName: "nvidianim", UpstreamModel: "poolside/laguna-xs-2.1"},
+			{ProviderName: "nvidianim", UpstreamModel: "google/diffusiongemma-26b-a4b-it"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/muse-glimmer-30b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 		},
 	}
@@ -117,10 +119,12 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
-			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 			{ProviderName: "nvidianim", UpstreamModel: "poolside/laguna-xs-2.1"},
+			{ProviderName: "nvidianim", UpstreamModel: "google/diffusiongemma-26b-a4b-it"},
+			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"},
+			{ProviderName: "nvidianim", UpstreamModel: "meta/muse-glimmer-30b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 		},
 	}
@@ -222,6 +226,8 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		{ProviderName: "openai", UpstreamModel: requestedModel},
 		{ProviderName: "nvidianim", UpstreamModel: "meta/llama-3.2-11b-vision-instruct"},
 		{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
+		{ProviderName: "nvidianim", UpstreamModel: "poolside/laguna-xs-2.1"},
+		{ProviderName: "nvidianim", UpstreamModel: "google/diffusiongemma-26b-a4b-it"},
 		{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-super-120b-a12b"},
 		{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 	}
@@ -286,7 +292,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	var lastErr error
 	for _, target := range candidateTargets {
 		// Strictly bypass providers whose physical context window cannot accommodate prompt
-		if approxTokens > 120000 && (target.ProviderName == "groq" || target.ProviderName == "nvidianim") {
+		if approxTokens > 120000 && (target.ProviderName == "groq" || (target.ProviderName == "nvidianim" && target.UpstreamModel != "nvidia/nemotron-3-ultra-550b-a55b")) {
 			telemetry.Log.Debug().
 				Str("provider", target.ProviderName).
 				Str("model", target.UpstreamModel).
