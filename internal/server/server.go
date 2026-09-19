@@ -24,6 +24,7 @@ import (
 // ServerConfig bundles dependencies required to launch the Gateway server.
 type ServerConfig struct {
 	Config        *config.Config
+	ConfigPath    string
 	CacheStore    cache.Store
 	SemanticCache *semantic.SemanticCache
 	Router        *router.Router
@@ -64,6 +65,9 @@ func NewServer(sc ServerConfig) *Server {
 	var adminH *admin.AdminHandler
 	if sc.Config != nil {
 		adminH = admin.NewAdminHandler(sc.Config, sc.Database, sc.Ledger, sc.KeyManager, sc.Router, sc.CacheStore, sc.Broadcaster)
+		if sc.ConfigPath != "" {
+			adminH.SetConfigPath(sc.ConfigPath)
+		}
 	}
 	promExp := metrics.NewPrometheusExporter(sc.Database, sc.Router)
 

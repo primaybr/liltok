@@ -47,13 +47,28 @@ func DefaultPricingRules() []ModelPricing {
 		{ModelPattern: `^openai/gpt-oss-.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^poolside/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^deepseek-ai/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^mistralai/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^z-ai/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^moonshotai/.*`, Provider: "nvidianim", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^qwen/.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^openai/gpt-oss-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^llama-3.3-70b-versatile.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^groq/compound.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^allam-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^canopylabs/.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^meta-llama/llama-prompt-guard.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^whisper-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^llama-.*`, Provider: "groq", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^gemini-.*`, Provider: "gemini", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^openrouter/.*`, Provider: "openrouter", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `.*:free$`, Provider: "openrouter", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^ollama/.*`, Provider: "ollama", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^kilo/.*`, Provider: "kilo", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^kilo-auto/.*`, Provider: "kilo", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^codestral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^ministral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^mistral-code.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^voxtral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
+		{ModelPattern: `^mistral/.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 	}
 
 	for i := range raw {
@@ -191,7 +206,7 @@ func (pr *PricingRegistry) Calculate(model string, promptTokens, completionToken
 // CalculateDetailedForRouting computes detailed breakdown when a requested model is fulfilled by a specific provider.
 func (pr *PricingRegistry) CalculateDetailedForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) CostBreakdown {
 	prov := strings.ToLower(fulfillingProvider)
-	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "openrouter" || prov == "free"
+	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "openrouter" || prov == "kilo" || prov == "mistral" || prov == "free"
 
 	if isFree {
 		savedUSD := 0.0

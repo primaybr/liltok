@@ -558,3 +558,47 @@ func TestProxySingleFlightCoalescing(t *testing.T) {
 	}
 }
 
+func TestProxyHandleModelsReturnsActiveModels(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := router.NewRouter(cfg)
+	p := NewProxy(cfg, nil, nil, r, nil, nil)
+
+	req := httptest.NewRequest("GET", "/v1/models", nil)
+	rec := httptest.NewRecorder()
+
+	p.HandleModels(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Object string `json:"object"`
+		Data   []struct {
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			OwnedBy string `json:"owned_by"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode models response: %v", err)
+	}
+
+	if resp.Object != "list" {
+		t.Errorf("expected object 'list', got %s", resp.Object)
+	}
+
+	foundGroqActive := false
+	for _, m := range resp.Data {
+		if m.OwnedBy == "groq" && m.ID == "openai/gpt-oss-120b" {
+			foundGroqActive = true
+			break
+		}
+	}
+
+	if !foundGroqActive {
+		t.Errorf("expected active groq model openai/gpt-oss-120b in /v1/models response, got: %+v", resp.Data)
+	}
+}
+

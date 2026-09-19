@@ -100,25 +100,94 @@ func (a *Adapter) CheckHealth(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("gemini api key is not configured")
 	}
 
-	key := keys[0]
-	url := fmt.Sprintf("%s/v1beta/models?key=%s", baseURL, key)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return false, err
-	}
+	var lastErr error
+	for _, key := range keys {
+		url := fmt.Sprintf("%s/v1beta/models?key=%s", baseURL, key)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
 
-	resp, err := a.httpClient.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("gemini connection failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("gemini connection failed: %w", err)
+			continue
+		}
 		respBytes, _ := io.ReadAll(resp.Body)
-		return false, fmt.Errorf("gemini returned status %d: %s", resp.StatusCode, string(respBytes))
+		resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			lastErr = fmt.Errorf("gemini returned status %d: %s", resp.StatusCode, string(respBytes))
+			continue
+		}
+
+		return true, nil
 	}
 
-	return true, nil
+	return false, lastErr
+}
+
+// ListModels queries the Gemini API for available models.
+func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) {
+	a.mu.RLock()
+	baseURL := a.baseURL
+	keys := append([]string(nil), a.apiKeys...)
+	a.mu.RUnlock()
+
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("gemini api key is not configured")
+	}
+
+	var lastErr error
+	for _, key := range keys {
+		url := fmt.Sprintf("%s/v1beta/models?key=%s", baseURL, key)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		resp, err := a.httpClient.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("gemini list models failed: %w", err)
+			continue
+		}
+		respBytes, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			lastErr = fmt.Errorf("gemini returned status %d: %s", resp.StatusCode, string(respBytes))
+			continue
+		}
+
+		var geminiResp struct {
+			Models []struct {
+				Name            string `json:"name"`
+				DisplayName     string `json:"displayName"`
+				InputTokenLimit int    `json:"inputTokenLimit"`
+			} `json:"models"`
+		}
+		if err := json.Unmarshal(respBytes, &geminiResp); err != nil {
+			lastErr = fmt.Errorf("failed to decode gemini models: %w", err)
+			continue
+		}
+
+		var results []provider.ModelInfo
+		for _, m := range geminiResp.Models {
+			id := strings.TrimPrefix(m.Name, "models/")
+			results = append(results, provider.ModelInfo{
+				ID:            id,
+				Provider:      "gemini",
+				Active:        true,
+				ContextWindow: m.InputTokenLimit,
+				OwnedBy:       "google",
+			})
+		}
+		return results, nil
+	}
+
+	return nil, lastErr
 }
 
 // SendChat executes a Gemini generateContent request with automatic multi-key rotation and 429 failover.
@@ -175,11 +244,14 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			continue
 		}
 
-		// If rate limit (429), temporary service unavailable (503), or quota exceeded, try next available key
+		// If rate limit (429), temporary service unavailable (503), unauthorized/disabled account (401), or quota/state error, try next available key
 		if resp.StatusCode == http.StatusTooManyRequests || 
 		   resp.StatusCode == http.StatusServiceUnavailable || 
+		   resp.StatusCode == http.StatusUnauthorized || 
 		   strings.Contains(string(respBytes), "RESOURCE_EXHAUSTED") || 
-		   strings.Contains(string(respBytes), "UNAVAILABLE") {
+		   strings.Contains(string(respBytes), "UNAVAILABLE") || 
+		   strings.Contains(string(respBytes), "ACCOUNT_STATE_INVALID") || 
+		   strings.Contains(string(respBytes), "API_KEY_INVALID") {
 			lastErr = fmt.Errorf("gemini key %d unavailable (status %d): %s", i+1, resp.StatusCode, string(respBytes))
 			continue
 		}

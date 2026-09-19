@@ -58,6 +58,8 @@ type ProvidersConfig struct {
 	Gemini     ProviderCreds `yaml:"gemini"`
 	OpenRouter ProviderCreds `yaml:"openrouter"`
 	Ollama     ProviderCreds `yaml:"ollama"`
+	Kilo       ProviderCreds `yaml:"kilo"`
+	Mistral    ProviderCreds `yaml:"mistral"`
 }
 
 // RouteConfig specifies default routing strategies and fallback options.
@@ -160,6 +162,18 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("OLLAMA_BASE_URL"); v != "" {
 		cfg.Providers.Ollama.BaseURL = v
 	}
+	if v := os.Getenv("KILO_API_KEY"); v != "" {
+		cfg.Providers.Kilo.APIKey = v
+	}
+	if v := os.Getenv("KILO_BASE_URL"); v != "" {
+		cfg.Providers.Kilo.BaseURL = v
+	}
+	if v := os.Getenv("MISTRAL_API_KEY"); v != "" {
+		cfg.Providers.Mistral.APIKey = v
+	}
+	if v := os.Getenv("MISTRAL_BASE_URL"); v != "" {
+		cfg.Providers.Mistral.BaseURL = v
+	}
 	if v := os.Getenv("LILTOK_SYNC_URL"); v != "" {
 		cfg.Cache.SyncURL = v
 	}
@@ -261,6 +275,10 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 			return p.OpenRouter, true
 		case "ollama":
 			return p.Ollama, true
+		case "kilo":
+			return p.Kilo, true
+		case "mistral":
+			return p.Mistral, true
 		default:
 			return ProviderCreds{}, false
 		}
@@ -294,7 +312,7 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
 					if strings.HasPrefix(trimmed, "api_key:") {
 						lines[i] = fmt.Sprintf("%sapi_key: %q", indent, creds.APIKey)
-					} else if strings.HasPrefix(trimmed, "base_url:") && creds.BaseURL != "" {
+					} else if strings.HasPrefix(trimmed, "base_url:") {
 						lines[i] = fmt.Sprintf("%sbase_url: %q", indent, creds.BaseURL)
 					}
 				}

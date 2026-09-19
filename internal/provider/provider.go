@@ -90,6 +90,20 @@ type ProviderClient interface {
 	CheckHealth(ctx context.Context) (bool, error)
 }
 
+// ModelInfo represents metadata about an available model from a provider.
+type ModelInfo struct {
+	ID            string `json:"id"`
+	Provider      string `json:"provider"`
+	Active        bool   `json:"active"`
+	ContextWindow int    `json:"context_window,omitempty"`
+	OwnedBy       string `json:"owned_by,omitempty"`
+}
+
+// ModelLister is an optional interface for providers that can list available models.
+type ModelLister interface {
+	ListModels(ctx context.Context) ([]ModelInfo, error)
+}
+
 // ParseUnifiedRequest extracts a UnifiedChatRequest from either OpenAI or Anthropic raw JSON.
 func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatRequest, error) {
 	req := &UnifiedChatRequest{
