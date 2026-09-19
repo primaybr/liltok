@@ -75,7 +75,7 @@ func (s *CacheSyncer) Sync(ctx context.Context, force bool) (SyncResult, error) 
 		return res, fmt.Errorf("failed to create sync request: %w", err)
 	}
 
-	httpReq.Header.Set("User-Agent", "liltok-cache-syncer/0.1.2-beta")
+	httpReq.Header.Set("User-Agent", "liltok-cache-syncer/0.1.3-beta")
 
 	// Apply conditional HTTP headers unless forced
 	var lastETag, lastModified string

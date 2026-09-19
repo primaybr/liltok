@@ -60,6 +60,7 @@ type ProvidersConfig struct {
 	Ollama     ProviderCreds `yaml:"ollama"`
 	Kilo       ProviderCreds `yaml:"kilo"`
 	Mistral    ProviderCreds `yaml:"mistral"`
+	Cline      ProviderCreds `yaml:"cline"`
 }
 
 // RouteConfig specifies default routing strategies and fallback options.
@@ -174,6 +175,12 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("MISTRAL_BASE_URL"); v != "" {
 		cfg.Providers.Mistral.BaseURL = v
 	}
+	if v := os.Getenv("CLINE_API_KEY"); v != "" {
+		cfg.Providers.Cline.APIKey = v
+	}
+	if v := os.Getenv("CLINE_BASE_URL"); v != "" {
+		cfg.Providers.Cline.BaseURL = v
+	}
 	if v := os.Getenv("LILTOK_SYNC_URL"); v != "" {
 		cfg.Cache.SyncURL = v
 	}
@@ -279,6 +286,8 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 			return p.Kilo, true
 		case "mistral":
 			return p.Mistral, true
+		case "cline":
+			return p.Cline, true
 		default:
 			return ProviderCreds{}, false
 		}

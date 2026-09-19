@@ -2,8 +2,10 @@ package openai
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/primaybr/liltok/internal/provider"
@@ -572,3 +574,180 @@ func TestOpenAIAdapterListModelsMistral(t *testing.T) {
 		}
 	}
 }
+
+func TestClineAdapter_ListModels_FiltersFreeChatModels(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-cline-key" {
+			t.Errorf("missing or invalid authorization header")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": [
+				{
+					"id": "deepseek/deepseek-v4-flash-0731:free",
+					"owned_by": "deepseek"
+				},
+				{
+					"id": "qwen/qwen3.8-27b:free",
+					"owned_by": "qwen"
+				},
+				{
+					"id": "minimax/minimax-m2.5",
+					"owned_by": "minimax"
+				},
+				{
+					"id": "meta-llama/llama-guard-4-12b:free",
+					"owned_by": "meta-llama"
+				},
+				{
+					"id": "openai/text-embedding-3-small:free",
+					"owned_by": "openai"
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewClineAdapter("test-cline-key", mockServer.URL)
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 2 {
+		t.Fatalf("expected 2 free chat models for Cline, got %d", len(models))
+	}
+
+	for _, m := range models {
+		if !strings.HasSuffix(m.ID, ":free") {
+			t.Errorf("expected free model suffix: %s", m.ID)
+		}
+		if m.ContextWindow != 262144 {
+			t.Errorf("expected 262144 context window, got %d", m.ContextWindow)
+		}
+		if m.Provider != "cline" {
+			t.Errorf("expected provider cline, got %s", m.Provider)
+		}
+	}
+}
+
+func TestClineAdapter_SendChat_UnwrapsData(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": {
+				"id": "chatcmpl-cline-123",
+				"model": "deepseek/deepseek-v4-flash-0731:free",
+				"choices": [
+					{
+						"index": 0,
+						"message": {
+							"role": "assistant",
+							"content": "Hello from Cline!"
+						},
+						"finish_reason": "stop"
+					}
+				],
+				"usage": {
+					"prompt_tokens": 10,
+					"completion_tokens": 5,
+					"total_tokens": 15
+				}
+			},
+			"success": true
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewClineAdapter("test-cline-key", mockServer.URL)
+	resp, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{
+		Model: "deepseek/deepseek-v4-flash-0731:free",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "Hi"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SendChat failed: %v", err)
+	}
+
+	if resp.Content != "Hello from Cline!" {
+		t.Errorf("expected 'Hello from Cline!', got %q", resp.Content)
+	}
+	if resp.Usage.TotalTokens != 15 {
+		t.Errorf("expected 15 total tokens, got %d", resp.Usage.TotalTokens)
+	}
+	if resp.ID != "chatcmpl-cline-123" {
+		t.Errorf("expected ID chatcmpl-cline-123, got %q", resp.ID)
+	}
+
+	var stdOAI struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(resp.RawResponse, &stdOAI); err != nil || len(stdOAI.Choices) == 0 {
+		t.Fatalf("expected valid standard OpenAI RawResponse with choices, got %s (err: %v)", string(resp.RawResponse), err)
+	}
+	if stdOAI.Choices[0].Message.Content != "Hello from Cline!" {
+		t.Errorf("expected RawResponse content 'Hello from Cline!', got %q", stdOAI.Choices[0].Message.Content)
+	}
+}
+
+func TestClineAdapter_SendChat_HandlesErrors(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"success": false,
+			"error": "rate limit exceeded: please slow down"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewClineAdapter("test-cline-key", mockServer.URL)
+	_, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{
+		Model: "deepseek/deepseek-v4-flash-0731:free",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "Hi"},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error from failed response, got nil")
+	}
+	if !strings.Contains(err.Error(), "rate limit exceeded") {
+		t.Errorf("expected rate limit exceeded in error message, got %v", err)
+	}
+}
+
+func TestClineAdapter_StreamChat_HandlesJSONError(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"success": false,
+			"error": "upstream model overloaded"
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewClineAdapter("test-cline-key", mockServer.URL)
+	_, _, err := adapter.StreamChat(context.Background(), &provider.UnifiedChatRequest{
+		Model: "deepseek/deepseek-v4-flash-0731:free",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "Hi"},
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected error from stream json error, got nil")
+	}
+	if !strings.Contains(err.Error(), "upstream model overloaded") {
+		t.Errorf("expected overloaded in error message, got %v", err)
+	}
+}
+

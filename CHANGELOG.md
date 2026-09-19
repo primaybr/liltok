@@ -5,6 +5,26 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3-beta] - 2026-09-19
+
+### Added
+- **Cline Free Provider Integration:** Integrated Cline API (`https://api.cline.bot/api/v1`) as an active free provider supporting free reasoning and chat models.
+  - Automated dynamic model discovery querying `GET /api/v1/models`, synchronizing 22 active free models on startup and interval refreshes.
+  - Excluded safety guardrails, embeddings, moderation endpoints, and Lyria audio models.
+  - Shorthand alias translation and automatic remapping for deprecated models (`cline/deepseek-r1:free` -> `deepseek/deepseek-v4-flash-0731:free`, `meta-llama/*` -> `qwen/qwen3.8-27b:free`, `google/gemma-2/*` -> `google/gemma-4-31b-it:free`).
+  - Added Cline targets (`deepseek/deepseek-v4-flash-0731:free`, `qwen/qwen3.8-27b:free`) to `auto-resilient` and `free-first` routing fallback sequences.
+  - Zero-rate token pricing ($0.00 spend) in the token pricing engine.
+  - Added Cline provider selection, color styling (#0284c7), and live mining support in Cache Mining Studio.
+- **Dynamic Provider Routing Share in Dashboard:**
+  - Automated dynamic rendering and color assignment for Provider Routing Share cards, eliminating manual template modifications when adding or removing providers.
+
+### Fixed
+- **Cline Response Unwrapping & Error Handling:**
+  - Handled Cline's proprietary response wrapper (`{"data": {...}, "success": true}`) by automatically normalizing `RawResponse` into standard OpenAI completion JSON for downstream compatibility with OpenAI SDKs, Claude Code, Cursor, and MCP tools.
+  - Handled Cline HTTP 200 error payloads (`{"error": "...", "success": false}`) and empty choice payloads in `SendChat` and `StreamChat` to trigger circuit breakers and route fallbacks cleanly.
+
+---
+
 ## [0.1.2-beta] - 2026-09-19
 
 ### Added

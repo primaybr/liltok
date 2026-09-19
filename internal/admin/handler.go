@@ -139,7 +139,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.1.2-beta",
+		"version":                   "0.1.3-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -1101,7 +1101,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 	routes := []map[string]interface{}{
 		{
 			"id":          "auto-resilient",
-			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), Kilo Gateway, Mistral AI, NVIDIA NIM, and OpenRouter Free",
+			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), Kilo Gateway, Mistral AI, Cline Free, NVIDIA NIM, and OpenRouter Free",
 			"targets": []string{
 				"anthropic/claude-sonnet-5",
 				"groq/qwen/qwen3.8-27b",
@@ -1115,6 +1115,8 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"mistral/codestral-latest",
 				"mistral/ministral-8b-latest",
+				"cline/deepseek/deepseek-v4-flash-0731:free",
+				"cline/qwen/qwen3.8-27b:free",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
 				"nvidianim/poolside/laguna-xs-2.1",
@@ -1129,7 +1131,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			"id":          "free-first",
-			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> Kilo Gateway -> Mistral AI -> NVIDIA NIM -> OpenRouter Free for $0.00 spend",
+			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> Kilo Gateway -> Mistral AI -> Cline Free -> NVIDIA NIM -> OpenRouter Free for $0.00 spend",
 			"targets": []string{
 				"groq/qwen/qwen3.8-27b",
 				"groq/openai/gpt-oss-120b",
@@ -1142,6 +1144,8 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"mistral/codestral-latest",
 				"mistral/ministral-8b-latest",
+				"cline/deepseek/deepseek-v4-flash-0731:free",
+				"cline/qwen/qwen3.8-27b:free",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
 				"nvidianim/poolside/laguna-xs-2.1",
@@ -1419,6 +1423,7 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 		openrouterModels := getActiveModels("openrouter")
 		kiloModels := getActiveModels("kilo")
 		mistralModels := getActiveModels("mistral")
+		clineModels := getActiveModels("cline")
 		ollamaModels := getActiveModels("ollama")
 
 		providers = []ProviderSummary{
@@ -1519,6 +1524,18 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				ActiveModels:        mistralModels,
 			},
 			{
+				Name:                "cline",
+				DisplayName:         "Cline (Free Tier)",
+				Tier:                "free",
+				BaseURL:             p.Cline.BaseURL,
+				APIKeyMasked:        maskKey(p.Cline.APIKey),
+				KeyCount:            countKeys(p.Cline.APIKey),
+				HasKey:              strings.TrimSpace(p.Cline.APIKey) != "",
+				CircuitBreakerState: getBreakerState("cline"),
+				ActiveModelsCount:   len(clineModels),
+				ActiveModels:        clineModels,
+			},
+			{
 				Name:                "ollama",
 				DisplayName:         "Ollama Local",
 				Tier:                "free",
@@ -1577,6 +1594,8 @@ func (h *AdminHandler) HandleUpdateProviders(w http.ResponseWriter, r *http.Requ
 			creds = &h.cfg.Providers.Kilo
 		case "mistral":
 			creds = &h.cfg.Providers.Mistral
+		case "cline":
+			creds = &h.cfg.Providers.Cline
 		case "ollama":
 			creds = &h.cfg.Providers.Ollama
 		}
@@ -1815,6 +1834,11 @@ func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) 
 			apiKey = h.cfg.Providers.Mistral.APIKey
 			if apiKey == "" {
 				apiKey = os.Getenv("MISTRAL_API_KEY")
+			}
+		case "cline":
+			apiKey = h.cfg.Providers.Cline.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("CLINE_API_KEY")
 			}
 		}
 	}
