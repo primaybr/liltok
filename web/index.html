@@ -57,6 +57,10 @@
     .chart-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
     .chart-subtitle { font-size: 11px; color: var(--muted); }
     .chart-body { flex: 1; min-height: 120px; display: flex; align-items: center; justify-content: center; }
+    #provider-bars-container::-webkit-scrollbar { width: 4px; }
+    #provider-bars-container::-webkit-scrollbar-track { background: transparent; }
+    #provider-bars-container::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+    #provider-bars-container::-webkit-scrollbar-thumb:hover { background: #52525b; }
     .btn-clear { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; padding: 5px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
     .btn-clear:hover { background: rgba(239, 68, 68, 0.22); border-color: rgba(239, 68, 68, 0.5); }
     .table-container { overflow-x: auto; }
@@ -226,10 +230,10 @@
         <div class="chart-card">
           <div class="chart-header">
             <span class="chart-title">Provider Routing Share</span>
-            <span class="chart-subtitle">All-Time Execution Share</span>
+            <span class="chart-subtitle" id="provider-routing-sub">All-Time Execution Share</span>
           </div>
-          <div class="chart-body" id="provider-bars-container" style="flex-direction: column; align-items: stretch; justify-content: center; gap: 10px; width: 100%;">
-            <div style="text-align: center; color: var(--muted); font-size: 12px;">Waiting for provider traffic...</div>
+          <div class="chart-body" id="provider-bars-container" style="flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 8px; width: 100%; max-height: 135px; overflow-y: auto; padding-right: 4px;">
+            <div style="text-align: center; color: var(--muted); font-size: 12px; margin: auto;">Waiting for provider traffic...</div>
           </div>
         </div>
       </div>
@@ -2417,51 +2421,24 @@
       setSegment(cMiss, miss);
     }
 
-    function renderProviderBars() {
-      const container = document.getElementById('provider-bars-container');
-      if (!container) return;
+    function formatProviderName(raw) {
+      if (!raw) return 'Unknown';
+      const s = String(raw).trim();
+      const lower = s.toLowerCase();
+      if (lower === 'cache-local' || lower === 'cache' || lower === 'local') return 'Local Cache';
+      if (lower === 'nvidianim' || lower === 'nvidia') return 'NVIDIA NIM';
+      if (lower === 'openai') return 'OpenAI';
+      if (lower === 'openrouter') return 'OpenRouter';
+      if (lower === 'deepseek') return 'DeepSeek';
+      return s.split(/[-_\s]+/).map(w => {
+        if (!w) return '';
+        if (w.length <= 3 && w.toUpperCase() === w) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      }).join(' ');
+    }
 
-      const counts = {};
-      if (_overviewData && _overviewData.provider_counts && Object.keys(_overviewData.provider_counts).length > 0) {
-        Object.entries(_overviewData.provider_counts).forEach(([prov, count]) => {
-          let p = (prov || 'unknown').toLowerCase();
-          if (p === 'cache-local' || p === 'cache') p = 'Local Cache';
-          else if (p === 'nvidianim') p = 'NVIDIA NIM';
-          else if (p === 'groq') p = 'Groq';
-          else if (p === 'gemini') p = 'Gemini';
-          else if (p === 'anthropic') p = 'Anthropic';
-          else if (p === 'openai') p = 'OpenAI';
-          else if (p === 'openrouter') p = 'OpenRouter';
-          else if (p === 'kilo') p = 'Kilo';
-          else if (p === 'mistral') p = 'Mistral';
-          else if (p === 'ollama') p = 'Ollama';
-          else p = prov.toUpperCase();
-          counts[p] = (counts[p] || 0) + Number(count);
-        });
-      } else {
-        (_recentLogs || []).forEach(l => {
-          let p = (l.provider || 'unknown').toLowerCase();
-          if (p === 'cache-local' || p === 'cache') p = 'Local Cache';
-          else if (p === 'nvidianim') p = 'NVIDIA NIM';
-          else if (p === 'groq') p = 'Groq';
-          else if (p === 'gemini') p = 'Gemini';
-          else if (p === 'anthropic') p = 'Anthropic';
-          else if (p === 'openai') p = 'OpenAI';
-          else if (p === 'openrouter') p = 'OpenRouter';
-          else if (p === 'kilo') p = 'Kilo';
-          else if (p === 'mistral') p = 'Mistral';
-          else if (p === 'ollama') p = 'Ollama';
-          counts[p] = (counts[p] || 0) + 1;
-        });
-      }
-
-      const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      if (total === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--muted); font-size: 12px;">Waiting for provider traffic...</div>';
-        return;
-      }
-
-      const colors = {
+    function getProviderColor(name) {
+      const known = {
         'Local Cache': '#34d399',
         'Groq': '#f97316',
         'NVIDIA NIM': '#10b981',
@@ -2472,25 +2449,70 @@
         'Kilo': '#0ea5e9',
         'Mistral': '#ea580c',
         'Ollama': '#fbbf24',
-        'unknown': '#a1a1aa'
+        'DeepSeek': '#3b82f6',
+        'Together': '#d946ef',
+        'Cohere': '#f43f5e',
+        'Cerebras': '#ec4899',
+        'Fireworks': '#a855f7',
+        'Sambanova': '#14b8a6',
+        'Bedrock': '#f59e0b',
+        'Unknown': '#a1a1aa'
       };
+      if (known[name]) return known[name];
+      let hash = 0;
+      for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      return `hsl(${hue}, 75%, 60%)`;
+    }
 
-      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    function renderProviderBars() {
+      const container = document.getElementById('provider-bars-container');
+      if (!container) return;
+
+      const counts = {};
+      if (_overviewData && _overviewData.provider_counts && Object.keys(_overviewData.provider_counts).length > 0) {
+        Object.entries(_overviewData.provider_counts).forEach(([prov, count]) => {
+          const name = formatProviderName(prov);
+          counts[name] = (counts[name] || 0) + Number(count);
+        });
+      } else {
+        (_recentLogs || []).forEach(l => {
+          const name = formatProviderName(l.provider || 'unknown');
+          counts[name] = (counts[name] || 0) + 1;
+        });
+      }
+
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      const sub = document.getElementById('provider-routing-sub');
+      if (total === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--muted); font-size: 12px; margin: auto;">Waiting for provider traffic...</div>';
+        if (sub) sub.innerText = 'All-Time Execution Share';
+        return;
+      }
+
+      const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (sub) {
+        sub.innerText = `${sorted.length} Active Provider${sorted.length === 1 ? '' : 's'}`;
+      }
+
       container.innerHTML = sorted.map(([name, count]) => {
-        const pct = Math.round((count / total) * 100);
-        const col = colors[name] || '#38bdf8';
+        const pct = total > 0 ? ((count / total) * 100) : 0;
+        const pctFormatted = pct >= 1 ? Math.round(pct) : pct.toFixed(1);
+        const col = getProviderColor(name);
         return `
-          <div style="width: 100%; display: flex; flex-direction: column; gap: 4px;">
+          <div style="width: 100%; display: flex; flex-direction: column; gap: 3px;">
             <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-              <div style="display: flex; align-items: center; gap: 6px;">
+              <div style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden;">
                 <span style="width: 8px; height: 8px; border-radius: 2px; background: ${col}; display: inline-block; flex-shrink: 0;"></span>
-                <span style="font-weight: 600; color: var(--text);">${escapeHTML(name)}</span>
+                <span style="font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(name)}</span>
               </div>
-              <span style="color: var(--muted); font-family: var(--mono); font-size: 11px;">
-                <strong style="color: var(--text);">${count.toLocaleString()}</strong> (${pct}%)
+              <span style="color: var(--muted); font-family: var(--mono); font-size: 11px; flex-shrink: 0; margin-left: 8px;">
+                <strong style="color: var(--text);">${count.toLocaleString()}</strong> (${pctFormatted}%)
               </span>
             </div>
-            <div style="width: 100%; height: 6px; background: #27272a; border-radius: 9999px; overflow: hidden;">
+            <div style="width: 100%; height: 5px; background: #27272a; border-radius: 9999px; overflow: hidden;">
               <div style="width: ${pct}%; height: 100%; background: ${col}; border-radius: 9999px; transition: width 0.3s ease-out;"></div>
             </div>
           </div>
@@ -2862,8 +2884,15 @@
           } else if (ev.type === 'providers_updated') {
             loadProviders();
             loadProviderStats();
+            loadOverview();
           } else if (ev.type === 'request') {
             prependLiveLogRow(ev.data);
+            if (_overviewData) {
+              if (!_overviewData.provider_counts) _overviewData.provider_counts = {};
+              const pKey = ev.data.provider || 'unknown';
+              _overviewData.provider_counts[pKey] = (_overviewData.provider_counts[pKey] || 0) + 1;
+              renderProviderBars();
+            }
             loadOverview();
           } else if (ev.type === 'logs_cleared') {
             const tbody = document.getElementById('logs-tbody');
@@ -2872,6 +2901,7 @@
             }
             _seenLogIds.clear();
             _recentLogs = [];
+            if (_overviewData) _overviewData.provider_counts = {};
             renderCharts();
             loadOverview();
             const tabLogs = document.getElementById('tab-logs');
