@@ -1331,3 +1331,272 @@ func TestRouter_DSMLOrphanFailover(t *testing.T) {
 	}
 }
 
+func TestRouter_IsRepetitionLoop(t *testing.T) {
+	bashCall := []provider.UnifiedToolCall{
+		{
+			ID:   "call_bash_1",
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      "Bash",
+				Arguments: `{"command": "cd /f/laragon/www/carikno && ls Config/"}`,
+			},
+		},
+	}
+
+	diffBashCall := []provider.UnifiedToolCall{
+		{
+			ID:   "call_bash_2",
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      "Bash",
+				Arguments: `{"command": "cd /f/laragon/www/carikno && ls App/"}`,
+			},
+		},
+	}
+
+	t.Run("ExactMatchWithToolCall", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "investigate repo structure"},
+				{
+					Role:      "assistant",
+					Content:   "Let me explore the project structure more carefully.",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "Exit code 2\nls: Config/: No such file or directory",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content:   "Let me explore the project structure more carefully.",
+			ToolCalls: bashCall,
+		}
+		if !isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return true for identical text and tool calls")
+		}
+	})
+
+	t.Run("IdenticalToolCallAfterErrorWithDifferentText", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "investigate repo structure"},
+				{
+					Role:      "assistant",
+					Content:   "Let me explore the project structure.",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "Exit code 2\nls: Config/: No such file or directory",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content:   "Trying to run the command again:",
+			ToolCalls: bashCall,
+		}
+		if !isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return true for identical tool call after tool error")
+		}
+	})
+
+	t.Run("HumanInterventionBypassesLoop", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "investigate repo structure"},
+				{
+					Role:      "assistant",
+					Content:   "Let me explore the project structure more carefully.",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "Exit code 2\nls: Config/: No such file or directory",
+				},
+				{
+					Role:    "user",
+					Content: "Please run the exact same command again anyway.",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content:   "Let me explore the project structure more carefully.",
+			ToolCalls: bashCall,
+		}
+		if isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return false when a human user prompts between turns")
+		}
+	})
+
+	t.Run("DifferentArgumentsAllowed", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "investigate repo structure"},
+				{
+					Role:      "assistant",
+					Content:   "Let me explore the project structure more carefully.",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "Exit code 2\nls: Config/: No such file or directory",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content:   "Config does not exist, let me explore App directory.",
+			ToolCalls: diffBashCall,
+		}
+		if isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return false when tool call arguments differ")
+		}
+	})
+
+	t.Run("TextOnlyLoopInAgent", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "start investigation"},
+				{
+					Role:    "assistant",
+					Content: "Let me explore the project structure more carefully.",
+				},
+				{
+					Role:    "tool",
+					Content: "done",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content: "Let me explore the project structure more carefully.",
+		}
+		if !isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return true for repeated text in autonomous tool loop")
+		}
+	})
+
+	t.Run("ThreeTurnIdenticalToolCall", func(t *testing.T) {
+		req := &provider.UnifiedChatRequest{
+			Messages: []provider.UnifiedChatMessage{
+				{Role: "user", Content: "status check"},
+				{
+					Role:      "assistant",
+					Content:   "Checking status 1",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "ok",
+				},
+				{
+					Role:      "assistant",
+					Content:   "Checking status 2",
+					ToolCalls: bashCall,
+				},
+				{
+					Role:    "tool",
+					Content: "ok",
+				},
+			},
+		}
+		resp := &provider.UnifiedChatResponse{
+			Content:   "Checking status 3",
+			ToolCalls: bashCall,
+		}
+		if !isRepetitionLoop(req, resp) {
+			t.Errorf("expected isRepetitionLoop to return true for 3rd identical tool invocation in history")
+		}
+	})
+}
+
+func TestRouter_RepetitionLoopFailover(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	bashCall := []provider.UnifiedToolCall{
+		{
+			ID:   "call_bash_fail",
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      "Bash",
+				Arguments: `{"command": "cd /f/laragon/www/carikno && ls Config/"}`,
+			},
+		},
+	}
+
+	// First provider is stuck repeating identical text & tool call
+	mockLoopingProvider := &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:        "or-loop-resp",
+			Content:   "Let me explore the project structure more carefully.",
+			ToolCalls: bashCall,
+		},
+	}
+
+	// Second provider breaks out with a different, constructive command
+	mockRecoveredProvider := &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-break-resp",
+			Content: "Let me inspect the App directory instead since Config does not exist.",
+			ToolCalls: []provider.UnifiedToolCall{
+				{
+					ID:   "call_bash_ok",
+					Type: "function",
+					Function: struct {
+						Name      string `json:"name"`
+						Arguments string `json:"arguments"`
+					}{
+						Name:      "Bash",
+						Arguments: `{"command": "cd /f/laragon/www/carikno && ls App/"}`,
+					},
+				},
+			},
+		},
+	}
+
+	r.SetProvider("openrouter", mockLoopingProvider)
+	r.SetProvider("gemini", mockRecoveredProvider)
+
+	req := &provider.UnifiedChatRequest{
+		Model: "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "help explore repository"},
+			{
+				Role:      "assistant",
+				Content:   "Let me explore the project structure more carefully.",
+				ToolCalls: bashCall,
+			},
+			{
+				Role:    "tool",
+				Content: "Exit code 2\nls: Config/: No such file or directory",
+			},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed unexpectedly: %v", err)
+	}
+
+	if winProv != "gemini" {
+		t.Errorf("expected failover to gemini to break repetition loop, got %s", winProv)
+	}
+	if !strings.Contains(resp.Content, "App directory") {
+		t.Errorf("unexpected content from recovered provider: %s", resp.Content)
+	}
+}
+

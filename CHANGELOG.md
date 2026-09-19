@@ -5,6 +5,28 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5-beta] - 2026-09-19
+
+### Added
+- **In-Flight Session Compactor for Multi-Turn Agent Conversations:**
+  - Dedicated compaction engine in `internal/cache/prune/session_compactor.go` solving massive context bloat in autonomous agent sessions (such as Claude Code ballooning past 500k tokens).
+  - Preserves the 5 most recent user and tool turns completely uncompressed to maintain 100% active reasoning fidelity and immediate tool feedback.
+  - Historical tool results older than recent turns are compacted via Head (250 bytes) and Tail (250 bytes) preservation, retaining command headers and trailing exit codes while discarding repetitive middle scrollback (yielding an 87.9% reduction in tool result tokens).
+  - Dual protocol support for both Anthropic `tool_result` (strings and content block arrays) and OpenAI `role: "tool"` payloads.
+  - Configurable via `cache.session_compactor_enabled`, `cache.recent_turns_to_keep`, `cache.compactor_head_bytes`, `cache.compactor_tail_bytes`, and corresponding environment variables.
+- **Autonomous Agent Repetition Loop Breaker:**
+  - Real-time repetition trap detector in `internal/router/router.go` preventing agents from getting locked in infinite failure loops (such as repeated failing bash commands with identical preamble text).
+  - Normalizes and compares tool calls and argument JSON structures across turns.
+  - Detects identical repeat tool calls following errors, identical 3rd repeat cycles, and autonomous text-only stalls.
+  - Trips the circuit breaker immediately on repetition detection, triggering automatic rolling failover to alternate candidate models (such as Nemotron, Inkling, Gemini, or Anthropic).
+  - Preserves human-in-the-loop interactions with zero false positives.
+
+### Fixed
+- **Dashboard Logo Badge Dynamic Sync:**
+  - Dynamically populates and refreshes the version badge in the admin dashboard header from the `/api/v1/overview` API response, preventing stale version display.
+
+---
+
 ## [0.1.4-beta] - 2026-09-19
 
 ### Added

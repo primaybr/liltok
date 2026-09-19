@@ -32,6 +32,10 @@ type CacheConfig struct {
 	SemanticCacheEnabled    bool    `yaml:"semantic_cache_enabled"`
 	SemanticThreshold       float64 `yaml:"semantic_threshold"`
 	PruneDiffs              bool    `yaml:"prune_diffs"`
+	SessionCompactorEnabled bool    `yaml:"session_compactor_enabled"`
+	RecentTurnsToKeep       int     `yaml:"recent_turns_to_keep"`
+	CompactorHeadBytes      int     `yaml:"compactor_head_bytes"`
+	CompactorTailBytes      int     `yaml:"compactor_tail_bytes"`
 	AutoSync                bool    `yaml:"auto_sync"`
 	SyncURL                 string  `yaml:"sync_url"`
 	SyncIntervalHours       int     `yaml:"sync_interval_hours"`
@@ -186,6 +190,24 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("LILTOK_AUTO_SYNC"); v != "" {
 		cfg.Cache.AutoSync = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_SESSION_COMPACTOR_ENABLED"); v != "" {
+		cfg.Cache.SessionCompactorEnabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_RECENT_TURNS_TO_KEEP"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Cache.RecentTurnsToKeep = n
+		}
+	}
+	if v := os.Getenv("LILTOK_COMPACTOR_HEAD_BYTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Cache.CompactorHeadBytes = n
+		}
+	}
+	if v := os.Getenv("LILTOK_COMPACTOR_TAIL_BYTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Cache.CompactorTailBytes = n
+		}
 	}
 	if v := os.Getenv("LILTOK_MAINTAINER_MODE"); v != "" {
 		cfg.Maintainer.Enabled = strings.ToLower(v) == "true" || v == "1"
