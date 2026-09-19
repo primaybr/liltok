@@ -2239,6 +2239,10 @@
         if (!res.ok) return;
         const data = await res.json();
         _overviewData = data;
+        if (data.version) {
+          const badge = document.querySelector('.logo-badge');
+          if (badge) badge.innerText = 'v' + String(data.version).replace(/^v/, '');
+        }
         if (data.maintainer_mode) {
           const modBtn = document.getElementById('tab-btn-moderate');
           if (modBtn) modBtn.style.display = 'inline-block';
