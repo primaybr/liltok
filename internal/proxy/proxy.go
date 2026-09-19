@@ -44,11 +44,25 @@ func NewProxy(cfg *config.Config, cacheStore cache.Store, semCache *semantic.Sem
 	if pr == nil {
 		pr = tokens.NewPricingRegistry(nil)
 	}
+
+	pruneOpts := prune.DefaultOptions()
+	pruneOpts.EnableDiff = cfg.Cache.PruneDiffs
+	pruneOpts.EnableSessionCompactor = cfg.Cache.SessionCompactorEnabled
+	if cfg.Cache.RecentTurnsToKeep > 0 {
+		pruneOpts.RecentTurnsToKeep = cfg.Cache.RecentTurnsToKeep
+	}
+	if cfg.Cache.CompactorHeadBytes > 0 {
+		pruneOpts.CompactorHeadBytes = cfg.Cache.CompactorHeadBytes
+	}
+	if cfg.Cache.CompactorTailBytes > 0 {
+		pruneOpts.CompactorTailBytes = cfg.Cache.CompactorTailBytes
+	}
+
 	return &Proxy{
 		cfg:             cfg,
 		cacheStore:      cacheStore,
 		semanticCache:   semCache,
-		pruner:          prune.NewPruner(prune.DefaultOptions()),
+		pruner:          prune.NewPruner(pruneOpts),
 		prefixOptimizer: prefix.NewPrefixOptimizer(prefix.DefaultMinTokensForAnthropicCache),
 		router:          r,
 		ledger:          led,

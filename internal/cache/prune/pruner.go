@@ -7,17 +7,25 @@ import (
 
 // PruneOptions configures which compaction strategies are applied.
 type PruneOptions struct {
-	EnableDiff       bool
-	EnableTree       bool
-	EnableWhitespace bool
+	EnableDiff             bool
+	EnableTree             bool
+	EnableWhitespace       bool
+	EnableSessionCompactor bool
+	RecentTurnsToKeep      int
+	CompactorHeadBytes     int
+	CompactorTailBytes     int
 }
 
 // DefaultOptions returns the recommended default pruning configuration.
 func DefaultOptions() PruneOptions {
 	return PruneOptions{
-		EnableDiff:       true,
-		EnableTree:       true,
-		EnableWhitespace: true,
+		EnableDiff:             true,
+		EnableTree:             true,
+		EnableWhitespace:       true,
+		EnableSessionCompactor: true,
+		RecentTurnsToKeep:      5,
+		CompactorHeadBytes:     250,
+		CompactorTailBytes:     250,
 	}
 }
 
@@ -75,8 +83,32 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 		return raw, stats, nil
 	}
 
+	currentBytes := raw
+	sessionCompacted := false
+	if p.opts.EnableSessionCompactor {
+		sessionOpts := SessionCompactorOptions{
+			Enabled:           true,
+			RecentTurnsToKeep: p.opts.RecentTurnsToKeep,
+			HeadBytes:         p.opts.CompactorHeadBytes,
+			TailBytes:         p.opts.CompactorTailBytes,
+		}
+		compacted, saved, err := CompactSessionPayload(currentBytes, sessionOpts)
+		if err == nil && saved > 0 {
+			currentBytes = compacted
+			sessionCompacted = true
+		}
+	}
+
 	var root map[string]interface{}
-	if err := json.Unmarshal(raw, &root); err != nil {
+	if err := json.Unmarshal(currentBytes, &root); err != nil {
+		if sessionCompacted {
+			stats.PrunedBytes = len(currentBytes)
+			stats.SavedBytes = stats.OriginalBytes - stats.PrunedBytes
+			if stats.OriginalBytes > 0 && stats.SavedBytes > 0 {
+				stats.ReductionRatio = math.Round((float64(stats.SavedBytes)/float64(stats.OriginalBytes))*1000) / 1000
+			}
+			return currentBytes, stats, nil
+		}
 		return raw, stats, err
 	}
 
@@ -133,13 +165,38 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 			case []interface{}:
 				for j, part := range c {
 					if partMap, ok := part.(map[string]interface{}); ok {
-						if partMap["type"] == "text" {
+						pType, _ := partMap["type"].(string)
+						if pType == "text" {
 							if textStr, ok := partMap["text"].(string); ok {
 								pruned, saved := p.PruneText(textStr)
 								if saved > 0 {
 									partMap["text"] = pruned
 									c[j] = partMap
 									modified = true
+								}
+							}
+						} else if pType == "tool_result" {
+							if resStr, ok := partMap["content"].(string); ok {
+								pruned, saved := p.PruneText(resStr)
+								if saved > 0 {
+									partMap["content"] = pruned
+									c[j] = partMap
+									modified = true
+								}
+							} else if resParts, ok := partMap["content"].([]interface{}); ok {
+								for k, rPart := range resParts {
+									if rPartMap, ok := rPart.(map[string]interface{}); ok {
+										if rPartMap["type"] == "text" {
+											if rText, ok := rPartMap["text"].(string); ok {
+												pruned, saved := p.PruneText(rText)
+												if saved > 0 {
+													rPartMap["text"] = pruned
+													resParts[k] = rPartMap
+													modified = true
+												}
+											}
+										}
+									}
 								}
 							}
 						}
@@ -150,6 +207,14 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 	}
 
 	if !modified {
+		if sessionCompacted {
+			stats.PrunedBytes = len(currentBytes)
+			stats.SavedBytes = stats.OriginalBytes - stats.PrunedBytes
+			if stats.OriginalBytes > 0 && stats.SavedBytes > 0 {
+				stats.ReductionRatio = math.Round((float64(stats.SavedBytes)/float64(stats.OriginalBytes))*1000) / 1000
+			}
+			return currentBytes, stats, nil
+		}
 		stats.PrunedBytes = len(raw)
 		stats.SavedBytes = 0
 		stats.ReductionRatio = 0.0
@@ -158,6 +223,14 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 
 	prunedJSON, err := json.Marshal(root)
 	if err != nil {
+		if sessionCompacted {
+			stats.PrunedBytes = len(currentBytes)
+			stats.SavedBytes = stats.OriginalBytes - stats.PrunedBytes
+			if stats.OriginalBytes > 0 && stats.SavedBytes > 0 {
+				stats.ReductionRatio = math.Round((float64(stats.SavedBytes)/float64(stats.OriginalBytes))*1000) / 1000
+			}
+			return currentBytes, stats, nil
+		}
 		return raw, stats, err
 	}
 

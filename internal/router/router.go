@@ -2,7 +2,9 @@ package router
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -1185,6 +1187,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			if strings.TrimSpace(resp.Content) == "" && len(resp.ToolCalls) == 0 {
 				err = fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
 			}
+
+			// Reject completions stuck in an in-context repetition loop to trigger rolling failover
+			if err == nil && isRepetitionLoop(req, resp) {
+				err = fmt.Errorf("upstream provider %s model %s stuck in repetition loop with identical content/tool calls", target.ProviderName, target.UpstreamModel)
+			}
 		}
 
 		if err == nil {
@@ -1194,9 +1201,9 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 
 		if isCircuitBreakerError(err) {
 			cb.RecordFailure()
-			// If rate limited or quota exhausted (429/RESOURCE_EXHAUSTED), trip immediately to allow rapid rolling failover
+			// If rate limited, quota exhausted (429/RESOURCE_EXHAUSTED), or stuck in repetition loop, trip immediately to allow rapid rolling failover
 			errLower := strings.ToLower(err.Error())
-			if strings.Contains(errLower, "429") || strings.Contains(errLower, "resource_exhausted") || strings.Contains(errLower, "quota") {
+			if strings.Contains(errLower, "429") || strings.Contains(errLower, "resource_exhausted") || strings.Contains(errLower, "quota") || strings.Contains(errLower, "repetition loop") {
 				cb.TripImmediate()
 			}
 		}
@@ -1255,6 +1262,147 @@ func isCircuitBreakerError(err error) bool {
 	return true
 }
 
+// isRepetitionLoop inspects conversational history to detect if an upstream model
+// is trapped in an autoregressive in-context repetition loop during autonomous agent execution.
+func isRepetitionLoop(req *provider.UnifiedChatRequest, resp *provider.UnifiedChatResponse) bool {
+	if req == nil || resp == nil || len(req.Messages) == 0 {
+		return false
+	}
+
+	// Locate the most recent assistant turn in req.Messages
+	var lastAssistant *provider.UnifiedChatMessage
+	onlyToolResultsSinceLastAssistant := true
+	toolResultHasError := false
+
+	for i := len(req.Messages) - 1; i >= 0; i-- {
+		msg := &req.Messages[i]
+		if msg.Role == "assistant" {
+			lastAssistant = msg
+			break
+		}
+		if msg.Role == "tool" {
+			contentLower := strings.ToLower(msg.Content)
+			if strings.Contains(contentLower, "exit code") ||
+				strings.Contains(contentLower, "error") ||
+				strings.Contains(contentLower, "failed") ||
+				strings.Contains(contentLower, "not found") ||
+				strings.Contains(contentLower, "cannot find") ||
+				strings.Contains(contentLower, "no such") ||
+				strings.Contains(contentLower, "exception") {
+				toolResultHasError = true
+			}
+		} else if msg.Role == "user" {
+			// If a user message starts with [System Reminder], it is an automated environment update, not human input.
+			if !strings.HasPrefix(strings.TrimSpace(msg.Content), "[System Reminder]") {
+				onlyToolResultsSinceLastAssistant = false
+			}
+		}
+	}
+
+	if lastAssistant == nil {
+		return false
+	}
+
+	// Zero false positives for human interactions:
+	// If a human user explicitly sent a message between the last assistant turn and now,
+	// do not treat repeated responses as an autonomous agent loop.
+	if !onlyToolResultsSinceLastAssistant {
+		return false
+	}
+
+	respContent := strings.TrimSpace(resp.Content)
+	lastContent := strings.TrimSpace(lastAssistant.Content)
+
+	// Check 1: Tool call repetition
+	if len(resp.ToolCalls) > 0 && len(lastAssistant.ToolCalls) > 0 {
+		if areToolCallsEqual(resp.ToolCalls, lastAssistant.ToolCalls) {
+			// Case 1a: Exact text match (including both empty text) + identical tool calls
+			if strings.EqualFold(respContent, lastContent) {
+				return true
+			}
+			// Case 1b: Tool execution failed and model repeated identical tool calls
+			if toolResultHasError {
+				return true
+			}
+			// Case 1c: The exact same tool calls appeared in an earlier assistant turn as well (3rd repeat)
+			if hasPriorIdenticalToolCall(req.Messages, resp.ToolCalls) {
+				return true
+			}
+		}
+	}
+
+	// Check 2: Pure text repetition in an autonomous agent tool loop (>= 15 chars)
+	if len(resp.ToolCalls) == 0 && len(lastAssistant.ToolCalls) == 0 && len(respContent) >= 15 {
+		if strings.EqualFold(respContent, lastContent) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// areToolCallsEqual returns true if two slices of UnifiedToolCall have matching names and arguments.
+func areToolCallsEqual(tc1, tc2 []provider.UnifiedToolCall) bool {
+	if len(tc1) != len(tc2) {
+		return false
+	}
+	matched := make([]bool, len(tc2))
+	for _, call1 := range tc1 {
+		found := false
+		for j, call2 := range tc2 {
+			if matched[j] {
+				continue
+			}
+			if strings.EqualFold(call1.Function.Name, call2.Function.Name) &&
+				areArgumentsEqual(call1.Function.Arguments, call2.Function.Arguments) {
+				matched[j] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+// areArgumentsEqual canonically compares two JSON argument strings.
+func areArgumentsEqual(arg1, arg2 string) bool {
+	trimmed1 := strings.TrimSpace(arg1)
+	trimmed2 := strings.TrimSpace(arg2)
+	if trimmed1 == trimmed2 {
+		return true
+	}
+	if trimmed1 == "" || trimmed2 == "" {
+		return false
+	}
+	var v1, v2 interface{}
+	if err := json.Unmarshal([]byte(trimmed1), &v1); err == nil {
+		if err := json.Unmarshal([]byte(trimmed2), &v2); err == nil {
+			return reflect.DeepEqual(v1, v2)
+		}
+	}
+	return false
+}
+
+// hasPriorIdenticalToolCall checks if an assistant message prior to the last assistant turn
+// already invoked the identical tool calls.
+func hasPriorIdenticalToolCall(messages []provider.UnifiedChatMessage, targetCalls []provider.UnifiedToolCall) bool {
+	assistantCount := 0
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "assistant" {
+			assistantCount++
+			if assistantCount > 1 {
+				// Prior assistant message
+				if areToolCallsEqual(messages[i].ToolCalls, targetCalls) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
 
 // SetProvider registers or overrides a provider client thread-safely.
 func (r *Router) SetProvider(name string, client provider.ProviderClient) {

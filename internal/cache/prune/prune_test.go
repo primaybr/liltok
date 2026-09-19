@@ -189,3 +189,47 @@ func TestPruner_NonDestructive(t *testing.T) {
 		t.Errorf("Expected identical text, got %q", res)
 	}
 }
+
+func TestPruneJSONPayload_SessionCompactorEndToEnd(t *testing.T) {
+	opts := prune.DefaultOptions()
+	opts.RecentTurnsToKeep = 2
+	opts.CompactorHeadBytes = 30
+	opts.CompactorTailBytes = 30
+	p := prune.NewPruner(opts)
+
+	hugeOldLog := strings.Repeat("HISTORICAL_LOG_ENTRY_WITH_LONG_DETAILS\n", 40) + "DONE_EXIT_0"
+
+	payload := map[string]interface{}{
+		"model": "claude-3-7-sonnet-20250219",
+		"messages": []map[string]interface{}{
+			// Turn 1 (Historical)
+			{
+				"role": "user",
+				"content": []map[string]interface{}{
+					{"type": "tool_result", "tool_use_id": "c1", "content": hugeOldLog},
+				},
+			},
+			{"role": "assistant", "content": "Done with turn 1."},
+			// Turn 2 (Recent)
+			{"role": "user", "content": "Recent question"},
+			{"role": "assistant", "content": "Recent answer"},
+			// Turn 3 (Recent)
+			{"role": "user", "content": "Final prompt"},
+		},
+	}
+	rawBytes, _ := json.Marshal(payload)
+
+	prunedJSON, stats, err := p.PruneJSONPayload(rawBytes)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stats.SavedBytes <= 0 {
+		t.Fatalf("expected positive saved bytes, got %d", stats.SavedBytes)
+	}
+	if !strings.Contains(string(prunedJSON), "Session Compactor: pruned") {
+		t.Errorf("expected session compactor indicator in output: %s", string(prunedJSON))
+	}
+	if !strings.Contains(string(prunedJSON), "HISTORICAL_LOG_ENTRY") || !strings.Contains(string(prunedJSON), "DONE_EXIT_0") {
+		t.Errorf("expected head and tail preserved in historical output")
+	}
+}
