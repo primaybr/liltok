@@ -751,3 +751,219 @@ func TestClineAdapter_StreamChat_HandlesJSONError(t *testing.T) {
 	}
 }
 
+func TestOpenAIAdapter_BuildPayload_ToolCallsAndToolRole(t *testing.T) {
+	adapter := NewAdapter("openai", provider.TierPremium, "https://api.openai.com/v1", "test-key")
+
+	req := &provider.UnifiedChatRequest{
+		Model: "gpt-4o",
+		Messages: []provider.UnifiedChatMessage{
+			{
+				Role:    "assistant",
+				Content: "",
+				ToolCalls: []provider.UnifiedToolCall{
+					{
+						ID:   "call_abc123",
+						Type: "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{
+							Name:      "read_file",
+							Arguments: `{"path":"main.go"}`,
+						},
+					},
+				},
+			},
+			{
+				Role:       "tool",
+				ToolCallID: "call_abc123",
+				Content:    "package main\n\nfunc main() {}",
+			},
+			{
+				Role:    "user",
+				Content: "now run it",
+			},
+		},
+	}
+
+	payloadBytes, err := adapter.buildPayload(req, false)
+	if err != nil {
+		t.Fatalf("buildPayload failed: %v", err)
+	}
+
+	var payload struct {
+		Messages []struct {
+			Role       string `json:"role"`
+			Content    *string `json:"content"`
+			ToolCallID string `json:"tool_call_id"`
+			ToolCalls  []struct {
+				ID       string `json:"id"`
+				Type     string `json:"type"`
+				Function struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				} `json:"function"`
+			} `json:"tool_calls"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("unmarshal payload failed: %v", err)
+	}
+
+	if len(payload.Messages) != 3 {
+		t.Fatalf("expected 3 messages, got %d", len(payload.Messages))
+	}
+
+	// Message 1: assistant with tool_calls and null content
+	asst := payload.Messages[0]
+	if asst.Role != "assistant" {
+		t.Errorf("expected role assistant, got %s", asst.Role)
+	}
+	if len(asst.ToolCalls) != 1 || asst.ToolCalls[0].ID != "call_abc123" {
+		t.Errorf("expected tool call call_abc123, got %+v", asst.ToolCalls)
+	}
+	if asst.Content != nil {
+		t.Errorf("expected null content for tool-calling assistant message, got %v", asst.Content)
+	}
+
+	// Message 2: tool role with tool_call_id
+	toolMsg := payload.Messages[1]
+	if toolMsg.Role != "tool" {
+		t.Errorf("expected role tool, got %s", toolMsg.Role)
+	}
+	if toolMsg.ToolCallID != "call_abc123" {
+		t.Errorf("expected tool_call_id call_abc123, got %s", toolMsg.ToolCallID)
+	}
+	if toolMsg.Content == nil || *toolMsg.Content != "package main\n\nfunc main() {}" {
+		t.Errorf("unexpected tool content: %v", toolMsg.Content)
+	}
+
+	// Message 3: user message
+	userMsg := payload.Messages[2]
+	if userMsg.Role != "user" {
+		t.Errorf("expected role user, got %s", userMsg.Role)
+	}
+}
+
+func TestOpenAIAdapter_SendChat_ReasoningFallback(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"id": "chatcmpl-test-r1",
+			"model": "deepseek-r1",
+			"choices": [
+				{
+					"index": 0,
+					"message": {
+						"role": "assistant",
+						"content": "",
+						"reasoning_content": "The solution is to use binary search."
+					},
+					"finish_reason": "stop"
+				}
+			],
+			"usage": {
+				"prompt_tokens": 10,
+				"completion_tokens": 8,
+				"total_tokens": 18
+			}
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter("openrouter", provider.TierFree, mockServer.URL, "sk-or-test")
+	resp, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{
+		Model: "deepseek/deepseek-r1",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "How do I solve this?"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SendChat failed: %v", err)
+	}
+
+	if resp.Content != "The solution is to use binary search." {
+		t.Errorf("expected reasoning_content fallback, got %q", resp.Content)
+	}
+}
+
+func TestOpenAIAdapter_BuildPayload_TrailingSystemMessage(t *testing.T) {
+	adapter := NewAdapter("openrouter", provider.TierFree, "https://openrouter.ai/api/v1", "sk-test")
+
+	req := &provider.UnifiedChatRequest{
+		Model:        "deepseek/deepseek-v4-flash-0731:free",
+		SystemPrompt: "You are an expert developer.",
+		Messages: []provider.UnifiedChatMessage{
+			{
+				Role:    "user",
+				Content: "Check repo",
+			},
+			{
+				Role: "assistant",
+				ToolCalls: []provider.UnifiedToolCall{
+					{
+						ID:   "call_1",
+						Type: "function",
+						Function: struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						}{
+							Name:      "Bash",
+							Arguments: `{"command":"pwd"}`,
+						},
+					},
+				},
+			},
+			{
+				Role:       "tool",
+				ToolCallID: "call_1",
+				Content:    "/workspace",
+			},
+			{
+				Role:    "system",
+				Content: "<system-reminder>\nEnvironment update: directory changed\n</system-reminder>",
+			},
+		},
+	}
+
+	payloadBytes, err := adapter.buildPayload(req, false)
+	if err != nil {
+		t.Fatalf("buildPayload failed: %v", err)
+	}
+
+	var payload struct {
+		Messages []struct {
+			Role    string  `json:"role"`
+			Content *string `json:"content"`
+		} `json:"messages"`
+	}
+
+	if err := json.Unmarshal(payloadBytes, &payload); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+
+	// Expected order:
+	// 0: system (SystemPrompt)
+	// 1: user
+	// 2: assistant
+	// 3: tool
+	// 4: user (normalized from trailing system message)
+	if len(payload.Messages) != 5 {
+		t.Fatalf("expected 5 messages, got %d", len(payload.Messages))
+	}
+
+	sysInitial := payload.Messages[0]
+	if sysInitial.Role != "system" || sysInitial.Content == nil || *sysInitial.Content != "You are an expert developer." {
+		t.Errorf("expected initial system prompt, got %+v", sysInitial)
+	}
+
+	lastMsg := payload.Messages[4]
+	if lastMsg.Role != "user" {
+		t.Errorf("expected trailing system message to be converted to role user, got %s", lastMsg.Role)
+	}
+	if lastMsg.Content == nil || !strings.HasPrefix(*lastMsg.Content, "[System Reminder]\n<system-reminder>") {
+		t.Errorf("expected [System Reminder] prefix in converted user message, got %v", lastMsg.Content)
+	}
+}
+

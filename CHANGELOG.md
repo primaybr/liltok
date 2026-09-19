@@ -5,6 +5,31 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4-beta] - 2026-09-19
+
+### Added
+- **High-Context Free Model Routing:**
+  - Dynamic 4-tier context-aware routing in `DispatchChat` querying `GetModelContextWindow`.
+  - Prioritizes free models supporting >=256k and 1M context windows across OpenRouter, Kilo, Mistral, and Cline.
+  - Added Gemini Free Tier 250k TPM guard: prompts exceeding 250k tokens automatically bypass Gemini to prevent 429 quota exhaustion.
+- **DeepSeek DSML Tool Calling & Markup Healing:**
+  - Native parser in `translator.go` for DeepSeek DSML (DeepSeek Markup Language) XML blocks (`<[|｜]DSML[|｜]invoke ...>`, `<[|｜]DSML[|｜]parameter ...>`).
+  - Supports both ASCII pipe (`|`) and fullwidth pipe (`｜`, `U+FF5C`), self-closing tags, attribute extraction (`string="true"`, `string="false"`), and HTML entity unescaping.
+  - Added support for `<tool_call>` JSON blocks (Qwen/Hermes/Llama format).
+  - Exported `StripDSMLTags` to sanitize orphan or leaked DSML tags from output text.
+
+### Fixed
+- **Claude Code Cross-Protocol Tool Calling:**
+  - `ParseUnifiedRequest` in `provider.go` unpacks Anthropic `tool_result` blocks into dedicated `Role: "tool"` messages with matching `ToolCallID`, while preserving assistant `ToolCalls` and reasoning blocks.
+  - OpenAI adapter `buildPayload` properly formats assistant `tool_calls: [...]` (with `content: nil` when empty) and `tool` role messages.
+  - Unmarshals `reasoning_content`, `reasoning`, `thought`, and `refusal` as fallback completion content.
+- **Corrupted Completion & Silent Empty Failover:**
+  - In `DispatchChat`, responses with empty text and no tool calls, or responses containing only orphan/corrupted DSML tags without valid tool calls or content, are flagged as upstream failures, triggering immediate rolling failover to subsequent candidate models.
+- **Mid-Conversation System Message Normalization:**
+  - In OpenAI adapter `buildPayload`, mid-conversation and trailing system messages (such as Claude Code `<system-reminder>` environment updates injected after tool results) are normalized to `role: "user"` with a `[System Reminder]` prefix to satisfy OpenAI and DeepSeek chat template constraints.
+
+---
+
 ## [0.1.3-beta] - 2026-09-19
 
 ### Added

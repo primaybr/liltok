@@ -3,6 +3,8 @@ package router
 import (
 	"encoding/json"
 	"fmt"
+	"html"
+	"regexp"
 	"strings"
 	"time"
 
@@ -127,7 +129,250 @@ func (t *Translator) StreamOpenAIToAnthropicEvents(in <-chan provider.UnifiedSSE
 	out <- []byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
 }
 
+var (
+	// Matches full DSML invoke blocks: <[|｜]DSML[|｜]invoke ...>...</[|｜]DSML[|｜]invoke>
+	dsmlInvokeRegex = regexp.MustCompile(`(?s)<[|｜]+DSML[|｜]+invoke\s+([^>]*?)>(.*?)<\/[|｜]+DSML[|｜]+invoke>`)
+
+	// Matches DSML parameter tags with contents: <[|｜]DSML[|｜]parameter ...>...</[|｜]DSML[|｜]parameter>
+	dsmlParamRegex = regexp.MustCompile(`(?s)<[|｜]+DSML[|｜]+parameter\s+([^>]*?)>(.*?)<\/[|｜]+DSML[|｜]+parameter>`)
+
+	// Matches self-closing DSML parameter tags: <[|｜]DSML[|｜]parameter .../>
+	dsmlParamSelfClosingRegex = regexp.MustCompile(`<[|｜]+DSML[|｜]+parameter\s+([^>]*?)\/>`)
+
+	// Extracts XML/DSML tag attributes: key="value", key='value', or key=value
+	dsmlAttrRegex = regexp.MustCompile(`([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`)
+
+	// Matches outer wrapper tags: <[|｜]DSML[|｜]tool_calls> and </[|｜]DSML[|｜]tool_calls>
+	dsmlWrapperRegex = regexp.MustCompile(`<\/?(?:\||｜)+DSML(?:\||｜)+tool_calls?>`)
+
+	// Matches any orphan or residual DSML tags: opening, closing, or self-closing
+	dsmlOrphanTagRegex = regexp.MustCompile(`<\/?(?:\||｜)+DSML(?:\||｜)+[^>]*>`)
+
+	// Matches standard <tool_call> JSON blocks (e.g. Qwen / Hermes / Llama)
+	toolCallBlockRegex = regexp.MustCompile(`(?s)<tool_call>\s*(.*?)\s*<\/tool_call>`)
+)
+
+func parseDSMLAttributes(attrStr string) map[string]string {
+	attrs := make(map[string]string)
+	matches := dsmlAttrRegex.FindAllStringSubmatch(attrStr, -1)
+	for _, m := range matches {
+		if len(m) >= 5 {
+			k := strings.ToLower(m[1])
+			val := m[2]
+			if val == "" {
+				val = m[3]
+			}
+			if val == "" {
+				val = m[4]
+			}
+			attrs[k] = val
+		}
+	}
+	return attrs
+}
+
+func parseDSMLParamValue(rawVal, isStringAttr string) interface{} {
+	val := html.UnescapeString(rawVal)
+	val = strings.TrimSpace(val)
+
+	if strings.ToLower(isStringAttr) == "true" {
+		return val
+	}
+
+	if val == "null" {
+		return nil
+	}
+	if val == "true" {
+		return true
+	}
+	if val == "false" {
+		return false
+	}
+
+	var jsonVal interface{}
+	if err := json.Unmarshal([]byte(val), &jsonVal); err == nil {
+		return jsonVal
+	}
+
+	return val
+}
+
+func parseDSMLToolCalls(content string) (string, []provider.UnifiedToolCall) {
+	invokeMatches := dsmlInvokeRegex.FindAllStringSubmatchIndex(content, -1)
+	if len(invokeMatches) == 0 {
+		return "", nil
+	}
+
+	var toolCalls []provider.UnifiedToolCall
+	for i, idx := range invokeMatches {
+		attrStr := content[idx[2]:idx[3]]
+		body := content[idx[4]:idx[5]]
+
+		attrs := parseDSMLAttributes(attrStr)
+		toolName := strings.TrimSpace(attrs["name"])
+		if toolName == "" {
+			continue
+		}
+
+		argsMap := make(map[string]interface{})
+
+		// Extract standard parameters
+		paramMatches := dsmlParamRegex.FindAllStringSubmatch(body, -1)
+		for _, pm := range paramMatches {
+			if len(pm) < 3 {
+				continue
+			}
+			pAttrs := parseDSMLAttributes(pm[1])
+			pName := strings.TrimSpace(pAttrs["name"])
+			if pName == "" {
+				continue
+			}
+			argsMap[pName] = parseDSMLParamValue(pm[2], pAttrs["string"])
+		}
+
+		// Extract self-closing parameters
+		selfMatches := dsmlParamSelfClosingRegex.FindAllStringSubmatch(body, -1)
+		for _, scm := range selfMatches {
+			if len(scm) < 2 {
+				continue
+			}
+			pAttrs := parseDSMLAttributes(scm[1])
+			pName := strings.TrimSpace(pAttrs["name"])
+			if pName == "" {
+				continue
+			}
+			argsMap[pName] = parseDSMLParamValue("", pAttrs["string"])
+		}
+
+		argsBytes, err := json.Marshal(argsMap)
+		argsStr := "{}"
+		if err == nil {
+			argsStr = string(argsBytes)
+		}
+
+		callID := fmt.Sprintf("call_dsml_%x_%d", time.Now().UnixNano(), i)
+		toolCalls = append(toolCalls, provider.UnifiedToolCall{
+			ID:   callID,
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      toolName,
+				Arguments: argsStr,
+			},
+		})
+	}
+
+	if len(toolCalls) == 0 {
+		return "", nil
+	}
+
+	cleaned := dsmlInvokeRegex.ReplaceAllString(content, "")
+	cleaned = dsmlParamRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlParamSelfClosingRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlWrapperRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlOrphanTagRegex.ReplaceAllString(cleaned, "")
+	cleaned = strings.TrimSpace(cleaned)
+
+	return cleaned, toolCalls
+}
+
+// StripDSMLTags removes any leaked or orphan DSML tags from output text.
+func StripDSMLTags(content string) string {
+	cleaned := dsmlInvokeRegex.ReplaceAllString(content, "")
+	cleaned = dsmlParamRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlParamSelfClosingRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlWrapperRegex.ReplaceAllString(cleaned, "")
+	cleaned = dsmlOrphanTagRegex.ReplaceAllString(cleaned, "")
+	return strings.TrimSpace(cleaned)
+}
+
+func stripDSMLTags(content string) string {
+	return StripDSMLTags(content)
+}
+
+// ExtractTextToolCalls extracts embedded plain-text or DSML tool calls from model output.
+func ExtractTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
+	return extractTextToolCalls(content)
+}
+
 func extractTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
+	// 1. Check for DSML markup
+	if strings.Contains(content, "DSML") {
+		if cleanText, tc := parseDSMLToolCalls(content); len(tc) > 0 {
+			return cleanText, tc
+		}
+		// If DSML markup was detected but no valid calls could be extracted,
+		// strip orphan tags so corrupted fragments do not leak to client
+		cleaned := stripDSMLTags(content)
+		return cleaned, nil
+	}
+
+	// 2. Check for <tool_call> blocks (e.g. Qwen / Hermes / Llama)
+	if strings.Contains(content, "<tool_call>") {
+		if cleanText, tc := parseToolCallBlocks(content); len(tc) > 0 {
+			return cleanText, tc
+		}
+	}
+
+	// 3. Legacy fallback: "tool call: name(args)"
+	return extractStandardTextToolCalls(content)
+}
+
+func parseToolCallBlocks(content string) (string, []provider.UnifiedToolCall) {
+	matches := toolCallBlockRegex.FindAllStringSubmatch(content, -1)
+	if len(matches) == 0 {
+		return content, nil
+	}
+
+	var toolCalls []provider.UnifiedToolCall
+	for i, m := range matches {
+		if len(m) < 2 {
+			continue
+		}
+		rawJSON := strings.TrimSpace(m[1])
+		var parsed struct {
+			Name      string      `json:"name"`
+			Arguments interface{} `json:"arguments"`
+		}
+		if err := json.Unmarshal([]byte(rawJSON), &parsed); err != nil || parsed.Name == "" {
+			continue
+		}
+
+		argsStr := "{}"
+		switch a := parsed.Arguments.(type) {
+		case string:
+			argsStr = a
+		case map[string]interface{}:
+			if b, err := json.Marshal(a); err == nil {
+				argsStr = string(b)
+			}
+		}
+
+		callID := fmt.Sprintf("call_tc_%x_%d", time.Now().UnixNano(), i)
+		toolCalls = append(toolCalls, provider.UnifiedToolCall{
+			ID:   callID,
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      parsed.Name,
+				Arguments: argsStr,
+			},
+		})
+	}
+
+	if len(toolCalls) == 0 {
+		return content, nil
+	}
+
+	cleaned := toolCallBlockRegex.ReplaceAllString(content, "")
+	return strings.TrimSpace(cleaned), toolCalls
+}
+
+func extractStandardTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
 	lower := strings.ToLower(content)
 	tag := "tool call:"
 	idx := strings.Index(lower, tag)

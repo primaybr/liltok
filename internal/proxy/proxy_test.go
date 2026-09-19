@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,7 @@ import (
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/db"
 	"github.com/primaybr/liltok/internal/ledger"
+	"github.com/primaybr/liltok/internal/provider"
 	"github.com/primaybr/liltok/internal/router"
 	"github.com/primaybr/liltok/internal/server/middleware"
 	"github.com/primaybr/liltok/internal/tokens"
@@ -599,6 +601,76 @@ func TestProxyHandleModelsReturnsActiveModels(t *testing.T) {
 
 	if !foundGroqActive {
 		t.Errorf("expected active groq model openai/gpt-oss-120b in /v1/models response, got: %+v", resp.Data)
+	}
+}
+
+type mockFailingProvider struct {
+	name string
+}
+
+func (m *mockFailingProvider) Name() string { return m.name }
+func (m *mockFailingProvider) Tier() provider.ProviderTier { return provider.TierFree }
+func (m *mockFailingProvider) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
+	return nil, errors.New("simulated upstream failure")
+}
+func (m *mockFailingProvider) StreamChat(ctx context.Context, req *provider.UnifiedChatRequest) (<-chan provider.UnifiedSSEEvent, <-chan error, error) {
+	return nil, nil, errors.New("simulated upstream failure")
+}
+func (m *mockFailingProvider) CheckHealth(ctx context.Context) (bool, error) {
+	return false, errors.New("unhealthy")
+}
+
+func TestProxyFreeFirstBypassesPaidUpstreamFallback(t *testing.T) {
+	upstreamCalled := false
+	mockAnthropicUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/messages" {
+			upstreamCalled = true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"msg-paid","type":"message","role":"assistant","content":[{"type":"text","text":"paid response"}]}`))
+	}))
+	defer mockAnthropicUpstream.Close()
+
+	database, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open memory db: %v", err)
+	}
+	defer database.Close()
+
+	store, _ := exact.NewTieredStore(database, 100)
+	defer store.Close()
+
+	cfg := config.DefaultConfig()
+	cfg.Providers.Anthropic.BaseURL = mockAnthropicUpstream.URL
+	cfg.Providers.Anthropic.APIKey = "sk-ant-test"
+
+	r := router.NewRouter(cfg)
+	// Explicitly register failing mock on all free and paid providers so router dispatch exhausts
+	for _, name := range []string{"groq", "gemini", "nvidianim", "openrouter", "mistral", "kilo", "cline"} {
+		r.SetProvider(name, &mockFailingProvider{name: name})
+	}
+
+	p := NewProxy(cfg, store, nil, nil, nil, nil)
+	p.SetRouter(r)
+
+	handler := middleware.RequestID(http.HandlerFunc(p.HandleAnthropicMessages))
+
+	reqBody := `{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hello"}]}`
+	req := httptest.NewRequest("POST", "/v1/messages", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Liltok-Route", "free-first") // Explicit free-first routing requested
+	req.Header.Set("x-api-key", "sk-ant-test")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Under free-first strategy, router exhaustion must return HTTP 502, NOT call paid upstream
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("expected status 502 Bad Gateway under free-first exhaustion, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if upstreamCalled {
+		t.Errorf("paid direct upstream was contacted despite X-Liltok-Route: free-first")
 	}
 }
 

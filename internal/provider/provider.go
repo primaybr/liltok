@@ -158,52 +158,72 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 					role, _ := mMap["role"].(string)
 					content := ""
 					var msgToolCalls []UnifiedToolCall
+					var toolResultMsgs []UnifiedChatMessage
+
 					switch c := mMap["content"].(type) {
 					case string:
 						content = c
 					case []interface{}:
 						for _, part := range c {
 							if partMap, ok := part.(map[string]interface{}); ok {
+								pType, _ := partMap["type"].(string)
 								if txt, ok := partMap["text"].(string); ok {
 									content += txt
-								} else if pType, ok := partMap["type"].(string); ok {
-									if pType == "tool_result" {
-										if res, ok := partMap["content"].(string); ok {
-											content += res
-										} else if resArr, ok := partMap["content"].([]interface{}); ok {
-											for _, rItem := range resArr {
-												if rMap, ok := rItem.(map[string]interface{}); ok {
-													if rTxt, ok := rMap["text"].(string); ok {
-														content += rTxt
-													}
+								} else if pType == "thinking" {
+									if thTxt, ok := partMap["thinking"].(string); ok && content == "" {
+										content = thTxt
+									}
+								} else if pType == "tool_result" {
+									toolUseID, _ := partMap["tool_use_id"].(string)
+									resContent := ""
+									if res, ok := partMap["content"].(string); ok {
+										resContent = res
+									} else if resArr, ok := partMap["content"].([]interface{}); ok {
+										for _, rItem := range resArr {
+											if rMap, ok := rItem.(map[string]interface{}); ok {
+												if rTxt, ok := rMap["text"].(string); ok {
+													resContent += rTxt
 												}
 											}
 										}
-									} else if pType == "tool_use" {
-										name, _ := partMap["name"].(string)
-										id, _ := partMap["id"].(string)
-										inputBytes, _ := json.Marshal(partMap["input"])
-										msgToolCalls = append(msgToolCalls, UnifiedToolCall{
-											ID:   id,
-											Type: "function",
-											Function: struct {
-												Name      string `json:"name"`
-												Arguments string `json:"arguments"`
-											}{
-												Name:      name,
-												Arguments: string(inputBytes),
-											},
-										})
 									}
+									toolResultMsgs = append(toolResultMsgs, UnifiedChatMessage{
+										Role:       "tool",
+										ToolCallID: toolUseID,
+										Content:    resContent,
+									})
+								} else if pType == "tool_use" {
+									name, _ := partMap["name"].(string)
+									id, _ := partMap["id"].(string)
+									inputBytes, _ := json.Marshal(partMap["input"])
+									msgToolCalls = append(msgToolCalls, UnifiedToolCall{
+										ID:   id,
+										Type: "function",
+										Function: struct {
+											Name      string `json:"name"`
+											Arguments string `json:"arguments"`
+										}{
+											Name:      name,
+											Arguments: string(inputBytes),
+										},
+									})
 								}
 							}
 						}
 					}
-					req.Messages = append(req.Messages, UnifiedChatMessage{
-						Role:      role,
-						Content:   content,
-						ToolCalls: msgToolCalls,
-					})
+
+					// Append any tool results extracted from this turn (in OpenAI protocol, tool results are individual messages)
+					if len(toolResultMsgs) > 0 {
+						req.Messages = append(req.Messages, toolResultMsgs...)
+					}
+					// If there is regular text or tool calls (e.g. user prompt or assistant response), append as corresponding role message
+					if content != "" || len(msgToolCalls) > 0 || len(toolResultMsgs) == 0 {
+						req.Messages = append(req.Messages, UnifiedChatMessage{
+							Role:      role,
+							Content:   content,
+							ToolCalls: msgToolCalls,
+						})
+					}
 				}
 			}
 		}
