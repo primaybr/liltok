@@ -145,6 +145,20 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		if cfg.Model == "" {
 			cfg.Model = "meta/llama-3.3-70b-instruct"
 		}
+	case "kilo":
+		if cfg.BaseURL == "" {
+			cfg.BaseURL = "https://api.kilo.ai/api/gateway"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "kilo-auto/free"
+		}
+	case "mistral":
+		if cfg.BaseURL == "" {
+			cfg.BaseURL = "https://api.mistral.ai/v1"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "codestral-latest"
+		}
 	case "ollama":
 		if cfg.BaseURL == "" {
 			cfg.BaseURL = "http://localhost:11434/v1"

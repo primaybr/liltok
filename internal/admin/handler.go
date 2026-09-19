@@ -1803,10 +1803,23 @@ func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) 
 			if apiKey == "" {
 				apiKey = os.Getenv("OPENROUTER_API_KEY")
 			}
+		case "kilo":
+			apiKey = h.cfg.Providers.Kilo.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("KILO_API_KEY")
+			}
+			if apiKey == "" {
+				apiKey = "anonymous"
+			}
+		case "mistral":
+			apiKey = h.cfg.Providers.Mistral.APIKey
+			if apiKey == "" {
+				apiKey = os.Getenv("MISTRAL_API_KEY")
+			}
 		}
 	}
 
-	if apiKey == "" && req.Provider != "ollama" {
+	if apiKey == "" && req.Provider != "ollama" && req.Provider != "kilo" {
 		writeError(w, http.StatusBadRequest, fmt.Sprintf("Missing API key for provider '%s'. Please provide an API key or configure it in Providers settings.", req.Provider))
 		return
 	}

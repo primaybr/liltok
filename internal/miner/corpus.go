@@ -23,8 +23,13 @@ func GetCuratedPrompts(category string) []PromptItem {
 
 	category = strings.ToLower(strings.TrimSpace(category))
 
+	if category == "php" {
+		return getPHPPrompts()
+	}
+
 	if category == "" || category == "all" || category == "errors" {
 		all = append(all, getErrorPrompts()...)
+		all = append(all, getPHPPrompts()...)
 	}
 	if category == "" || category == "all" || category == "coding" {
 		all = append(all, getCodingPrompts()...)
@@ -137,6 +142,96 @@ func getErrorPrompts() []PromptItem {
 			SystemPrompt: "You are a Flutter and mobile architecture specialist.",
 			UserPrompt:   "How do I fix 'setState() or markNeedsBuild() called during build' in Flutter?",
 			Tags:         []string{"flutter", "dart", "state-management"},
+		},
+	}
+}
+
+// getPHPPrompts returns canonical PHP syntax, runtime, type, and database error diagnostics.
+func getPHPPrompts() []PromptItem {
+	return []PromptItem{
+		{
+			ID:           "err-php-syntax-unexpected-token",
+			Category:     "errors",
+			SystemPrompt: "You are an expert PHP systems engineer. Provide concise, direct diagnostic steps and code fixes for PHP syntax and parse errors.",
+			UserPrompt:   "How do I fix 'Parse error: syntax error, unexpected token \":\", expecting \"{\"' or unexpected token errors in PHP?",
+			Tags:         []string{"php", "syntax-error", "parse-error", "tokens"},
+		},
+		{
+			ID:           "err-php-strict-types-bom",
+			Category:     "errors",
+			SystemPrompt: "You are an expert PHP and runtime engineer. Explain script bootstrapping, encoding, and strict_types declarations.",
+			UserPrompt:   "What causes 'Fatal error: strict_types declaration must be the very first statement in the script' in PHP, and how does a UTF-8 BOM or leading whitespace trigger it?",
+			Tags:         []string{"php", "strict-types", "bom", "encoding", "fatal-error"},
+		},
+		{
+			ID:           "err-php-cannot-redeclare-method",
+			Category:     "errors",
+			SystemPrompt: "You are a senior PHP architect. Explain method resolution, inheritance, and naming rules in PHP.",
+			UserPrompt:   "Explain 'Fatal error: Cannot redeclare ClassName::methodName()' in PHP, and how method name case-insensitivity (such as rollBack vs rollback) causes redeclaration collisions.",
+			Tags:         []string{"php", "fatal-error", "oop", "case-sensitivity"},
+		},
+		{
+			ID:           "err-php-typeerror-return-value",
+			Category:     "errors",
+			SystemPrompt: "You are a senior PHP engineer. Explain strict typing, nullability, and union types in PHP 8.",
+			UserPrompt:   "How do I resolve 'Fatal error: Uncaught TypeError: Return value of ... must be of type X, null returned' in PHP 8 with nullable return types and early exits?",
+			Tags:         []string{"php", "type-error", "strict-types", "nullability", "php8"},
+		},
+		{
+			ID:           "err-php-array-to-string-conversion",
+			Category:     "errors",
+			SystemPrompt: "You are a PHP developer specializing in data processing and type casting.",
+			UserPrompt:   "How do I fix 'Warning: Array to string conversion' in PHP when processing nested specification arrays or concatenating query values?",
+			Tags:         []string{"php", "warning", "arrays", "data-structures"},
+		},
+		{
+			ID:           "err-php-pdo-connection-closed",
+			Category:     "errors",
+			SystemPrompt: "You are a backend systems architect specializing in PHP database connection pooling and PostgreSQL resilience.",
+			UserPrompt:   "How do I handle 'Fatal error: Uncaught PDOException: SQLSTATE[08006] [7] FATAL: terminating connection due to administrator command' or severed database connections in PHP with transparent auto-reconnect outside transactions?",
+			Tags:         []string{"php", "pdo", "database", "postgresql", "connection-pooling"},
+		},
+		{
+			ID:           "err-php-memory-limit-exhausted",
+			Category:     "errors",
+			SystemPrompt: "You are a PHP performance specialist. Explain memory profiling, generators (yield), and cursor iteration.",
+			UserPrompt:   "How do I debug and resolve 'Fatal error: Allowed memory size of X bytes exhausted' in PHP when processing large batch files or stream pipelines?",
+			Tags:         []string{"php", "memory-limit", "performance", "generators"},
+		},
+		{
+			ID:           "err-php-max-execution-time",
+			Category:     "errors",
+			SystemPrompt: "You are a DevOps and backend architecture expert.",
+			UserPrompt:   "How do I fix 'Fatal error: Maximum execution time of X seconds exceeded' in PHP, and how should long-running batch jobs be decoupled into detached CLI worker processes?",
+			Tags:         []string{"php", "timeout", "cli", "background-worker"},
+		},
+		{
+			ID:           "err-php-undefined-array-key",
+			Category:     "errors",
+			SystemPrompt: "You are a modern PHP engineer.",
+			UserPrompt:   "What is the modern, idiomatic way in PHP 8 to resolve 'Warning: Undefined array key' and 'Warning: Undefined variable' using the null coalescing operator (??) and array_key_exists?",
+			Tags:         []string{"php", "php8", "warning", "null-coalescing"},
+		},
+		{
+			ID:           "err-php-class-not-found-psr4",
+			Category:     "errors",
+			SystemPrompt: "You are a PHP package maintainer and Composer expert.",
+			UserPrompt:   "How do I diagnose and fix 'Fatal error: Uncaught Error: Class \"...\" not found' in PHP with Composer PSR-4 autoloading and namespace conventions?",
+			Tags:         []string{"php", "composer", "autoload", "psr-4"},
+		},
+		{
+			ID:           "err-php-unhandled-match-error",
+			Category:     "errors",
+			SystemPrompt: "You are a modern PHP engineer.",
+			UserPrompt:   "How do I fix 'Fatal error: Uncaught UnhandledMatchError' in PHP 8 match expressions and handle default exhaustive branches?",
+			Tags:         []string{"php", "php8", "match-expression", "unhandled-match-error"},
+		},
+		{
+			ID:           "err-php-uninitialized-typed-property",
+			Category:     "errors",
+			SystemPrompt: "You are an expert in PHP 8 object-oriented design and constructor property promotion.",
+			UserPrompt:   "How do I fix 'Fatal error: Uncaught Error: Typed property ClassName::$propertyName must not be accessed before initialization' in PHP 8 using constructor promotion or default values?",
+			Tags:         []string{"php", "typed-properties", "oop", "php8"},
 		},
 	}
 }
