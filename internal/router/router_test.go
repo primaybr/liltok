@@ -103,8 +103,8 @@ func TestRouterFailoverExecution(t *testing.T) {
 		},
 	}
 
-	r.providers["anthropic"] = primaryMock
-	r.providers["groq"] = secondaryMock
+	r.SetProvider("anthropic", primaryMock)
+	r.SetProvider("groq", secondaryMock)
 
 	req := &provider.UnifiedChatRequest{
 		Model: "claude-3-5-sonnet-20241022",
@@ -286,22 +286,22 @@ func TestRouterRollingFallbackSequence(t *testing.T) {
 	r := NewRouter(cfg)
 
 	// Register mock groq (failing with 429), mock gemini (failing with 429), mock nvidianim (succeeding)
-	r.providers["groq"] = &mockProvider{
+	r.SetProvider("groq", &mockProvider{
 		name: "groq",
 		fail: true,
-	}
-	r.providers["gemini"] = &mockProvider{
+	})
+	r.SetProvider("gemini", &mockProvider{
 		name: "gemini",
 		fail: true,
-	}
-	r.providers["nvidianim"] = &mockProvider{
+	})
+	r.SetProvider("nvidianim", &mockProvider{
 		name: "nvidianim",
 		fail: false,
 		response: &provider.UnifiedChatResponse{
 			ID:      "nim-winner-1",
 			Content: "hello from NVIDIA NIM rolling winner",
 		},
-	}
+	})
 
 	req := &provider.UnifiedChatRequest{
 		Model: "free-first",
@@ -329,18 +329,18 @@ func TestRouterContextAwareTargetOrdering(t *testing.T) {
 	r := NewRouter(cfg)
 
 	var attemptedOrder []string
-	r.providers["groq"] = &mockProvider{
+	r.SetProvider("groq", &mockProvider{
 		name: "groq",
 		fail: true,
-	}
-	r.providers["gemini"] = &mockProvider{
+	})
+	r.SetProvider("gemini", &mockProvider{
 		name: "gemini",
 		fail: false,
 		response: &provider.UnifiedChatResponse{
 			ID:      "gemini-large-ctx",
 			Content: "handled large prompt",
 		},
-	}
+	})
 
 	// Create a large payload simulating > 25,000 tokens
 	largePayload := make([]byte, 120000) // 120,000 bytes / 4 = 30,000 tokens
@@ -395,7 +395,7 @@ func TestRouterOpenRouterResolutionAndDispatch(t *testing.T) {
 	}
 
 	// Test dispatch to mock openrouter
-	r.providers["openrouter"] = &mockProvider{
+	r.SetProvider("openrouter", &mockProvider{
 		name: "openrouter",
 		fail: false,
 		response: &provider.UnifiedChatResponse{
@@ -403,7 +403,7 @@ func TestRouterOpenRouterResolutionAndDispatch(t *testing.T) {
 			Model:   "openrouter/free",
 			Content: "hello from openrouter",
 		},
-	}
+	})
 
 	req := &provider.UnifiedChatRequest{
 		Model: "openrouter/free",
@@ -628,7 +628,7 @@ func TestRouterOpenRouterActiveModelResolutionAndRemapping(t *testing.T) {
 			Content: "remapped openrouter response",
 		},
 	}
-	r.providers["openrouter"] = mockOR
+	r.SetProvider("openrouter", mockOR)
 
 	req := &provider.UnifiedChatRequest{
 		Model: "openrouter/deepseek-r1:free",
@@ -735,7 +735,7 @@ func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
 			Content: "kilo free response",
 		},
 	}
-	r.providers["kilo"] = mockKilo
+	r.SetProvider("kilo", mockKilo)
 
 	req := &provider.UnifiedChatRequest{
 		Model: "kilo/free",
@@ -843,7 +843,7 @@ func TestRouterMistralActiveModelResolutionAndRemapping(t *testing.T) {
 			Content: "mistral code response",
 		},
 	}
-	r.providers["mistral"] = mockMistral
+	r.SetProvider("mistral", mockMistral)
 
 	req := &provider.UnifiedChatRequest{
 		Model: "mistral/codestral",
@@ -863,6 +863,106 @@ func TestRouterMistralActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 	if mockMistral.lastModel != "codestral-latest" {
 		t.Errorf("expected provider to receive remapped model codestral-latest, got %s", mockMistral.lastModel)
+	}
+}
+
+func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	// 1. Test RemapClineModel
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"cline/deepseek-r1:free", "deepseek/deepseek-v4-flash-0731:free"},
+		{"deepseek-r1:free", "deepseek/deepseek-v4-flash-0731:free"},
+		{"meta-llama/llama-3.3-70b-instruct:free", "nvidia/nemotron-3.5-lightning:free"},
+		{"qwen/qwen-2.5-72b-instruct:free", "qwen/qwen3.8-27b:free"},
+		{"deepseek/deepseek-v4-flash-0731:free", "deepseek/deepseek-v4-flash-0731:free"},
+	}
+
+	for _, tc := range tests {
+		got, _ := RemapClineModel(tc.input)
+		if got != tc.expected {
+			t.Errorf("RemapClineModel(%q) = %q, expected %q", tc.input, got, tc.expected)
+		}
+	}
+
+	// 2. Test ResolveTargets with cline prefix
+	targets := r.ResolveTargets("cline/deepseek/deepseek-v4-flash-0731:free", "")
+	if len(targets) == 0 {
+		t.Fatalf("expected at least 1 target for cline/deepseek/deepseek-v4-flash-0731:free")
+	}
+	if targets[0].ProviderName != "cline" {
+		t.Errorf("expected primary provider cline, got %s", targets[0].ProviderName)
+	}
+	if targets[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
+		t.Errorf("expected model deepseek/deepseek-v4-flash-0731:free, got %s", targets[0].UpstreamModel)
+	}
+
+	aliasTargets := r.ResolveTargets("cline/deepseek-r1:free", "")
+	if len(aliasTargets) == 0 {
+		t.Fatalf("expected at least 1 target for cline/deepseek-r1:free")
+	}
+	if aliasTargets[0].ProviderName != "cline" {
+		t.Errorf("expected primary provider cline, got %s", aliasTargets[0].ProviderName)
+	}
+	if aliasTargets[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
+		t.Errorf("expected remapped model deepseek/deepseek-v4-flash-0731:free, got %s", aliasTargets[0].UpstreamModel)
+	}
+
+	// 3. Test IsActiveModel
+	if !r.IsActiveModel("cline", "deepseek/deepseek-v4-flash-0731:free") {
+		t.Errorf("expected deepseek/deepseek-v4-flash-0731:free to be active on cline")
+	}
+	if !r.IsActiveModel("cline", "qwen/qwen3.8-27b:free") {
+		t.Errorf("expected qwen/qwen3.8-27b:free to be active on cline")
+	}
+
+	// 4. Test GetAllActiveModels contains Cline models
+	allModels := r.GetAllActiveModels(context.Background())
+	foundCline := false
+	for _, m := range allModels {
+		if m.Provider == "cline" && m.ID == "deepseek/deepseek-v4-flash-0731:free" {
+			foundCline = true
+			break
+		}
+	}
+	if !foundCline {
+		t.Errorf("expected cline/deepseek/deepseek-v4-flash-0731:free in GetAllActiveModels")
+	}
+
+	// 5. Test DispatchChat auto-remaps alias model
+	mockCline := &mockProvider{
+		name: "cline",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "mock-cline-id",
+			Model:   "deepseek/deepseek-v4-flash-0731:free",
+			Content: "cline free response",
+		},
+	}
+	r.SetProvider("cline", mockCline)
+
+	req := &provider.UnifiedChatRequest{
+		Model: "cline/deepseek-r1:free",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("unexpected dispatch error: %v", err)
+	}
+	if winProv != "cline" {
+		t.Errorf("expected winning provider cline, got %s", winProv)
+	}
+	if resp.Content != "cline free response" {
+		t.Errorf("expected content 'cline free response', got %s", resp.Content)
+	}
+	if mockCline.lastModel != "deepseek/deepseek-v4-flash-0731:free" {
+		t.Errorf("expected provider to receive remapped model deepseek/deepseek-v4-flash-0731:free, got %s", mockCline.lastModel)
 	}
 }
 

@@ -95,6 +95,14 @@ func NewMistralAdapter(apiKey, baseURL string) *Adapter {
 	return NewAdapter("mistral", provider.TierFree, baseURL, apiKey)
 }
 
+// NewClineAdapter creates an adapter for Cline's free and reasoning models.
+func NewClineAdapter(apiKey, baseURL string) *Adapter {
+	if baseURL == "" {
+		baseURL = "https://api.cline.bot/api/v1"
+	}
+	return NewAdapter("cline", provider.TierFree, baseURL, apiKey)
+}
+
 func (a *Adapter) Name() string {
 	return a.name
 }
@@ -281,6 +289,11 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 			continue
 		}
 
+		// Cline filtering: strictly retain free chat and reasoning models (exclude paid, audio, safety guards)
+		if name == "cline" && !isClineFreeChatModel(item.ID) {
+			continue
+		}
+
 		ctxWindow := item.ContextWindow
 		if ctxWindow <= 0 {
 			if item.ContextLength > 0 {
@@ -289,7 +302,7 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 				ctxWindow = item.MaxContextLength
 			} else if name == "nvidianim" {
 				ctxWindow = getNVIDIANIMContextWindow(item.ID)
-			} else if name == "openrouter" || name == "kilo" {
+			} else if name == "openrouter" || name == "kilo" || name == "cline" {
 				ctxWindow = 262144
 			} else if name == "mistral" {
 				ctxWindow = 256000
@@ -496,6 +509,19 @@ func isMistralFreeChatModel(id string, completionChat bool) bool {
 	return false
 }
 
+// isClineFreeChatModel determines whether a model from Cline is a free chat/reasoning model.
+func isClineFreeChatModel(id string) bool {
+	lower := strings.ToLower(strings.TrimSpace(id))
+
+	// Exclude safety guards, embeddings, moderations
+	if strings.Contains(lower, "safety") || strings.Contains(lower, "guard") || strings.Contains(lower, "embed") || strings.Contains(lower, "moderation") {
+		return false
+	}
+
+	// Must have :free or /free suffix or contain /free
+	return strings.HasSuffix(lower, ":free") || strings.Contains(lower, "/free")
+}
+
 // SendChat executes a non-streaming chat completion.
 func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
 	payload, err := a.buildPayload(req, false)
@@ -541,6 +567,8 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	}
 
 	var oaiResp struct {
+		Success *bool  `json:"success"`
+		Error   any    `json:"error"`
 		ID      string `json:"id"`
 		Model   string `json:"model"`
 		Choices []struct {
@@ -564,10 +592,64 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			CompletionTokens int `json:"completion_tokens"`
 			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
+		Data *struct {
+			ID      string `json:"id"`
+			Model   string `json:"model"`
+			Choices []struct {
+				Index   int `json:"index"`
+				Message struct {
+					Role      string `json:"role"`
+					Content   string `json:"content"`
+					ToolCalls []struct {
+						ID       string `json:"id"`
+						Type     string `json:"type"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
+				} `json:"message"`
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+				TotalTokens      int `json:"total_tokens"`
+			} `json:"usage"`
+		} `json:"data"`
 	}
 
 	if err := json.Unmarshal(respBytes, &oaiResp); err != nil {
 		return nil, fmt.Errorf("failed to parse upstream json: %w", err)
+	}
+
+	if oaiResp.Success != nil && !*oaiResp.Success {
+		return nil, fmt.Errorf("upstream error: %v", oaiResp.Error)
+	}
+	if oaiResp.Error != nil {
+		switch e := oaiResp.Error.(type) {
+		case string:
+			if e != "" {
+				return nil, fmt.Errorf("upstream error: %s", e)
+			}
+		case map[string]any:
+			if msg, ok := e["message"].(string); ok && msg != "" {
+				return nil, fmt.Errorf("upstream error: %s", msg)
+			}
+			return nil, fmt.Errorf("upstream error: %v", e)
+		}
+	}
+
+	// Unwrap Cline payload if response wrapped inside top-level data field
+	if len(oaiResp.Choices) == 0 && oaiResp.Data != nil {
+		oaiResp.ID = oaiResp.Data.ID
+		oaiResp.Model = oaiResp.Data.Model
+		oaiResp.Choices = oaiResp.Data.Choices
+		oaiResp.Usage = oaiResp.Data.Usage
+	}
+
+	if len(oaiResp.Choices) == 0 {
+		return nil, fmt.Errorf("upstream returned no choices: %s", string(respBytes))
 	}
 
 	content := ""
@@ -594,6 +676,20 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		}
 	}
 
+	rawResp := respBytes
+	if oaiResp.Data != nil {
+		if norm, err := json.Marshal(map[string]interface{}{
+			"id":      oaiResp.ID,
+			"object":  "chat.completion",
+			"created": time.Now().Unix(),
+			"model":   oaiResp.Model,
+			"choices": oaiResp.Choices,
+			"usage":   oaiResp.Usage,
+		}); err == nil {
+			rawResp = norm
+		}
+	}
+
 	return &provider.UnifiedChatResponse{
 		ID:           oaiResp.ID,
 		Model:        oaiResp.Model,
@@ -606,7 +702,7 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			CompletionTokens: oaiResp.Usage.CompletionTokens,
 			TotalTokens:      oaiResp.Usage.TotalTokens,
 		},
-		RawResponse: respBytes,
+		RawResponse: rawResp,
 		Latency:     duration,
 	}, nil
 }
@@ -642,6 +738,25 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		respBytes, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		return nil, nil, fmt.Errorf("upstream error status %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") && !strings.Contains(contentType, "text/event-stream") {
+		respBytes, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		var errResp struct {
+			Success *bool `json:"success"`
+			Error   any   `json:"error"`
+		}
+		if err := json.Unmarshal(respBytes, &errResp); err == nil {
+			if errResp.Success != nil && !*errResp.Success {
+				return nil, nil, fmt.Errorf("upstream stream error: %v", errResp.Error)
+			}
+			if errResp.Error != nil {
+				return nil, nil, fmt.Errorf("upstream stream error: %v", errResp.Error)
+			}
+		}
+		return nil, nil, fmt.Errorf("upstream returned json error status %d: %s", resp.StatusCode, string(respBytes))
 	}
 
 	eventChan := make(chan provider.UnifiedSSEEvent, 100)

@@ -163,7 +163,7 @@ func handleMCPRequest(req jsonRPCRequest, tools []mcpTool, gatewayURL string) {
 			},
 			"serverInfo": map[string]interface{}{
 				"name":    "liltok",
-				"version": "0.1.2-beta",
+				"version": "0.1.3-beta",
 			},
 		}
 		sendResult(req.ID, res)
@@ -308,6 +308,19 @@ func callLiltokChat(gatewayURL, model, system, prompt, apiKey string) toolCallRe
 			CompletionTokens int `json:"completion_tokens"`
 			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
+		Data *struct {
+			Choices []struct {
+				Message struct {
+					Role    string `json:"role"`
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+				TotalTokens      int `json:"total_tokens"`
+			} `json:"usage"`
+		} `json:"data"`
 	}
 
 	if err := json.Unmarshal(respBytes, &completion); err != nil {
@@ -317,6 +330,11 @@ func callLiltokChat(gatewayURL, model, system, prompt, apiKey string) toolCallRe
 	var content string
 	if len(completion.Choices) > 0 {
 		content = completion.Choices[0].Message.Content
+	} else if completion.Data != nil && len(completion.Data.Choices) > 0 {
+		content = completion.Data.Choices[0].Message.Content
+		if completion.Usage.PromptTokens == 0 {
+			completion.Usage = completion.Data.Usage
+		}
 	}
 
 	cacheStatus := resp.Header.Get("X-Cache")

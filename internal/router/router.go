@@ -341,6 +341,71 @@ func isDeprecatedMistral(model string) bool {
 	return ok
 }
 
+// defaultClineActiveModels provides the verified baseline active free reasoning and chat models from api.cline.bot/api/v1/models
+var defaultClineActiveModels = []provider.ModelInfo{
+	{ID: "deepseek/deepseek-v4-flash-0731:free", Provider: "cline", Active: true, ContextWindow: 1048576, OwnedBy: "deepseek"},
+	{ID: "google/gemma-4-31b-it:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "google"},
+	{ID: "qwen/qwen3.8-27b:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "qwen"},
+	{ID: "nvidia/nemotron-3.5-lightning:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
+	{ID: "nvidia/nemotron-3-super-120b-a12b:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "nvidia"},
+	{ID: "nvidia/nemotron-3-ultra-550b-a55b:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
+	{ID: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", Provider: "cline", Active: true, ContextWindow: 256000, OwnedBy: "nvidia"},
+	{ID: "poolside/laguna-xs-2.1:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "poolside"},
+	{ID: "poolside/laguna-s-2.1:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "poolside"},
+	{ID: "thinkingmachines/inkling:free", Provider: "cline", Active: true, ContextWindow: 1048576, OwnedBy: "thinkingmachines"},
+	{ID: "thinkingmachines/inkling-small:free", Provider: "cline", Active: true, ContextWindow: 1048576, OwnedBy: "thinkingmachines"},
+	{ID: "nex-agi/nex-n2.5-pro:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "nex-agi"},
+	{ID: "nex-agi/nex-n2.5-mini:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "nex-agi"},
+	{ID: "cohere/north-mini-code:free", Provider: "cline", Active: true, ContextWindow: 256000, OwnedBy: "cohere"},
+	{ID: "dots-studio/dots-3-note-preview:free", Provider: "cline", Active: true, ContextWindow: 512000, OwnedBy: "dots-studio"},
+	{ID: "liquid/lfm-2.5-2.6b:free", Provider: "cline", Active: true, ContextWindow: 65536, OwnedBy: "liquid"},
+	{ID: "inclusionai/ling-3.0-flash-vl:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "inclusionai"},
+	{ID: "inclusionai/ling-3.0-flash-sante:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "inclusionai"},
+	{ID: "inclusionai/ling-3.0-flash-fin:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "inclusionai"},
+	{ID: "google/gemma-4-26b-a4b-it:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "google"},
+	{ID: "z-ai/glm-5.2:free", Provider: "cline", Active: true, ContextWindow: 32768, OwnedBy: "z-ai"},
+}
+
+// clineDeprecatedModelReplacements maps decommissioned or alias Cline models to active free replacements.
+var clineDeprecatedModelReplacements = map[string]string{
+	"deepseek/deepseek-r1:free":              "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek-r1:free":                       "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek/deepseek-r1":                   "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek-r1":                            "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek/deepseek-chat:free":            "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek-chat:free":                     "deepseek/deepseek-v4-flash-0731:free",
+	"meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
+	"meta-llama/llama-3.1-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
+	"meta-llama/llama-3.1-8b-instruct:free":  "qwen/qwen3.8-27b:free",
+	"meta-llama/llama-3.2-1b-instruct:free":  "qwen/qwen3.8-27b:free",
+	"meta-llama/llama-3.2-3b-instruct:free":  "qwen/qwen3.8-27b:free",
+	"google/gemma-2-9b-it:free":              "google/gemma-4-31b-it:free",
+	"google/gemma-3-12b-it:free":             "google/gemma-4-31b-it:free",
+	"google/gemma-3-4b-it:free":              "google/gemma-4-31b-it:free",
+	"qwen/qwen-2.5-72b-instruct:free":        "qwen/qwen3.8-27b:free",
+	"qwen/qwen-2.5-coder-32b-instruct:free":  "qwen/qwen3.8-27b:free",
+}
+
+// RemapClineModel translates deprecated Cline model names to active replacement model IDs.
+func RemapClineModel(model string) (string, bool) {
+	lower := strings.ToLower(strings.TrimSpace(model))
+	lower = strings.TrimPrefix(lower, "cline/")
+	if repl, ok := clineDeprecatedModelReplacements[lower]; ok {
+		return repl, true
+	}
+	for dep, repl := range clineDeprecatedModelReplacements {
+		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
+			return repl, true
+		}
+	}
+	return model, false
+}
+
+func isDeprecatedCline(model string) bool {
+	_, ok := RemapClineModel(model)
+	return ok
+}
+
 // Route defines an ordered fallback sequence of provider targets.
 type Route struct {
 	ID       string
@@ -409,6 +474,12 @@ func NewRouter(cfg *config.Config) *Router {
 	}
 	r.registerProvider(openai.NewMistralAdapter(cfg.Providers.Mistral.APIKey, mistralURL))
 
+	clineURL := cfg.Providers.Cline.BaseURL
+	if clineURL == "" {
+		clineURL = "https://api.cline.bot/api/v1"
+	}
+	r.registerProvider(openai.NewClineAdapter(cfg.Providers.Cline.APIKey, clineURL))
+
 	// Register Default Fallback Routes
 	r.initDefaultRoutes()
 
@@ -460,10 +531,12 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "qwen/qwen3.8-27b:free"},
 		},
 	}
 
-	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free -> Mistral Free -> Kilo Free
+	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free -> Mistral Free -> Kilo Free -> Cline Free
 	r.routes["free-first"] = Route{
 		ID:       "free-first",
 		Strategy: "free_first",
@@ -492,6 +565,8 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "qwen/qwen3.8-27b:free"},
 		},
 	}
 
@@ -611,6 +686,30 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		}
 		for _, t := range r.routes["free-first"].Targets {
 			if t.ProviderName == "nvidianim" && t.UpstreamModel == actualModel {
+				continue
+			}
+			targets = append(targets, t)
+		}
+		return targets
+	}
+
+	if strings.HasPrefix(lowerModel, "cline/") {
+		actualModel := requestedModel
+		candidate := strings.TrimPrefix(requestedModel, "cline/")
+		for _, m := range r.GetProviderActiveModels("cline") {
+			if strings.EqualFold(m.ID, candidate) {
+				actualModel = m.ID
+				break
+			}
+		}
+		if repl, isDep := RemapClineModel(actualModel); isDep {
+			actualModel = repl
+		}
+		targets := []TargetSpec{
+			{ProviderName: "cline", UpstreamModel: actualModel},
+		}
+		for _, t := range r.routes["free-first"].Targets {
+			if t.ProviderName == "cline" && t.UpstreamModel == actualModel {
 				continue
 			}
 			targets = append(targets, t)
@@ -793,6 +892,23 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return targets
 	}
 
+	if r.IsActiveModel("cline", requestedModel) {
+		actualModel := requestedModel
+		if repl, isDep := RemapClineModel(actualModel); isDep {
+			actualModel = repl
+		}
+		targets := []TargetSpec{
+			{ProviderName: "cline", UpstreamModel: actualModel},
+		}
+		for _, t := range r.routes["free-first"].Targets {
+			if t.ProviderName == "cline" && t.UpstreamModel == actualModel {
+				continue
+			}
+			targets = append(targets, t)
+		}
+		return targets
+	}
+
 	if strings.Contains(lowerModel, "llama") || strings.Contains(lowerModel, "free") {
 		return r.routes["free-first"].Targets
 	}
@@ -968,6 +1084,24 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			}
 		}
 
+		// Strictly ensure only active models are dispatched to Cline
+		if target.ProviderName == "cline" {
+			if repl, isDep := RemapClineModel(target.UpstreamModel); isDep {
+				telemetry.Log.Info().
+					Str("deprecated_model", target.UpstreamModel).
+					Str("replacement_model", repl).
+					Msg("Remapping deprecated Cline model to active replacement")
+				target.UpstreamModel = repl
+			}
+			if !r.IsActiveModel("cline", target.UpstreamModel) {
+				telemetry.Log.Warn().
+					Str("provider", "cline").
+					Str("model", target.UpstreamModel).
+					Msg("Cline model is not in active models catalog, skipping target")
+				continue
+			}
+		}
+
 		p, exists := r.providers[target.ProviderName]
 		if !exists {
 			continue
@@ -1056,6 +1190,13 @@ func isCircuitBreakerError(err error) bool {
 }
 
 
+// SetProvider registers or overrides a provider client thread-safely.
+func (r *Router) SetProvider(name string, client provider.ProviderClient) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.providers[strings.ToLower(name)] = client
+}
+
 // GetProvider retrieves a registered provider client.
 func (r *Router) GetProvider(name string) (provider.ProviderClient, bool) {
 	r.mu.RLock()
@@ -1130,6 +1271,8 @@ func (r *Router) UpdateProvider(name string, creds config.ProviderCreds) error {
 			r.cfg.Providers.Kilo = creds
 		case "mistral":
 			r.cfg.Providers.Mistral = creds
+		case "cline":
+			r.cfg.Providers.Cline = creds
 		}
 	}
 
@@ -1204,6 +1347,7 @@ func (r *Router) seedActiveModels() {
 	r.activeModels["openrouter"] = append([]provider.ModelInfo(nil), defaultOpenRouterActiveModels...)
 	r.activeModels["kilo"] = append([]provider.ModelInfo(nil), defaultKiloActiveModels...)
 	r.activeModels["mistral"] = append([]provider.ModelInfo(nil), defaultMistralActiveModels...)
+	r.activeModels["cline"] = append([]provider.ModelInfo(nil), defaultClineActiveModels...)
 }
 
 // SyncProviderModels retrieves the current active models from the specified provider client.
@@ -1321,6 +1465,11 @@ func (r *Router) GetProviderActiveModels(providerName string) []provider.ModelIn
 		copy(out, defaultMistralActiveModels)
 		return out
 	}
+	if providerName == "cline" {
+		out := make([]provider.ModelInfo, len(defaultClineActiveModels))
+		copy(out, defaultClineActiveModels)
+		return out
+	}
 
 	return nil
 }
@@ -1359,6 +1508,7 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 	hasOpenRouter := false
 	hasKilo := false
 	hasMistral := false
+	hasCline := false
 	for _, m := range all {
 		if m.Provider == "groq" {
 			hasGroq = true
@@ -1375,6 +1525,9 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 		if m.Provider == "mistral" {
 			hasMistral = true
 		}
+		if m.Provider == "cline" {
+			hasCline = true
+		}
 	}
 	if !hasGroq {
 		all = append(all, defaultGroqActiveModels...)
@@ -1390,6 +1543,9 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 	}
 	if !hasMistral {
 		all = append(all, defaultMistralActiveModels...)
+	}
+	if !hasCline {
+		all = append(all, defaultClineActiveModels...)
 	}
 	return all
 }

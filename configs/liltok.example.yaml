@@ -40,6 +40,15 @@ providers:
   openrouter:
     api_key: ""
     base_url: "https://openrouter.ai/api/v1"
+  kilo:
+    api_key: ""
+    base_url: "https://api.kilo.ai/api/gateway"
+  mistral:
+    api_key: ""
+    base_url: "https://api.mistral.ai/v1"
+  cline:
+    api_key: ""
+    base_url: "https://api.cline.bot/api/v1"
   ollama:
     base_url: "http://localhost:11434"
 

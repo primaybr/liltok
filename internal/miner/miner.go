@@ -159,6 +159,13 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		if cfg.Model == "" {
 			cfg.Model = "codestral-latest"
 		}
+	case "cline":
+		if cfg.BaseURL == "" {
+			cfg.BaseURL = "https://api.cline.bot/api/v1"
+		}
+		if cfg.Model == "" {
+			cfg.Model = "deepseek/deepseek-v4-flash-0731:free"
+		}
 	case "ollama":
 		if cfg.BaseURL == "" {
 			cfg.BaseURL = "http://localhost:11434/v1"
@@ -352,10 +359,32 @@ func (m *CacheMiner) mineSinglePrompt(ctx context.Context, item PromptItem, stat
 			CompletionTokens int `json:"completion_tokens"`
 			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
+		Data *struct {
+			Choices []struct {
+				Message struct {
+					Role    string `json:"role"`
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+				TotalTokens      int `json:"total_tokens"`
+			} `json:"usage"`
+		} `json:"data"`
 	}
 
-	if err := json.Unmarshal(respBytes, &parsedResp); err != nil || len(parsedResp.Choices) == 0 {
+	if err := json.Unmarshal(respBytes, &parsedResp); err != nil {
 		return 0, 0, fmt.Errorf("failed to parse valid response: %w", err)
+	}
+
+	if len(parsedResp.Choices) == 0 && parsedResp.Data != nil {
+		parsedResp.Choices = parsedResp.Data.Choices
+		parsedResp.Usage = parsedResp.Data.Usage
+	}
+
+	if len(parsedResp.Choices) == 0 {
+		return 0, 0, fmt.Errorf("no choices returned in response")
 	}
 
 	generatedText := parsedResp.Choices[0].Message.Content
