@@ -92,6 +92,55 @@ func (a *Adapter) CheckHealth(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// ListModels queries Anthropic /v1/models.
+func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) {
+	a.mu.RLock()
+	baseURL := a.baseURL
+	apiKey := a.apiKey
+	a.mu.RUnlock()
+
+	if apiKey == "" {
+		return nil, fmt.Errorf("anthropic api key is not configured")
+	}
+
+	url := baseURL + "/v1/models"
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	a.setHeaders(req)
+	resp, err := a.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("anthropic list models failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		respBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("anthropic returned status %d: %s", resp.StatusCode, string(respBytes))
+	}
+
+	var anthResp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&anthResp); err != nil {
+		return nil, fmt.Errorf("failed to decode anthropic models: %w", err)
+	}
+
+	var results []provider.ModelInfo
+	for _, m := range anthResp.Data {
+		results = append(results, provider.ModelInfo{
+			ID:       m.ID,
+			Provider: "anthropic",
+			Active:   true,
+			OwnedBy:  "anthropic",
+		})
+	}
+	return results, nil
+}
+
 // SendChat sends a non-streaming request to Anthropic /v1/messages.
 func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
 	payload, err := a.buildPayload(req, false)

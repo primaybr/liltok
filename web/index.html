@@ -95,7 +95,8 @@
       <div class="logo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
         <span>liltok</span>
-        <span class="logo-badge">v0.1.1-beta</span>
+        <span class="logo-badge">v0.1.2-beta</span>
+        <span style="font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); letter-spacing: 0;">Little Token, Big Savings.</span>
       </div>
       <div class="header-right">
         <button class="btn-clear" onclick="confirmClearLogs()" title="Reset all monitoring request logs">
@@ -149,9 +150,12 @@
           <div class="card-sub" id="stat-spend-breakdown">In: $0.0000 | Out: $0.0000</div>
         </div>
         <div class="card">
-          <div class="card-title">Net Savings <span class="badge-est">ESTIMATED</span></div>
+          <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Net Savings <span class="badge-est">EST.</span></span>
+            <span id="stat-saved-eff" class="badge badge-hit-exact" style="padding: 1px 6px; font-size: 10px; font-weight: 700;">0.0% EFF</span>
+          </div>
           <div class="card-value" id="stat-saved" style="color: #34d399;">$0.0000</div>
-          <div class="card-sub" id="stat-gross-spend">Baseline Gross: $0.0000</div>
+          <div class="card-sub" id="stat-gross-spend">Gross: $0.0000</div>
         </div>
         <div class="card">
           <div class="card-title">Cache Optimization Rate</div>
@@ -300,9 +304,12 @@
           <div class="card-sub" id="an-spend-out">Est. Spend: $0.0000</div>
         </div>
         <div class="card">
-          <div class="card-title">Net Dollar Savings <span class="badge-est">ESTIMATED</span></div>
+          <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>Net Savings <span class="badge-est">EST.</span></span>
+            <span id="an-saved-eff" class="badge badge-hit-exact" style="padding: 1px 6px; font-size: 10px; font-weight: 700;">0.0% EFF</span>
+          </div>
           <div class="card-value" id="an-saved" style="color: #34d399;">$0.0000</div>
-          <div class="card-sub" id="an-gross-spend">Baseline Gross: $0.0000</div>
+          <div class="card-sub" id="an-gross-spend">Gross: $0.0000</div>
         </div>
         <div class="card">
           <div class="card-title">Savings ROI Multiplier</div>
@@ -460,7 +467,11 @@
             <option value="groq">Groq</option>
             <option value="gemini">Google Gemini</option>
             <option value="nvidianim">NVIDIA NIM</option>
+            <option value="kilo">Kilo Gateway</option>
+            <option value="mistral">Mistral AI</option>
             <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">Ollama</option>
           </select>
 
           <select id="flt-cache-status" class="filter-select" onchange="queryLogs(1)">
@@ -653,10 +664,12 @@
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label">Free-Tier Provider</label>
               <select id="miner-provider" class="form-input" onchange="onMinerProviderChange(this.value)">
-                <option value="groq" selected>Groq Free (Llama 3.3 70B, Qwen 2.5)</option>
-                <option value="nvidianim">NVIDIA NIM (Llama 3.1 70B)</option>
+                <option value="groq" selected>Groq Free (GPT OSS 120B/20B, Qwen 3.8)</option>
+                <option value="nvidianim">NVIDIA Free (DeepSeek V4, Nemotron Reasoning, Gemma 4)</option>
+                <option value="kilo">Kilo Free Gateway (Auto Free, DeepSeek V4, Nemotron)</option>
+                <option value="mistral">Mistral AI Free (Codestral 256k, Ministral 8B/3B)</option>
                 <option value="ollama">Local Ollama (Self-Hosted $0.00)</option>
-                <option value="openrouter">OpenRouter Free Models</option>
+                <option value="openrouter">OpenRouter Free (DeepSeek V4, Nemotron, Gemma 4, Qwen 3.8)</option>
               </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
@@ -1518,10 +1531,26 @@
         const elSpendOut = document.getElementById('an-spend-out');
         if (elSpendOut) elSpendOut.innerText = 'Est. Spend: ' + formatCurrency(sum.total_completion_cost_usd || 0);
 
+        const anSaved = sum.total_saved_usd || 0;
         const elSaved = document.getElementById('an-saved');
-        if (elSaved) elSaved.innerText = formatCurrency(sum.total_saved_usd || 0);
+        if (elSaved) elSaved.innerText = formatCurrency(anSaved);
+        const anGross = (sum.gross_token_spend_usd != null && sum.gross_token_spend_usd > 0) ? sum.gross_token_spend_usd : ((sum.total_cost_usd || 0) + anSaved);
+        let anEff = 0;
+        if (anGross > 0) {
+          anEff = Math.min(100, Math.max(0, (anSaved / anGross) * 100));
+        } else if (anSaved > 0) {
+          anEff = 100;
+        }
+        const elSavedEff = document.getElementById('an-saved-eff');
+        if (elSavedEff) {
+          elSavedEff.innerText = `${anEff.toFixed(1)}% EFF`;
+          elSavedEff.title = `Realized Cost Efficiency: ${anEff.toFixed(1)}%`;
+        }
         const elGross = document.getElementById('an-gross-spend');
-        if (elGross) elGross.innerText = 'Baseline Gross: ' + formatCurrency(sum.gross_token_spend_usd || 0);
+        if (elGross) {
+          elGross.innerText = `Gross: ${formatCurrency(anGross)}`;
+          elGross.title = `Baseline Commercial Spend: ${formatCurrency(anGross)} | Saved: ${formatCurrency(anSaved)} (${anEff.toFixed(1)}% efficiency)`;
+        }
 
         const elRoi = document.getElementById('an-roi');
         if (elRoi) elRoi.innerText = (sum.roi_multiplier || 0).toFixed(1) + 'x';
@@ -1541,14 +1570,17 @@
           if (!data.providers || data.providers.length === 0) {
             pTbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted); padding: 20px;">No provider telemetry recorded for selected window.</td></tr>';
           } else {
-            pTbody.innerHTML = data.providers.map(p => `
+            pTbody.innerHTML = data.providers.map(p => {
+              const provGross = (p.total_cost_usd || 0) + (p.total_saved_usd || 0);
+              const provEff = provGross > 0 ? ((p.total_saved_usd || 0) / provGross * 100) : 0;
+              return `
               <tr>
                 <td style="font-weight: 700; text-transform: uppercase;">${escapeHTML(p.provider)}</td>
                 <td>${(p.requests || 0).toLocaleString()}</td>
                 <td style="color: #60a5fa;">${formatTokens(p.tokens_in)}</td>
                 <td style="color: #a78bfa;">${formatTokens(p.tokens_out)}</td>
                 <td>${formatCurrency(p.total_cost_usd)}</td>
-                <td style="color: #34d399; font-weight: 600;">${formatCurrency(p.total_saved_usd)}</td>
+                <td style="color: #34d399; font-weight: 600;">${formatCurrency(p.total_saved_usd)} <span style="font-size: 11px; opacity: 0.85;">(${provEff.toFixed(1)}%)</span></td>
                 <td>${(p.avg_latency_ms || 0).toFixed(1)}ms</td>
                 <td>
                   <span class="badge badge-hit-exact" title="Tier-1 Exact">${p.exact_hits || 0}</span> /
@@ -1556,7 +1588,8 @@
                   <span class="badge badge-miss" title="Full Miss">${p.misses || 0}</span>
                 </td>
               </tr>
-            `).join('');
+            `;
+            }).join('');
           }
         }
 
@@ -1698,7 +1731,8 @@
       });
 
       if (summary) {
-        summary.innerText = `Saved: ${formatCurrency(totSaved)} | Spent: ${formatCurrency(totCost)}`;
+        const eff = (totSaved + totCost) > 0 ? ((totSaved / (totSaved + totCost)) * 100).toFixed(1) : '0.0';
+        summary.innerText = `Saved: ${formatCurrency(totSaved)} (${eff}% eff.) | Spent: ${formatCurrency(totCost)}`;
       }
 
       const width = 500;
@@ -2219,10 +2253,25 @@
         const spendBreakdownEl = document.getElementById('stat-spend-breakdown');
         if (spendBreakdownEl) spendBreakdownEl.innerText = `In: ${formatCurrency(data.total_prompt_cost_usd || 0)} | Out: ${formatCurrency(data.total_completion_cost_usd || 0)}`;
 
-        document.getElementById('stat-saved').innerText = formatCurrency(data.total_saved_usd || 0);
-        const grossSpend = (data.gross_token_spend_usd != null && data.gross_token_spend_usd > 0) ? data.gross_token_spend_usd : ((data.total_cost_usd || 0) + (data.total_saved_usd || 0));
+        const savedUSD = data.total_saved_usd || 0;
+        document.getElementById('stat-saved').innerText = formatCurrency(savedUSD);
+        const grossSpend = (data.gross_token_spend_usd != null && data.gross_token_spend_usd > 0) ? data.gross_token_spend_usd : ((data.total_cost_usd || 0) + savedUSD);
+        let effPct = 0;
+        if (grossSpend > 0) {
+          effPct = Math.min(100, Math.max(0, (savedUSD / grossSpend) * 100));
+        } else if (savedUSD > 0) {
+          effPct = 100;
+        }
+        const effEl = document.getElementById('stat-saved-eff');
+        if (effEl) {
+          effEl.innerText = `${effPct.toFixed(1)}% EFF`;
+          effEl.title = `Realized Cost Efficiency: ${effPct.toFixed(1)}%`;
+        }
         const grossEl = document.getElementById('stat-gross-spend');
-        if (grossEl) grossEl.innerText = `Baseline Gross: ${formatCurrency(grossSpend)}`;
+        if (grossEl) {
+          grossEl.innerText = `Gross: ${formatCurrency(grossSpend)}`;
+          grossEl.title = `Baseline Commercial Spend: ${formatCurrency(grossSpend)} | Saved: ${formatCurrency(savedUSD)} (${effPct.toFixed(1)}% efficiency)`;
+        }
 
         document.getElementById('stat-hitrate').innerText = `${(data.hit_rate_percent || 0).toFixed(1)}%`;
         const misses = Math.max(0, (data.total_requests || 0) - (data.total_hits || 0));
@@ -2382,6 +2431,8 @@
           else if (p === 'anthropic') p = 'Anthropic';
           else if (p === 'openai') p = 'OpenAI';
           else if (p === 'openrouter') p = 'OpenRouter';
+          else if (p === 'kilo') p = 'Kilo';
+          else if (p === 'mistral') p = 'Mistral';
           else if (p === 'ollama') p = 'Ollama';
           else p = prov.toUpperCase();
           counts[p] = (counts[p] || 0) + Number(count);
@@ -2396,6 +2447,8 @@
           else if (p === 'anthropic') p = 'Anthropic';
           else if (p === 'openai') p = 'OpenAI';
           else if (p === 'openrouter') p = 'OpenRouter';
+          else if (p === 'kilo') p = 'Kilo';
+          else if (p === 'mistral') p = 'Mistral';
           else if (p === 'ollama') p = 'Ollama';
           counts[p] = (counts[p] || 0) + 1;
         });
@@ -2415,6 +2468,8 @@
         'Anthropic': '#c084fc',
         'OpenAI': '#10a37f',
         'OpenRouter': '#6366f1',
+        'Kilo': '#0ea5e9',
+        'Mistral': '#ea580c',
         'Ollama': '#fbbf24',
         'unknown': '#a1a1aa'
       };
@@ -3073,7 +3128,12 @@
         renderProviderCards(currentProvidersData);
 
         // Update provider summary stat cards
-        const configuredCount = currentProvidersData.filter(p => p.has_key || p.name === 'ollama').length;
+        const configuredCount = currentProvidersData.filter(p => {
+          if (p.name === 'ollama') {
+            return p.has_key && p.base_url && p.base_url !== 'disabled';
+          }
+          return p.has_key;
+        }).length;
         const totalCount = currentProvidersData.length;
         const statConfigured = document.getElementById('prov-stat-configured');
         if (statConfigured) {
@@ -3116,7 +3176,13 @@
         let statusBadge = '<span class="badge badge-hit-exact">ONLINE</span>';
         if (p.circuit_breaker_state === 'OPEN') {
           statusBadge = '<span class="badge badge-open">CIRCUIT OPEN</span>';
-        } else if (!p.has_key && !isOllama) {
+        } else if (isOllama) {
+          if (!p.has_key || !p.base_url || p.base_url === 'disabled') {
+            statusBadge = '<span class="badge badge-miss">DISABLED</span>';
+          } else {
+            statusBadge = '<span class="badge" style="background: rgba(148, 163, 184, 0.2); color: #94a3b8;">STANDBY (LOCAL)</span>';
+          }
+        } else if (!p.has_key) {
           statusBadge = '<span class="badge badge-miss">NO API KEY</span>';
         }
 
@@ -3130,8 +3196,9 @@
           multiBadge = `<span class="badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 10px; margin-left: 6px;">${p.key_count} Keys Rotating</span>`;
         }
 
+        const isOllamaActive = isOllama && p.has_key && p.base_url && p.base_url !== 'disabled';
         return `
-          <div style="background: var(--bg); border: 1px solid ${p.has_key || isOllama ? 'var(--border)' : 'rgba(239,68,68,0.3)'}; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
+          <div style="background: var(--bg); border: 1px solid ${p.has_key && (!isOllama || isOllamaActive) ? 'var(--border)' : 'rgba(239,68,68,0.3)'}; border-radius: 8px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
               <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
                 <div>
@@ -3155,13 +3222,18 @@
               </div>
               ` : `
               <div style="padding: 12px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px dashed var(--border); font-size: 12px; color: var(--muted); margin-bottom: 12px;">
-                Local offline inference engine running on your hardware. Zero keys and zero network costs.
+                Optional local offline engine. Not used in cloud free-tier routing. Set Base URL to empty or "disabled" if your laptop has limited resources.
               </div>
               `}
 
-              <div class="form-group" style="margin-bottom: 14px;">
+              <div class="form-group" style="margin-bottom: 12px;">
                 <label class="form-label" style="margin-bottom: 6px;">Base URL</label>
                 <input id="url-input-${p.name}" type="text" class="form-input" value="${escapeHTML(p.base_url)}" style="font-family: var(--mono); font-size: 12px;" />
+              </div>
+
+              <div style="font-size: 11px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 4px; border: 1px solid var(--border);">
+                <span style="color: var(--muted);"><strong style="color: var(--text);">${p.active_models_count || 0}</strong> Active Models</span>
+                <button type="button" onclick="syncProviderModels('${p.name}')" style="background: none; border: none; color: var(--accent); font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0;">Auto-Sync</button>
               </div>
 
               <div id="test-result-${p.name}" style="display: none; font-size: 12px; margin-bottom: 12px; padding: 8px 12px; border-radius: 6px; font-family: var(--mono);"></div>
@@ -3192,6 +3264,15 @@
         input.type = 'password';
         btn.innerText = 'Show';
       }
+    }
+
+    async function syncProviderModels(name) {
+      try {
+        const res = await fetch('/api/v1/providers/' + encodeURIComponent(name) + '/sync-models', { method: 'POST' });
+        if (res.ok) {
+          loadProviders();
+        }
+      } catch (e) {}
     }
 
     async function testProviderConnection(name) {
@@ -3314,17 +3395,21 @@
           return;
         }
 
-        tbody.innerHTML = data.stats.map(s => `
+        tbody.innerHTML = data.stats.map(s => {
+          const provGross = (s.total_cost_usd || 0) + (s.total_saved_usd || 0);
+          const provEff = provGross > 0 ? ((s.total_saved_usd || 0) / provGross * 100) : 0;
+          return `
           <tr>
             <td style="font-weight: 700; text-transform: uppercase;">${s.provider}</td>
             <td><span class="badge badge-hit-exact">ACTIVE</span></td>
             <td>${s.total_requests}</td>
             <td>${s.total_tokens.toLocaleString()}</td>
             <td>${formatCurrency(s.total_cost_usd)}</td>
-            <td style="color: #34d399;">${formatCurrency(s.total_saved_usd)}</td>
+            <td style="color: #34d399;">${formatCurrency(s.total_saved_usd)} <span style="font-size: 11px; opacity: 0.85;">(${provEff.toFixed(1)}%)</span></td>
             <td>${s.avg_latency_ms.toFixed(1)}ms</td>
           </tr>
-        `).join('');
+        `;
+        }).join('');
       } catch (e) {}
     }
 
@@ -3630,13 +3715,17 @@
       const modelInput = document.getElementById('miner-model');
       if (!modelInput) return;
       if (prov === 'groq') {
-        modelInput.placeholder = 'qwen/qwen3.8-27b or llama-3.3-70b-versatile';
+        modelInput.placeholder = 'qwen/qwen3.8-27b or openai/gpt-oss-120b';
       } else if (prov === 'nvidianim') {
-        modelInput.placeholder = 'meta/llama-3.1-70b-instruct';
+        modelInput.placeholder = 'deepseek-ai/deepseek-v4-flash-0731 or nvidia/nemotron-3.5-lightning-30b-a3b';
+      } else if (prov === 'kilo') {
+        modelInput.placeholder = 'kilo-auto/free or deepseek/deepseek-v4-flash-0731:free';
+      } else if (prov === 'mistral') {
+        modelInput.placeholder = 'codestral-latest or ministral-8b-latest';
       } else if (prov === 'ollama') {
         modelInput.placeholder = 'qwen2.5-coder:7b';
       } else if (prov === 'openrouter') {
-        modelInput.placeholder = 'openrouter/free';
+        modelInput.placeholder = 'deepseek/deepseek-v4-flash-0731:free or openrouter/free';
       }
     }
 

@@ -314,6 +314,22 @@ func TestAdminProvidersEndpoints(t *testing.T) {
 	if recStats.Code != http.StatusOK {
 		t.Fatalf("expected 200 for provider stats, got %d", recStats.Code)
 	}
+
+	// 5. Active Models Endpoint
+	reqModels := httptest.NewRequest("GET", "/api/v1/models", nil)
+	recModels := httptest.NewRecorder()
+	r.ServeHTTP(recModels, reqModels)
+	if recModels.Code != http.StatusOK {
+		t.Fatalf("expected 200 for models, got %d", recModels.Code)
+	}
+
+	// 6. Sync Provider Models Endpoint
+	reqSync := httptest.NewRequest("POST", "/api/v1/providers/groq/sync-models", nil)
+	recSync := httptest.NewRecorder()
+	r.ServeHTTP(recSync, reqSync)
+	if recSync.Code != http.StatusOK {
+		t.Fatalf("expected 200 for sync models, got %d", recSync.Code)
+	}
 }
 
 func TestServeDashboard(t *testing.T) {

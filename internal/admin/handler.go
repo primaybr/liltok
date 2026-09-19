@@ -90,6 +90,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/providers", h.HandleUpdateProviders)
 		r.Post("/providers/test", h.HandleTestProvider)
 		r.Get("/providers/stats", h.HandleProviderStats)
+		r.Post("/providers/{name}/sync-models", h.HandleSyncProviderModels)
+		r.Get("/models", h.HandleModels)
 		r.Get("/keys", h.HandleListKeys)
 		r.Post("/keys", h.HandleCreateKey)
 		r.Delete("/keys/{id}", h.HandleRevokeKey)
@@ -137,7 +139,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.1.1-beta",
+		"version":                   "0.1.2-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -1099,7 +1101,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 	routes := []map[string]interface{}{
 		{
 			"id":          "auto-resilient",
-			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), NVIDIA NIM, and OpenRouter Free",
+			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), Kilo Gateway, Mistral AI, NVIDIA NIM, and OpenRouter Free",
 			"targets": []string{
 				"anthropic/claude-sonnet-5",
 				"groq/qwen/qwen3.8-27b",
@@ -1109,6 +1111,10 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"gemini/gemini-3.7-flash",
 				"gemini/gemini-3.6-flash",
 				"gemini/gemini-3.5-flash-lite",
+				"kilo/kilo-auto/free",
+				"kilo/deepseek/deepseek-v4-flash-0731:free",
+				"mistral/codestral-latest",
+				"mistral/ministral-8b-latest",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
 				"nvidianim/poolside/laguna-xs-2.1",
@@ -1123,7 +1129,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			"id":          "free-first",
-			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> NVIDIA NIM -> OpenRouter Free for $0.00 spend",
+			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> Kilo Gateway -> Mistral AI -> NVIDIA NIM -> OpenRouter Free for $0.00 spend",
 			"targets": []string{
 				"groq/qwen/qwen3.8-27b",
 				"groq/openai/gpt-oss-120b",
@@ -1132,6 +1138,10 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"gemini/gemini-3.7-flash",
 				"gemini/gemini-3.6-flash",
 				"gemini/gemini-3.5-flash-lite",
+				"kilo/kilo-auto/free",
+				"kilo/deepseek/deepseek-v4-flash-0731:free",
+				"mistral/codestral-latest",
+				"mistral/ministral-8b-latest",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
 				"nvidianim/poolside/laguna-xs-2.1",
@@ -1313,14 +1323,16 @@ func (h *AdminHandler) HandleRevokeKey(w http.ResponseWriter, r *http.Request) {
 
 // ProviderSummary represents public provider configuration and health details.
 type ProviderSummary struct {
-	Name                string `json:"name"`
-	DisplayName         string `json:"display_name"`
-	Tier                string `json:"tier"`
-	BaseURL             string `json:"base_url"`
-	APIKeyMasked        string `json:"api_key_masked"`
-	KeyCount            int    `json:"key_count"`
-	HasKey              bool   `json:"has_key"`
-	CircuitBreakerState string `json:"circuit_breaker_state"`
+	Name                string   `json:"name"`
+	DisplayName         string   `json:"display_name"`
+	Tier                string   `json:"tier"`
+	BaseURL             string   `json:"base_url"`
+	APIKeyMasked        string   `json:"api_key_masked"`
+	KeyCount            int      `json:"key_count"`
+	HasKey              bool     `json:"has_key"`
+	CircuitBreakerState string   `json:"circuit_breaker_state"`
+	ActiveModelsCount   int      `json:"active_models_count"`
+	ActiveModels        []string `json:"active_models,omitempty"`
 }
 
 func maskKey(k string) string {
@@ -1383,8 +1395,32 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 		return "CLOSED"
 	}
 
+	getActiveModels := func(name string) []string {
+		if h.router != nil {
+			models := h.router.GetProviderActiveModels(name)
+			var ids []string
+			for _, m := range models {
+				if m.Active {
+					ids = append(ids, m.ID)
+				}
+			}
+			return ids
+		}
+		return nil
+	}
+
 	if h.cfg != nil {
 		p := h.cfg.Providers
+		groqModels := getActiveModels("groq")
+		geminiModels := getActiveModels("gemini")
+		nimModels := getActiveModels("nvidianim")
+		anthropicModels := getActiveModels("anthropic")
+		openaiModels := getActiveModels("openai")
+		openrouterModels := getActiveModels("openrouter")
+		kiloModels := getActiveModels("kilo")
+		mistralModels := getActiveModels("mistral")
+		ollamaModels := getActiveModels("ollama")
+
 		providers = []ProviderSummary{
 			{
 				Name:                "groq",
@@ -1395,6 +1431,8 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.Groq.APIKey),
 				HasKey:              strings.TrimSpace(p.Groq.APIKey) != "",
 				CircuitBreakerState: getBreakerState("groq"),
+				ActiveModelsCount:   len(groqModels),
+				ActiveModels:        groqModels,
 			},
 			{
 				Name:                "gemini",
@@ -1405,6 +1443,8 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.Gemini.APIKey),
 				HasKey:              strings.TrimSpace(p.Gemini.APIKey) != "",
 				CircuitBreakerState: getBreakerState("gemini"),
+				ActiveModelsCount:   len(geminiModels),
+				ActiveModels:        geminiModels,
 			},
 			{
 				Name:                "nvidianim",
@@ -1415,6 +1455,8 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.NVIDIANIM.APIKey),
 				HasKey:              strings.TrimSpace(p.NVIDIANIM.APIKey) != "",
 				CircuitBreakerState: getBreakerState("nvidianim"),
+				ActiveModelsCount:   len(nimModels),
+				ActiveModels:        nimModels,
 			},
 			{
 				Name:                "anthropic",
@@ -1425,6 +1467,8 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.Anthropic.APIKey),
 				HasKey:              strings.TrimSpace(p.Anthropic.APIKey) != "",
 				CircuitBreakerState: getBreakerState("anthropic"),
+				ActiveModelsCount:   len(anthropicModels),
+				ActiveModels:        anthropicModels,
 			},
 			{
 				Name:                "openai",
@@ -1435,6 +1479,8 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.OpenAI.APIKey),
 				HasKey:              strings.TrimSpace(p.OpenAI.APIKey) != "",
 				CircuitBreakerState: getBreakerState("openai"),
+				ActiveModelsCount:   len(openaiModels),
+				ActiveModels:        openaiModels,
 			},
 			{
 				Name:                "openrouter",
@@ -1445,6 +1491,32 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				KeyCount:            countKeys(p.OpenRouter.APIKey),
 				HasKey:              strings.TrimSpace(p.OpenRouter.APIKey) != "",
 				CircuitBreakerState: getBreakerState("openrouter"),
+				ActiveModelsCount:   len(openrouterModels),
+				ActiveModels:        openrouterModels,
+			},
+			{
+				Name:                "kilo",
+				DisplayName:         "Kilo Gateway (Free Tier)",
+				Tier:                "free",
+				BaseURL:             p.Kilo.BaseURL,
+				APIKeyMasked:        maskKey(p.Kilo.APIKey),
+				KeyCount:            countKeys(p.Kilo.APIKey),
+				HasKey:              true,
+				CircuitBreakerState: getBreakerState("kilo"),
+				ActiveModelsCount:   len(kiloModels),
+				ActiveModels:        kiloModels,
+			},
+			{
+				Name:                "mistral",
+				DisplayName:         "Mistral AI",
+				Tier:                "free",
+				BaseURL:             p.Mistral.BaseURL,
+				APIKeyMasked:        maskKey(p.Mistral.APIKey),
+				KeyCount:            countKeys(p.Mistral.APIKey),
+				HasKey:              strings.TrimSpace(p.Mistral.APIKey) != "",
+				CircuitBreakerState: getBreakerState("mistral"),
+				ActiveModelsCount:   len(mistralModels),
+				ActiveModels:        mistralModels,
 			},
 			{
 				Name:                "ollama",
@@ -1453,8 +1525,10 @@ func (h *AdminHandler) HandleListProviders(w http.ResponseWriter, r *http.Reques
 				BaseURL:             p.Ollama.BaseURL,
 				APIKeyMasked:        "",
 				KeyCount:            0,
-				HasKey:              true,
+				HasKey:              strings.TrimSpace(p.Ollama.BaseURL) != "" && strings.TrimSpace(p.Ollama.BaseURL) != "disabled",
 				CircuitBreakerState: getBreakerState("ollama"),
+				ActiveModelsCount:   len(ollamaModels),
+				ActiveModels:        ollamaModels,
 			},
 		}
 	}
@@ -1499,6 +1573,10 @@ func (h *AdminHandler) HandleUpdateProviders(w http.ResponseWriter, r *http.Requ
 			creds = &h.cfg.Providers.Gemini
 		case "openrouter":
 			creds = &h.cfg.Providers.OpenRouter
+		case "kilo":
+			creds = &h.cfg.Providers.Kilo
+		case "mistral":
+			creds = &h.cfg.Providers.Mistral
 		case "ollama":
 			creds = &h.cfg.Providers.Ollama
 		}
@@ -1599,6 +1677,49 @@ func (h *AdminHandler) HandleProviderStats(w http.ResponseWriter, r *http.Reques
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"stats": stats,
+	})
+}
+
+// HandleModels returns all active models discovered across providers.
+func (h *AdminHandler) HandleModels(w http.ResponseWriter, r *http.Request) {
+	if h.router != nil {
+		models := h.router.GetAllActiveModels(r.Context())
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"models": models,
+			"total":  len(models),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"models": []interface{}{},
+		"total":  0,
+	})
+}
+
+// HandleSyncProviderModels triggers live discovery and synchronization of active models for a provider.
+func (h *AdminHandler) HandleSyncProviderModels(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	if name == "" {
+		writeError(w, http.StatusBadRequest, "Provider name is required")
+		return
+	}
+
+	if h.router == nil {
+		writeError(w, http.StatusInternalServerError, "Router unavailable")
+		return
+	}
+
+	models, err := h.router.SyncProviderModels(r.Context(), name)
+	if err != nil && len(models) == 0 {
+		writeError(w, http.StatusBadGateway, fmt.Sprintf("Failed to sync models for %s: %v", name, err))
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"provider":      name,
+		"active_models": models,
+		"total":         len(models),
+		"status":        "synced",
 	})
 }
 

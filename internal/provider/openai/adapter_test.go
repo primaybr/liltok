@@ -155,3 +155,420 @@ func TestAnthropicToolConversion(t *testing.T) {
 		t.Errorf("expected finish reason tool_calls, got %s", resp.FinishReason)
 	}
 }
+
+func TestOpenAIAdapterListModelsGroq(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"object": "list",
+			"data": [
+				{
+					"id": "openai/gpt-oss-120b",
+					"object": "model",
+					"active": true,
+					"context_window": 131072,
+					"owned_by": "openai"
+				},
+				{
+					"id": "qwen/qwen3.8-27b",
+					"object": "model",
+					"active": true,
+					"context_window": 131042,
+					"owned_by": "qwen"
+				},
+				{
+					"id": "llama-3.3-70b-versatile",
+					"object": "model",
+					"active": false,
+					"context_window": 131072,
+					"owned_by": "meta"
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter("groq", provider.TierFree, mockServer.URL, "gsk_test_key")
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 2 {
+		t.Fatalf("expected 2 active models (1 inactive filtered out), got %d", len(models))
+	}
+
+	for _, m := range models {
+		if m.ID == "llama-3.3-70b-versatile" {
+			t.Errorf("inactive model llama-3.3-70b-versatile was not filtered out")
+		}
+		if !m.Active {
+			t.Errorf("expected model %s to be active", m.ID)
+		}
+	}
+}
+
+func TestOpenAIAdapterListModelsNVIDIANIM(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"object": "list",
+			"data": [
+				{
+					"id": "deepseek-ai/deepseek-v4-flash-0731",
+					"object": "model",
+					"owned_by": "deepseek-ai"
+				},
+				{
+					"id": "google/gemma-4-31b-it",
+					"object": "model",
+					"owned_by": "google"
+				},
+				{
+					"id": "nvidia/embed-qa-4",
+					"object": "model",
+					"owned_by": "nvidia"
+				},
+				{
+					"id": "meta/llama-3.1-70b-instruct",
+					"object": "model",
+					"owned_by": "meta"
+				},
+				{
+					"id": "nvidia/ai-synthetic-video-detector",
+					"object": "model",
+					"owned_by": "nvidia"
+				},
+				{
+					"id": "nvidia/nemotron-3.5-lightning-30b-a3b",
+					"object": "model",
+					"owned_by": "nvidia"
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter("nvidianim", provider.TierFree, mockServer.URL, "nvapi-test-key")
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 3 {
+		t.Fatalf("expected 3 valid chat/reasoning models, got %d", len(models))
+	}
+
+	expected := map[string]int{
+		"deepseek-ai/deepseek-v4-flash-0731":  131072,
+		"google/gemma-4-31b-it":               131072,
+		"nvidia/nemotron-3.5-lightning-30b-a3b": 131072,
+	}
+
+	for _, m := range models {
+		expectedCtx, exists := expected[m.ID]
+		if !exists {
+			t.Errorf("unexpected model kept: %s", m.ID)
+		}
+		if m.ContextWindow != expectedCtx {
+			t.Errorf("expected context window %d for %s, got %d", expectedCtx, m.ID, m.ContextWindow)
+		}
+		if !m.Active {
+			t.Errorf("expected model %s to be active", m.ID)
+		}
+	}
+}
+
+func TestOpenAIAdapterListModelsOpenRouter(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{
+			"data": [
+				{
+					"id": "deepseek/deepseek-v4-flash-0731:free",
+					"context_length": 163840,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "openrouter/free",
+					"context_length": 200000,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "openai/gpt-4o",
+					"context_length": 128000,
+					"pricing": {
+						"prompt": "0.0000025",
+						"completion": "0.00001"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "google/lyria-3-pro-preview",
+					"context_length": 32768,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->audio",
+						"output_modalities": ["text", "audio"]
+					}
+				},
+				{
+					"id": "meta-llama/llama-guard-3-8b",
+					"context_length": 8192,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter("openrouter", provider.TierFree, mockServer.URL, "sk-or-test-key")
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 2 {
+		t.Fatalf("expected 2 free chat/reasoning models, got %d", len(models))
+	}
+
+	expected := map[string]int{
+		"deepseek/deepseek-v4-flash-0731:free": 163840,
+		"openrouter/free":                      200000,
+	}
+
+	for _, m := range models {
+		expectedCtx, exists := expected[m.ID]
+		if !exists {
+			t.Errorf("unexpected model kept: %s", m.ID)
+		}
+		if m.ContextWindow != expectedCtx {
+			t.Errorf("expected context window %d for %s, got %d", expectedCtx, m.ID, m.ContextWindow)
+		}
+		if !m.Active {
+			t.Errorf("expected model %s to be active", m.ID)
+		}
+		if m.Provider != "openrouter" {
+			t.Errorf("expected provider openrouter, got %s", m.Provider)
+		}
+	}
+}
+
+func TestOpenAIAdapterListModelsKilo(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": [
+				{
+					"id": "kilo-auto/free",
+					"context_length": 262144,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "deepseek/deepseek-v4-flash-0731:free",
+					"context_length": 163840,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "openai/gpt-4o",
+					"context_length": 128000,
+					"pricing": {
+						"prompt": "0.000005",
+						"completion": "0.000015"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				},
+				{
+					"id": "google/lyria:free",
+					"context_length": 4096,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->audio",
+						"output_modalities": ["text", "audio"]
+					}
+				},
+				{
+					"id": "meta-llama/llama-guard-3-8b:free",
+					"context_length": 8192,
+					"pricing": {
+						"prompt": "0",
+						"completion": "0"
+					},
+					"architecture": {
+						"modality": "text->text",
+						"output_modalities": ["text"]
+					}
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewKiloAdapter("", mockServer.URL)
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 2 {
+		t.Fatalf("expected 2 free chat/reasoning models for Kilo, got %d", len(models))
+	}
+
+	expected := map[string]int{
+		"kilo-auto/free":                       262144,
+		"deepseek/deepseek-v4-flash-0731:free": 163840,
+	}
+
+	for _, m := range models {
+		expectedCtx, exists := expected[m.ID]
+		if !exists {
+			t.Errorf("unexpected model kept: %s", m.ID)
+		}
+		if m.ContextWindow != expectedCtx {
+			t.Errorf("expected context window %d for %s, got %d", expectedCtx, m.ID, m.ContextWindow)
+		}
+		if !m.Active {
+			t.Errorf("expected model %s to be active", m.ID)
+		}
+		if m.Provider != "kilo" {
+			t.Errorf("expected provider kilo, got %s", m.Provider)
+		}
+	}
+}
+
+func TestOpenAIAdapterListModelsMistral(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{
+			"data": [
+				{
+					"id": "codestral-latest",
+					"max_context_length": 256000,
+					"capabilities": {
+						"completion_chat": true,
+						"completion_fim": true
+					}
+				},
+				{
+					"id": "ministral-8b-latest",
+					"max_context_length": 262144,
+					"capabilities": {
+						"completion_chat": true
+					}
+				},
+				{
+					"id": "mistral-small-latest",
+					"max_context_length": 128000,
+					"capabilities": {
+						"completion_chat": true
+					}
+				},
+				{
+					"id": "mistral-embed",
+					"max_context_length": 8192,
+					"capabilities": {
+						"completion_chat": false
+					}
+				},
+				{
+					"id": "mistral-ocr-latest",
+					"max_context_length": 32768,
+					"capabilities": {
+						"completion_chat": false
+					}
+				}
+			]
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewMistralAdapter("test-mistral-key", mockServer.URL)
+	models, err := adapter.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels failed: %v", err)
+	}
+
+	if len(models) != 2 {
+		t.Fatalf("expected 2 working free chat models for Mistral, got %d", len(models))
+	}
+
+	expected := map[string]int{
+		"codestral-latest":    256000,
+		"ministral-8b-latest": 262144,
+	}
+
+	for _, m := range models {
+		expectedCtx, exists := expected[m.ID]
+		if !exists {
+			t.Errorf("unexpected model kept: %s", m.ID)
+		}
+		if m.ContextWindow != expectedCtx {
+			t.Errorf("expected context window %d for %s, got %d", expectedCtx, m.ID, m.ContextWindow)
+		}
+		if !m.Active {
+			t.Errorf("expected model %s to be active", m.ID)
+		}
+		if m.Provider != "mistral" {
+			t.Errorf("expected provider mistral, got %s", m.Provider)
+		}
+	}
+}

@@ -50,6 +50,12 @@ func DefaultConfig() *Config {
 			Ollama: ProviderCreds{
 				BaseURL: "http://localhost:11434",
 			},
+			Kilo: ProviderCreds{
+				BaseURL: "https://api.kilo.ai/api/gateway",
+			},
+			Mistral: ProviderCreds{
+				BaseURL: "https://api.mistral.ai/v1",
+			},
 		},
 		Routes: RouteConfig{
 			DefaultStrategy: "auto-resilient",

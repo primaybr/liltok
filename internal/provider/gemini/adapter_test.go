@@ -104,6 +104,61 @@ func TestGeminiMultiKeyFailover(t *testing.T) {
 	}
 }
 
+func TestGeminiMultiKey401Failover(t *testing.T) {
+	key1Hit := false
+	key2Hit := false
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		k := r.URL.Query().Get("key")
+		if k == "disabled-key" {
+			key1Hit = true
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{
+				"error": {
+					"code": 401,
+					"message": "The bound service account is deleted or disabled.",
+					"status": "UNAUTHENTICATED",
+					"details": [{"reason": "ACCOUNT_STATE_INVALID"}]
+				}
+			}`))
+			return
+		}
+		if k == "healthy-key" {
+			key2Hit = true
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{
+				"candidates": [{
+					"content": {"parts": [{"text": "recovered on healthy-key"}], "role": "model"},
+					"finishReason": "STOP"
+				}],
+				"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}
+			}`))
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter(mockServer.URL, "disabled-key, healthy-key")
+	req := &provider.UnifiedChatRequest{
+		Model: "gemini-1.5-flash",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "test 401 failover"},
+		},
+	}
+
+	resp, err := adapter.SendChat(context.Background(), req)
+	if err != nil {
+		t.Fatalf("expected 401 failover to succeed, got error: %v", err)
+	}
+	if resp.Content != "recovered on healthy-key" {
+		t.Errorf("expected 'recovered on healthy-key', got: %q", resp.Content)
+	}
+	if !key1Hit || !key2Hit {
+		t.Errorf("expected both disabled-key and healthy-key to be hit, key1=%v, key2=%v", key1Hit, key2Hit)
+	}
+}
+
 func TestGeminiCheckHealth(t *testing.T) {
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1beta/models" && r.URL.Query().Get("key") == "valid-key" {
@@ -132,6 +187,12 @@ func TestGeminiCheckHealth(t *testing.T) {
 	a2 := NewAdapter(mockServer.URL, "invalid-key")
 	if ok, err := a2.CheckHealth(context.Background()); ok || err == nil {
 		t.Errorf("expected invalid key to fail health check")
+	}
+
+	// 4. Mixed invalid and valid keys
+	a3 := NewAdapter(mockServer.URL, "invalid-key, valid-key")
+	if ok, err := a3.CheckHealth(context.Background()); !ok || err != nil {
+		t.Errorf("expected mixed keys with at least one valid key to pass health check: %v", err)
 	}
 }
 

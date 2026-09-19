@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	version = "0.1.1-beta"
+	version = "0.1.2-beta"
 	commit  = "none"
 	date    = "unknown"
 
@@ -117,6 +117,7 @@ and resilient routing.`,
 			// Instantiate and start HTTP Gateway Server
 			srv := server.NewServer(server.ServerConfig{
 				Config:        cfg,
+				ConfigPath:    cfgPath,
 				CacheStore:    cacheStore,
 				SemanticCache: semCache,
 				Router:        rtr,
@@ -266,18 +267,12 @@ routes:
 
 // resolveConfigPath finds the active configuration file:
 // 1. Explicit path passed by flag (--config / -c)
-// 2. Current working directory: ./liltok.yaml
-// 3. Configs directory: ./configs/liltok.yaml
-// 4. User home directory: ~/.liltok/liltok.yaml
+// 2. User home directory: ~/.liltok/liltok.yaml
+// 3. Current working directory: ./liltok.yaml
+// 4. Configs directory: ./configs/liltok.yaml
 func resolveConfigPath(explicit string) string {
 	if explicit != "" {
 		return explicit
-	}
-	if _, err := os.Stat("liltok.yaml"); err == nil {
-		return "liltok.yaml"
-	}
-	if _, err := os.Stat(filepath.Join("configs", "liltok.yaml")); err == nil {
-		return filepath.Join("configs", "liltok.yaml")
 	}
 	home, err := os.UserHomeDir()
 	if err == nil {
@@ -285,6 +280,12 @@ func resolveConfigPath(explicit string) string {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
+	}
+	if _, err := os.Stat("liltok.yaml"); err == nil {
+		return "liltok.yaml"
+	}
+	if _, err := os.Stat(filepath.Join("configs", "liltok.yaml")); err == nil {
+		return filepath.Join("configs", "liltok.yaml")
 	}
 	return ""
 }

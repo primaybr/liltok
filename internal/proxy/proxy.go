@@ -105,8 +105,51 @@ func (p *Proxy) HandleEmbeddings(w http.ResponseWriter, r *http.Request) {
 	p.proxyToTarget(w, r, "openai", "/v1/embeddings")
 }
 
-// HandleModels proxies OpenAI /v1/models requests.
+// HandleModels returns active models across providers in OpenAI-compatible format.
 func (p *Proxy) HandleModels(w http.ResponseWriter, r *http.Request) {
+	if p.router != nil {
+		models := p.router.GetAllActiveModels(r.Context())
+		if len(models) > 0 {
+			type modelEntry struct {
+				ID         string        `json:"id"`
+				Object     string        `json:"object"`
+				Created    int64         `json:"created"`
+				OwnedBy    string        `json:"owned_by"`
+				Permission []interface{} `json:"permission"`
+				Root       string        `json:"root"`
+				Parent     interface{}   `json:"parent"`
+			}
+			type modelListResponse struct {
+				Object string       `json:"object"`
+				Data   []modelEntry `json:"data"`
+			}
+
+			resp := modelListResponse{
+				Object: "list",
+				Data:   make([]modelEntry, 0, len(models)),
+			}
+			now := time.Now().Unix()
+			for _, m := range models {
+				if !m.Active {
+					continue
+				}
+				resp.Data = append(resp.Data, modelEntry{
+					ID:         m.ID,
+					Object:     "model",
+					Created:    now,
+					OwnedBy:    m.Provider,
+					Permission: []interface{}{},
+					Root:       m.ID,
+					Parent:     nil,
+				})
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_ = json.NewEncoder(w).Encode(resp)
+			return
+		}
+	}
 	p.proxyToTarget(w, r, "openai", "/v1/models")
 }
 
@@ -327,11 +370,8 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 	// 4. Cache MISS: Router Fallback Dispatching (streaming & non-streaming)
 	routeAlias := r.Header.Get("X-Liltok-Route")
-	if routeAlias == "" && p.router != nil {
-		routeAlias = p.router.DefaultStrategy()
-	}
 	hasClientAuth := authKey != "" && !isVirtual
-	shouldRoute := routeAlias != "" || !hasClientAuth
+	shouldRoute := routeAlias != "" || !hasClientAuth || (p.router != nil && p.router.DefaultStrategy() != "")
 
 	if p.router != nil && len(bodyBytes) > 0 && shouldRoute {
 		unifiedReq, err := provider.ParseUnifiedRequest(bodyBytes, targetProvider == "anthropic")
