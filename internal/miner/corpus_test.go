@@ -48,6 +48,16 @@ func TestGetCuratedPrompts(t *testing.T) {
 			t.Errorf("expected category security, got %s", p.Category)
 		}
 	}
+
+	phpOnly := miner.GetCuratedPrompts("php")
+	if len(phpOnly) != 12 {
+		t.Errorf("expected 12 curated PHP prompts, got %d", len(phpOnly))
+	}
+	for _, p := range phpOnly {
+		if p.Category != "errors" {
+			t.Errorf("expected category errors for PHP diagnostics, got %s", p.Category)
+		}
+	}
 }
 
 func TestLoadPromptsFromFile(t *testing.T) {
