@@ -966,3 +966,368 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 }
 
+func TestRouterGetModelContextWindow(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	tests := []struct {
+		provider string
+		model    string
+		expected int
+	}{
+		{"gemini", "gemini-3.8-flash", 1048576},
+		{"openrouter", "deepseek/deepseek-v4-flash-0731:free", 1048576},
+		{"openrouter", "nvidia/nemotron-3.5-lightning:free", 1000000},
+		{"openrouter", "dots-studio/dots-3-note-preview:free", 512000},
+		{"openrouter", "google/gemma-4-31b-it:free", 262144},
+		{"openrouter", "qwen/qwen3.8-27b:free", 262144},
+		{"openrouter", "cohere/north-mini-code:free", 256000},
+		{"kilo", "kilo-auto/free", 256000},
+		{"kilo", "deepseek/deepseek-v4-flash-0731:free", 1048576},
+		{"mistral", "codestral-latest", 256000},
+		{"mistral", "ministral-8b-latest", 262144},
+		{"cline", "deepseek/deepseek-v4-flash-0731:free", 1048576},
+		{"groq", "openai/gpt-oss-120b", 131072},
+		{"groq", "qwen/qwen3.8-27b", 131042},
+		{"anthropic", "claude-sonnet-5", 200000},
+		{"openai", "gpt-4o", 128000},
+	}
+
+	for _, tc := range tests {
+		cw := r.GetModelContextWindow(tc.provider, tc.model)
+		if cw != tc.expected {
+			t.Errorf("[%s/%s] expected context window %d, got %d", tc.provider, tc.model, tc.expected, cw)
+		}
+	}
+}
+
+func TestRouterHighContext256KFreePrioritization(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	mockGemini := &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-resp",
+			Content: "gemini 1M handled",
+		},
+	}
+	mockAnthropic := &mockProvider{
+		name: "anthropic",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "anthropic-resp",
+			Content: "anthropic paid handled",
+		},
+	}
+	mockOpenRouter := &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "openrouter-resp",
+			Content: "openrouter free handled",
+		},
+	}
+
+	r.SetProvider("gemini", mockGemini)
+	r.SetProvider("anthropic", mockAnthropic)
+	r.SetProvider("openrouter", mockOpenRouter)
+
+	// Simulate a 200,000 token prompt (800,000 bytes) within Gemini Free Tier TPM limit (250K)
+	largePayload := make([]byte, 800000)
+	req := &provider.UnifiedChatRequest{
+		Model:      "claude-sonnet-5",
+		RawPayload: largePayload,
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "200k prompt"},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	// Free Gemini 1M tier must win over Anthropic for 200K prompt
+	if winProv != "gemini" {
+		t.Errorf("expected winning provider gemini for 200K prompt, got %s", winProv)
+	}
+	if resp.Content != "gemini 1M handled" {
+		t.Errorf("unexpected response content: %s", resp.Content)
+	}
+	if mockAnthropic.failCount > 0 {
+		t.Errorf("anthropic was called unexpectedly for 200K prompt")
+	}
+}
+
+func TestRouterHighContextPromptExceedingGeminiTPM(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	mockGemini := &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-resp",
+			Content: "gemini should be bypassed",
+		},
+	}
+	mockOpenRouter := &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "openrouter-resp",
+			Content: "openrouter 1M handled",
+		},
+	}
+
+	r.SetProvider("gemini", mockGemini)
+	r.SetProvider("openrouter", mockOpenRouter)
+
+	// Simulate a 500,000 token prompt (2,000,000 bytes) exceeding Gemini Free Tier TPM limit (250K)
+	hugePayload := make([]byte, 2000000)
+	req := &provider.UnifiedChatRequest{
+		Model:      "claude-sonnet-5",
+		RawPayload: hugePayload,
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "500k prompt"},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	// Gemini must be bypassed because prompt > 250K TPM, routing to OpenRouter 1M
+	if winProv != "openrouter" {
+		t.Errorf("expected winning provider openrouter for 500K prompt exceeding Gemini TPM, got %s", winProv)
+	}
+	if resp.Content != "openrouter 1M handled" {
+		t.Errorf("unexpected response content: %s", resp.Content)
+	}
+}
+
+func TestRouterHighContextFailoverAcrossFreeProviders(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	// Gemini fails (e.g. rate-limited 429)
+	mockGemini := &mockProvider{
+		name: "gemini",
+		fail: true,
+	}
+	// OpenRouter succeeds with 1M model
+	mockOpenRouter := &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "openrouter-1m",
+			Content: "openrouter 1m free handled",
+		},
+	}
+	mockAnthropic := &mockProvider{
+		name: "anthropic",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "anthropic-paid",
+			Content: "anthropic paid",
+		},
+	}
+
+	r.SetProvider("gemini", mockGemini)
+	r.SetProvider("openrouter", mockOpenRouter)
+	r.SetProvider("anthropic", mockAnthropic)
+
+	// 256,000 token prompt
+	largePayload := make([]byte, 1024000)
+	req := &provider.UnifiedChatRequest{
+		Model:      "claude-sonnet-5",
+		RawPayload: largePayload,
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "256k prompt with failover"},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	// OpenRouter 1M should succeed on Gemini failover without hitting Anthropic
+	if winProv != "openrouter" {
+		t.Errorf("expected openrouter to win on Gemini failover, got %s", winProv)
+	}
+	if resp.Content != "openrouter 1m free handled" {
+		t.Errorf("unexpected content: %s", resp.Content)
+	}
+	if mockAnthropic.failCount > 0 {
+		t.Errorf("anthropic was called unexpectedly when openrouter 1M free was available")
+	}
+}
+
+func TestRouterEmptyResponseTriggersFailover(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	// First provider returns HTTP 200 with empty text and no tool calls
+	mockSilentFail := &mockProvider{
+		name: "groq",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "groq-empty",
+			Content: "",
+		},
+	}
+	// Second provider returns valid text
+	mockSuccess := &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-valid",
+			Content: "hello from gemini",
+		},
+	}
+
+	r.SetProvider("groq", mockSilentFail)
+	r.SetProvider("gemini", mockSuccess)
+
+	req := &provider.UnifiedChatRequest{
+		Model: "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "hello"},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	if winProv != "gemini" {
+		t.Errorf("expected failover to gemini when groq returns empty content, got %s", winProv)
+	}
+	if resp.Content != "hello from gemini" {
+		t.Errorf("unexpected content: %s", resp.Content)
+	}
+}
+
+func TestTranslatorOpenAIToAnthropic_DSMLToolCall(t *testing.T) {
+	tr := NewTranslator()
+	dsmlContent := `I will check the repo status.
+<｜DSML｜tool_calls>
+<｜DSML｜invoke name="Bash">
+<｜DSML｜parameter name="command" string="true">git status</｜DSML｜parameter>
+<｜DSML｜parameter name="description" string="true">Check repo status</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`
+
+	oaiResp := &provider.UnifiedChatResponse{
+		ID:           "test-dsml-call",
+		Content:      dsmlContent,
+		FinishReason: "stop",
+		Usage: provider.UnifiedUsage{
+			PromptTokens:     500,
+			CompletionTokens: 40,
+		},
+	}
+
+	anthJSON, err := tr.ConvertOpenAIToAnthropicResponse(oaiResp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("conversion failed: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(anthJSON, &parsed); err != nil {
+		t.Fatalf("invalid json generated: %v", err)
+	}
+
+	if parsed["stop_reason"] != "tool_use" {
+		t.Errorf("expected stop_reason tool_use, got %v", parsed["stop_reason"])
+	}
+
+	contentArr, ok := parsed["content"].([]interface{})
+	if !ok || len(contentArr) != 2 {
+		t.Fatalf("expected 2 content blocks (text + tool_use), got %v", contentArr)
+	}
+
+	textBlock := contentArr[0].(map[string]interface{})
+	if textBlock["text"] != "I will check the repo status." {
+		t.Errorf("unexpected text content: %v", textBlock["text"])
+	}
+
+	toolBlock := contentArr[1].(map[string]interface{})
+	if toolBlock["type"] != "tool_use" || toolBlock["name"] != "Bash" {
+		t.Errorf("expected tool_use for Bash, got %v", toolBlock)
+	}
+	inputMap, ok := toolBlock["input"].(map[string]interface{})
+	if !ok || inputMap["command"] != "git status" || inputMap["description"] != "Check repo status" {
+		t.Errorf("expected command and description in tool input, got %v", inputMap)
+	}
+}
+
+func TestTranslatorOpenAIToAnthropic_OrphanDSMLStripping(t *testing.T) {
+	rawOrphan := ` <｜DSML｜parameter name="description" string="true">Check repo location, recent commits, branch, and status</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`
+
+	cleanText, toolCalls := ExtractTextToolCalls(rawOrphan)
+	if cleanText != "" {
+		t.Errorf("expected cleanText to be empty after stripping orphan DSML, got %q", cleanText)
+	}
+	if len(toolCalls) != 0 {
+		t.Errorf("expected 0 tool calls from orphan DSML markup, got %d", len(toolCalls))
+	}
+}
+
+func TestRouter_DSMLOrphanFailover(t *testing.T) {
+	cfg := config.DefaultConfig()
+	r := NewRouter(cfg)
+
+	rawOrphan := ` <｜DSML｜parameter name="description" string="true">Check repo location, recent commits, branch, and status</｜DSML｜parameter>
+</｜DSML｜invoke>
+</｜DSML｜tool_calls>`
+
+	// First provider returns orphan DSML
+	mockDSMLFail := &mockProvider{
+		name: "openrouter",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "or-dsml-fail",
+			Content: rawOrphan,
+		},
+	}
+	// Second provider returns valid response
+	mockValid := &mockProvider{
+		name: "gemini",
+		fail: false,
+		response: &provider.UnifiedChatResponse{
+			ID:      "gemini-recovered",
+			Content: "Recovered successfully from DSML corruption",
+		},
+	}
+
+	r.SetProvider("openrouter", mockDSMLFail)
+	r.SetProvider("gemini", mockValid)
+
+	req := &provider.UnifiedChatRequest{
+		Model: "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "status report"},
+		},
+	}
+
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+
+	if winProv != "gemini" {
+		t.Errorf("expected failover to gemini, got %s", winProv)
+	}
+	if resp.Content != "Recovered successfully from DSML corruption" {
+		t.Errorf("unexpected content: %s", resp.Content)
+	}
+}
+

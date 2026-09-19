@@ -574,9 +574,13 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		Choices []struct {
 			Index   int `json:"index"`
 			Message struct {
-				Role      string `json:"role"`
-				Content   string `json:"content"`
-				ToolCalls []struct {
+				Role             string `json:"role"`
+				Content          string `json:"content"`
+				ReasoningContent string `json:"reasoning_content"`
+				Reasoning        string `json:"reasoning"`
+				Thought          string `json:"thought"`
+				Refusal          string `json:"refusal"`
+				ToolCalls        []struct {
 					ID       string `json:"id"`
 					Type     string `json:"type"`
 					Function struct {
@@ -598,9 +602,13 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			Choices []struct {
 				Index   int `json:"index"`
 				Message struct {
-					Role      string `json:"role"`
-					Content   string `json:"content"`
-					ToolCalls []struct {
+					Role             string `json:"role"`
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
+					Reasoning        string `json:"reasoning"`
+					Thought          string `json:"thought"`
+					Refusal          string `json:"refusal"`
+					ToolCalls        []struct {
 						ID       string `json:"id"`
 						Type     string `json:"type"`
 						Function struct {
@@ -659,6 +667,17 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	if len(oaiResp.Choices) > 0 {
 		c := oaiResp.Choices[0]
 		content = c.Message.Content
+		if strings.TrimSpace(content) == "" {
+			if c.Message.ReasoningContent != "" {
+				content = c.Message.ReasoningContent
+			} else if c.Message.Reasoning != "" {
+				content = c.Message.Reasoning
+			} else if c.Message.Thought != "" {
+				content = c.Message.Thought
+			} else if c.Message.Refusal != "" {
+				content = c.Message.Refusal
+			}
+		}
 		role = c.Message.Role
 		finishReason = c.FinishReason
 		for _, tc := range c.Message.ToolCalls {
@@ -840,11 +859,56 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 			"content": req.SystemPrompt,
 		})
 	}
-	for _, m := range req.Messages {
-		messages = append(messages, map[string]interface{}{
-			"role":    m.Role,
-			"content": m.Content,
-		})
+	for i, m := range req.Messages {
+		role := m.Role
+
+		// Normalize system messages:
+		// 1. If identical to top-level system prompt at message index 0, skip to avoid duplicate.
+		// 2. If trailing or mid-conversation system message (e.g. Claude Code environment update),
+		//    convert to role "user" with [System Reminder] prefix to comply with OpenAI/DeepSeek chat templates.
+		if role == "system" {
+			if i == 0 && req.SystemPrompt == m.Content {
+				continue
+			}
+			if len(messages) == 0 {
+				role = "system"
+			} else {
+				role = "user"
+			}
+		}
+
+		msg := map[string]interface{}{
+			"role": role,
+		}
+		if m.Role == "system" && role == "user" {
+			msg["content"] = "[System Reminder]\n" + m.Content
+		} else if m.Role == "assistant" && len(m.ToolCalls) > 0 {
+			var tcList []map[string]interface{}
+			for _, tc := range m.ToolCalls {
+				tcList = append(tcList, map[string]interface{}{
+					"id":   tc.ID,
+					"type": "function",
+					"function": map[string]interface{}{
+						"name":      tc.Function.Name,
+						"arguments": tc.Function.Arguments,
+					},
+				})
+			}
+			msg["tool_calls"] = tcList
+			if m.Content != "" {
+				msg["content"] = m.Content
+			} else {
+				msg["content"] = nil
+			}
+		} else if m.Role == "tool" {
+			msg["content"] = m.Content
+			if m.ToolCallID != "" {
+				msg["tool_call_id"] = m.ToolCallID
+			}
+		} else {
+			msg["content"] = m.Content
+		}
+		messages = append(messages, msg)
 	}
 
 	payload := map[string]interface{}{

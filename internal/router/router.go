@@ -525,13 +525,16 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 			{ProviderName: "openrouter", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "openrouter", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "openrouter", UpstreamModel: "google/gemma-4-31b-it:free"},
 			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
 			{ProviderName: "mistral", UpstreamModel: "codestral-latest"},
 			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "kilo", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "cline", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "cline", UpstreamModel: "qwen/qwen3.8-27b:free"},
 		},
 	}
@@ -559,13 +562,16 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "nvidianim", UpstreamModel: "openai/gpt-oss-20b"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3-ultra-550b-a55b"},
 			{ProviderName: "openrouter", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "openrouter", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "openrouter", UpstreamModel: "google/gemma-4-31b-it:free"},
 			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
 			{ProviderName: "mistral", UpstreamModel: "codestral-latest"},
 			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "kilo", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "cline", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
+			{ProviderName: "cline", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "cline", UpstreamModel: "qwen/qwen3.8-27b:free"},
 		},
 	}
@@ -959,20 +965,53 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	// Filter and prioritize targets based on token context requirements
 	var candidateTargets []TargetSpec
 	if approxTokens > 25000 {
-		// Prompts > 25k tokens: prioritize 1M-context Gemini models first
+		// 1. High-Context Tier 1 (1M Context Windows): Gemini (if prompt fits free TPM limit), OpenRouter 1M, Kilo 1M, Cline 1M
 		for _, t := range targets {
-			if t.ProviderName == "gemini" {
-				candidateTargets = append(candidateTargets, t)
-			}
-		}
-		// If prompt fits within 120k tokens, include Groq/NVIDIA as secondary fallback
-		if approxTokens <= 120000 {
-			for _, t := range targets {
-				if t.ProviderName != "gemini" && t.ProviderName != "anthropic" {
+			if t.ProviderName != "anthropic" && t.ProviderName != "openai" {
+				// Google Gemini Free Tier strictly limits input tokens to 250,000 per minute.
+				// Prompts exceeding 250,000 tokens will immediately return 429 RESOURCE_EXHAUSTED.
+				if t.ProviderName == "gemini" && approxTokens > 250000 {
+					continue
+				}
+				ctxWin := r.GetModelContextWindow(t.ProviderName, t.UpstreamModel)
+				if ctxWin >= 1000000 {
 					candidateTargets = append(candidateTargets, t)
 				}
 			}
 		}
+
+		// 2. High-Context Tier 2 (>= 256K Context Windows): OpenRouter, Kilo, Cline, Mistral (256k)
+		for _, t := range targets {
+			if t.ProviderName != "anthropic" && t.ProviderName != "openai" {
+				ctxWin := r.GetModelContextWindow(t.ProviderName, t.UpstreamModel)
+				if ctxWin >= approxTokens && ctxWin < 1000000 && ctxWin >= 256000 {
+					candidateTargets = append(candidateTargets, t)
+				}
+			}
+		}
+
+		// 3. Medium-Context Tier 3 (128K Context Windows): Groq, NVIDIA NIM
+		if approxTokens <= 120000 {
+			for _, t := range targets {
+				if t.ProviderName != "anthropic" && t.ProviderName != "openai" {
+					ctxWin := r.GetModelContextWindow(t.ProviderName, t.UpstreamModel)
+					if ctxWin >= approxTokens && ctxWin < 256000 {
+						candidateTargets = append(candidateTargets, t)
+					}
+				}
+			}
+		}
+
+		// 4. Paid Frontier Fallback: append Anthropic or OpenAI only if prompt fits physical context window
+		for _, t := range targets {
+			if t.ProviderName == "anthropic" || t.ProviderName == "openai" {
+				ctxWin := r.GetModelContextWindow(t.ProviderName, t.UpstreamModel)
+				if ctxWin >= approxTokens {
+					candidateTargets = append(candidateTargets, t)
+				}
+			}
+		}
+
 		// If no candidates selected, default to original targets
 		if len(candidateTargets) == 0 {
 			candidateTargets = targets
@@ -985,11 +1024,13 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	var lastErr error
 	for _, target := range candidateTargets {
 		// Strictly bypass providers whose physical context window cannot accommodate prompt
-		if approxTokens > 120000 && (target.ProviderName == "groq" || (target.ProviderName == "nvidianim" && target.UpstreamModel != "nvidia/nemotron-3-ultra-550b-a55b")) {
+		ctxWin := r.GetModelContextWindow(target.ProviderName, target.UpstreamModel)
+		if approxTokens > ctxWin {
 			telemetry.Log.Debug().
 				Str("provider", target.ProviderName).
 				Str("model", target.UpstreamModel).
 				Int("approx_tokens", approxTokens).
+				Int("context_window", ctxWin).
 				Msg("Prompt exceeds provider context window; bypassing to large-context target")
 			continue
 		}
@@ -1121,6 +1162,31 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		targetReq.Model = target.UpstreamModel
 
 		resp, err := p.SendChat(ctx, &targetReq)
+		if err == nil {
+			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
+			if len(resp.ToolCalls) == 0 && resp.Content != "" {
+				cleanText, extracted := ExtractTextToolCalls(resp.Content)
+				if len(extracted) > 0 {
+					resp.Content = cleanText
+					resp.ToolCalls = extracted
+					resp.FinishReason = "tool_calls"
+				} else {
+					// Clean any orphan DSML fragments from text
+					resp.Content = cleanText
+				}
+			} else if len(resp.ToolCalls) > 0 && resp.Content != "" {
+				// Strip leaked DSML tags if model returned both structured calls and raw DSML text
+				if strings.Contains(resp.Content, "DSML") {
+					resp.Content = StripDSMLTags(resp.Content)
+				}
+			}
+
+			// Reject silent empty or corrupted completions (0 text content and 0 tool calls) to trigger failover
+			if strings.TrimSpace(resp.Content) == "" && len(resp.ToolCalls) == 0 {
+				err = fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
+			}
+		}
+
 		if err == nil {
 			cb.RecordSuccess()
 			return resp, target.ProviderName, nil
@@ -1492,6 +1558,42 @@ func (r *Router) IsActiveModel(providerName, modelID string) bool {
 		}
 	}
 	return false
+}
+
+// GetModelContextWindow returns the maximum physical context window in tokens for a given provider and model.
+func (r *Router) GetModelContextWindow(providerName, modelID string) int {
+	providerName = strings.ToLower(providerName)
+	models := r.GetProviderActiveModels(providerName)
+	for _, m := range models {
+		if m.ContextWindow > 0 {
+			if strings.EqualFold(m.ID, modelID) {
+				return m.ContextWindow
+			}
+			trimmedModel := strings.TrimPrefix(strings.ToLower(modelID), providerName+"/")
+			trimmedMID := strings.TrimPrefix(strings.ToLower(m.ID), providerName+"/")
+			if trimmedModel == trimmedMID {
+				return m.ContextWindow
+			}
+		}
+	}
+	switch providerName {
+	case "gemini":
+		return 1048576
+	case "anthropic":
+		return 200000
+	case "openai":
+		return 128000
+	case "groq":
+		return 131072
+	case "nvidianim":
+		return 131072
+	case "openrouter", "kilo", "cline":
+		return 262144
+	case "mistral":
+		return 256000
+	default:
+		return 131072
+	}
 }
 
 // GetAllActiveModels returns a flat list of all active models across all configured providers.

@@ -65,6 +65,11 @@ func (p *Proxy) SetBroadcaster(b *admin.Broadcaster) {
 	p.broadcaster = b
 }
 
+// SetRouter attaches a router to the proxy.
+func (p *Proxy) SetRouter(r *router.Router) {
+	p.router = r
+}
+
 func (p *Proxy) recordLog(item *ledger.RequestLog) {
 	if item == nil {
 		return
@@ -474,6 +479,14 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	}
 
 	// 5. Direct Upstream Fallback
+	if p.router != nil && (routeAlias == "free-first" || p.router.DefaultStrategy() == "free-first") {
+		telemetry.Log.Warn().
+			Str("request_id", reqID).
+			Msg("Router fallback exhausted under free-first strategy; direct upstream bypassed to prevent paid token spend")
+		p.writeError(w, http.StatusBadGateway, "All free providers in fallback chain failed", "LILTOK_ROUTER_EXHAUSTED")
+		return
+	}
+
 	var upstreamBaseURL string
 	var upstreamAuthHeader string
 	var upstreamAuthValue string
