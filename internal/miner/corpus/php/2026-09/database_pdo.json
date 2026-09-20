@@ -1,0 +1,149 @@
+[
+  {
+    "id": "php-db-pdo-auto-reconnect",
+    "category": "php",
+    "system_prompt": "You are a database connectivity and PostgreSQL resilience expert.",
+    "user_prompt": "How do you implement transparent auto-reconnect on severed PDO connections (SQLSTATE 08006, 57P01) in PHP outside active transactions?",
+    "tags": ["php", "pdo", "postgresql", "reconnect", "resilience"]
+  },
+  {
+    "id": "php-db-n-plus-one-query-elimination",
+    "category": "php",
+    "system_prompt": "You are a backend performance architect.",
+    "user_prompt": "How do you design bulk preloading methods (such as preloadForProducts(array $ids)) in PHP to eliminate N+1 database queries across card feeds?",
+    "tags": ["php", "database", "n-plus-one", "performance", "optimization"]
+  },
+  {
+    "id": "php-db-two-stage-candidate-cte",
+    "category": "php",
+    "system_prompt": "You are a database architect.",
+    "user_prompt": "Explain how to construct two-stage candidate CTE queries in PHP PDO to paginate large feeds with complex ranking before joining lateral tables.",
+    "tags": ["php", "sql", "cte", "pagination", "performance"]
+  },
+  {
+    "id": "php-db-pdo-prepared-statements-types",
+    "category": "php",
+    "system_prompt": "You are a database connectivity expert.",
+    "user_prompt": "How do PDOStatement::bindValue() and bindParam() differ, and why should PDO::ATTR_EMULATE_PREPARES be set to false for real native prepared statements?",
+    "tags": ["php", "pdo", "prepared-statements", "sql"]
+  },
+  {
+    "id": "php-db-pdo-transaction-deadlock-retry",
+    "category": "php",
+    "system_prompt": "You are a backend systems architect.",
+    "user_prompt": "How do you implement an exponential backoff retry wrapper for PDO database transactions in PHP when encountering concurrency deadlocks (SQLSTATE 40P01)?",
+    "tags": ["php", "pdo", "transactions", "deadlocks", "retry"]
+  },
+  {
+    "id": "php-db-pdo-cursor-memory-management",
+    "category": "php",
+    "system_prompt": "You are a backend performance specialist.",
+    "user_prompt": "How do unbuffered queries or PDO server-side cursors prevent PHP memory exhaustion when streaming millions of rows from PostgreSQL or MySQL?",
+    "tags": ["php", "pdo", "cursors", "memory", "streaming"]
+  },
+  {
+    "id": "php-db-sql-injection-in-clause",
+    "category": "php",
+    "system_prompt": "You are an application security specialist.",
+    "user_prompt": "How do you safely parameterize a dynamic IN (:id1, :id2, ...) clause in PHP PDO without string concatenation vulnerabilities?",
+    "tags": ["php", "pdo", "sql-injection", "prepared-statements"]
+  },
+  {
+    "id": "php-db-pdo-custom-fetch-class",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do PDO::FETCH_CLASS and PDO::FETCH_PROPS_LATE hydrate typed domain entity objects in PHP, and how does it interact with private constructors?",
+    "tags": ["php", "pdo", "hydration", "oop"]
+  },
+  {
+    "id": "php-db-postgresql-jsonb-querying",
+    "category": "php",
+    "system_prompt": "You are a PostgreSQL and PHP expert.",
+    "user_prompt": "How do you query and filter PostgreSQL JSONB columns using containment (@>) and path extraction (->>) operators with PHP PDO?",
+    "tags": ["php", "postgresql", "jsonb", "pdo"]
+  },
+  {
+    "id": "php-db-join-column-qualification",
+    "category": "php",
+    "system_prompt": "You are a database tuning specialist.",
+    "user_prompt": "Why must every column in SELECT, WHERE, and ORDER BY be explicitly table-qualified (e.g. s.status) in multi-table SQL joins to avoid ambiguous column errors?",
+    "tags": ["php", "sql", "joins", "query-optimization"]
+  },
+  {
+    "id": "php-db-connection-pool-liveness",
+    "category": "php",
+    "system_prompt": "You are a database connectivity architect.",
+    "user_prompt": "How do long-running PHP workers (FrankenPHP, RoadRunner, Swoole) validate connection pool liveness with ping or SELECT 1 before reusing pooled PDO handles?",
+    "tags": ["php", "connection-pooling", "frankenphp", "pdo"]
+  },
+  {
+    "id": "php-db-dropdown-option-preservation",
+    "category": "php",
+    "system_prompt": "You are a web application backend developer.",
+    "user_prompt": "When populating edit form HTML select dropdowns in PHP, how do you preserve current inactive or pending foreign key IDs without wiping them upon submission?",
+    "tags": ["php", "forms", "foreign-keys", "sql"]
+  },
+  {
+    "id": "php-db-upsert-on-conflict",
+    "category": "php",
+    "system_prompt": "You are a database architect.",
+    "user_prompt": "How do you perform atomic UPSERT operations in PostgreSQL (INSERT ... ON CONFLICT DO UPDATE) and MySQL (ON DUPLICATE KEY UPDATE) using PHP PDO?",
+    "tags": ["php", "sql", "upsert", "postgresql", "mysql"]
+  },
+  {
+    "id": "php-db-database-migration-lock",
+    "category": "php",
+    "system_prompt": "You are a DevOps and backend database specialist.",
+    "user_prompt": "How do automated migration runners in PHP use advisory locks (e.g. pg_try_advisory_lock in PostgreSQL) to prevent race conditions across parallel pods?",
+    "tags": ["php", "migrations", "locks", "concurrency"]
+  },
+  {
+    "id": "php-db-targeted-test-truncation",
+    "category": "php",
+    "system_prompt": "You are a testing and performance engineer.",
+    "user_prompt": "Why is targeted test table truncation with CASCADE faster (2s vs 30s) than full global database wipes in PHP integration test setUp() routines?",
+    "tags": ["php", "testing", "database", "truncate", "performance"]
+  },
+  {
+    "id": "php-db-read-write-splitting",
+    "category": "php",
+    "system_prompt": "You are a database architect.",
+    "user_prompt": "How do you architect a transparent read/write splitting PDO proxy in PHP that routes SELECT queries to replicas and write queries to primary?",
+    "tags": ["php", "database", "replication", "architecture"]
+  },
+  {
+    "id": "php-db-savepoints-nested-transactions",
+    "category": "php",
+    "system_prompt": "You are an expert PHP database engineer.",
+    "user_prompt": "How do SAVEPOINT statements allow nested transaction blocks in PHP PDO without triggering PDOException: There is already an active transaction?",
+    "tags": ["php", "pdo", "transactions", "savepoints"]
+  },
+  {
+    "id": "php-db-explain-analyze-query-profiling",
+    "category": "php",
+    "system_prompt": "You are a database performance expert.",
+    "user_prompt": "How do you instrument automated query loggers in PHP to run EXPLAIN (ANALYZE, BUFFERS) on slow queries exceeding latency thresholds in production?",
+    "tags": ["php", "sql", "explain-analyze", "profiling", "slow-query"]
+  },
+  {
+    "id": "php-db-bulk-insert-batching",
+    "category": "php",
+    "system_prompt": "You are a high-throughput backend engineer.",
+    "user_prompt": "What is the most efficient pattern in PHP PDO to execute bulk inserts of 100,000 records using multi-row VALUES batches and transaction chunking?",
+    "tags": ["php", "pdo", "bulk-insert", "batching", "performance"]
+  },
+  {
+    "id": "php-db-uuid-v4-vs-v7-indexing",
+    "category": "php",
+    "system_prompt": "You are a database performance specialist.",
+    "user_prompt": "Why do UUID v7 (time-ordered) primary keys provide superior B-tree index locality and insert performance in PostgreSQL and MySQL compared to random UUID v4?",
+    "tags": ["php", "uuid", "indexing", "b-tree", "database"]
+  },
+  {
+    "id": "php-db-optimistic-locking-version",
+    "category": "php",
+    "system_prompt": "You are a distributed systems architect.",
+    "user_prompt": "How do you implement optimistic locking in PHP using an integer version column to prevent lost updates without pessimistic row locks?",
+    "tags": ["php", "concurrency", "optimistic-locking", "database"]
+  }
+]

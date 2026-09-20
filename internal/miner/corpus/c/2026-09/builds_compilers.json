@@ -1,0 +1,149 @@
+[
+  {
+    "id": "c-build-gcc-warning-flags-strict",
+    "category": "c",
+    "system_prompt": "You are a C build engineer.",
+    "user_prompt": "What is the recommended set of strict GCC/Clang warning flags (-Wall, -Wextra, -Wpedantic, -Wconversion, -Wshadow, -Werror) for enterprise codebases?",
+    "tags": ["c", "gcc", "clang", "compiler-warnings", "build-system"]
+  },
+  {
+    "id": "c-build-optimization-levels-o2-o3-ofast",
+    "category": "c",
+    "system_prompt": "You are a compiler optimization architect.",
+    "user_prompt": "Explain the differences between GCC optimization levels -O2, -O3, -Os, and -Ofast, especially regarding floating-point math and loop unrolling.",
+    "tags": ["c", "compilers", "optimizations", "gcc", "performance"]
+  },
+  {
+    "id": "c-build-link-time-optimization-lto",
+    "category": "c",
+    "system_prompt": "You are a systems performance engineer.",
+    "user_prompt": "How does Link Time Optimization (-flto) enable cross-translation-unit inlining and dead code elimination in GCC and Clang?",
+    "tags": ["c", "lto", "linker", "inlining", "compilers"]
+  },
+  {
+    "id": "c-build-static-vs-shared-libraries",
+    "category": "c",
+    "system_prompt": "You are a Unix systems software engineer.",
+    "user_prompt": "How do you compile and link static libraries (.a via ar) versus shared dynamic libraries (.so via -shared -fPIC) in Linux C development?",
+    "tags": ["c", "static-library", "shared-library", "linker", "fpic"]
+  },
+  {
+    "id": "c-build-makefile-pattern-rules",
+    "category": "c",
+    "system_prompt": "You are a build automation specialist.",
+    "user_prompt": "Provide a clean, robust Makefile template for a C project using automatic dependency generation (-MMD -MP), pattern rules, and phony targets.",
+    "tags": ["c", "makefile", "build-automation", "dependencies", "tooling"]
+  },
+  {
+    "id": "c-build-cmake-modern-target-based",
+    "category": "c",
+    "system_prompt": "You are a modern CMake architect.",
+    "user_prompt": "How do you structure a target-based CMakeLists.txt for a C project using add_library, target_include_directories(PUBLIC/PRIVATE), and install rules?",
+    "tags": ["c", "cmake", "build-systems", "targets", "modern-cmake"]
+  },
+  {
+    "id": "c-build-header-guards-vs-pragma-once",
+    "category": "c",
+    "system_prompt": "You are a C standards and toolchain specialist.",
+    "user_prompt": "Compare traditional '#ifndef / #define' header guards with '#pragma once' regarding compiler portability, filesystem symlinks, and include performance.",
+    "tags": ["c", "header-guards", "pragma-once", "preprocessor", "portability"]
+  },
+  {
+    "id": "c-build-preprocessor-macro-operators",
+    "category": "c",
+    "system_prompt": "You are a C macro and preprocessor specialist.",
+    "user_prompt": "How do the preprocessor stringification operator (#) and token pasting operator (##) work in C macros, and what are variadic macros (__VA_ARGS__)?",
+    "tags": ["c", "preprocessor", "macros", "stringification", "token-pasting"]
+  },
+  {
+    "id": "c-build-static-assert-c11",
+    "category": "c",
+    "system_prompt": "You are a type safety and standards engineer.",
+    "user_prompt": "How do you use C11 '_Static_assert' (or <assert.h> static_assert) to enforce compile-time checks on struct sizes, alignment, and configuration limits?",
+    "tags": ["c", "static-assert", "c11", "compile-time", "type-safety"]
+  },
+  {
+    "id": "c-build-symbol-visibility-hidden",
+    "category": "c",
+    "system_prompt": "You are a shared library developer.",
+    "user_prompt": "Why is compiling with -fvisibility=hidden and explicitly exporting API functions with __attribute__((visibility(\"default\"))) best practice for shared libraries?",
+    "tags": ["c", "visibility", "shared-libraries", "abi", "elf"]
+  },
+  {
+    "id": "c-build-position-independent-code-fpic",
+    "category": "c",
+    "system_prompt": "You are an operating system loader specialist.",
+    "user_prompt": "What does -fPIC actually do at the assembly level with the Global Offset Table (GOT) and Procedure Linkage Table (PLT) in ELF binaries?",
+    "tags": ["c", "fpic", "elf", "got", "plt"]
+  },
+  {
+    "id": "c-build-undefined-behavior-sanitizer-ubsan",
+    "category": "c",
+    "system_prompt": "You are a compiler toolchain engineer.",
+    "user_prompt": "How does UndefinedBehaviorSanitizer (-fsanitize=undefined) detect signed integer overflows, misaligned pointers, and null dereferences at runtime?",
+    "tags": ["c", "ubsan", "sanitizers", "undefined-behavior", "debugging"]
+  },
+  {
+    "id": "c-build-debug-symbols-dwarf-strip",
+    "category": "c",
+    "system_prompt": "You are an embedded and deployment engineer.",
+    "user_prompt": "How do -g and -g3 flags embed DWARF debug symbols into ELF binaries, and how do you split debug symbols using objcopy and strip for production releases?",
+    "tags": ["c", "dwarf", "debug-symbols", "strip", "objcopy"]
+  },
+  {
+    "id": "c-build-linker-library-order-dependency",
+    "category": "c",
+    "system_prompt": "You are a Unix toolchain developer.",
+    "user_prompt": "Why does the GNU linker (ld) require dependent libraries to appear after source object files on the command line (single-pass symbol resolution)?",
+    "tags": ["c", "linker", "ld", "symbols", "dependencies"]
+  },
+  {
+    "id": "c-build-cross-compilation-toolchains",
+    "category": "c",
+    "system_prompt": "You are an embedded Linux systems specialist.",
+    "user_prompt": "How do you configure cross-compilation for ARM targets using sysroots, cross-compiler prefixes (aarch64-linux-gnu-gcc), and CMake toolchain files?",
+    "tags": ["c", "cross-compilation", "arm", "embedded", "toolchain"]
+  },
+  {
+    "id": "c-build-weak-symbols-attribute",
+    "category": "c",
+    "system_prompt": "You are a systems software architect.",
+    "user_prompt": "How do weak symbols (__attribute__((weak))) allow providing default function implementations that can be overridden by user code or plugins?",
+    "tags": ["c", "weak-symbols", "linker", "plugins", "attributes"]
+  },
+  {
+    "id": "c-build-inline-functions-c99-rules",
+    "category": "c",
+    "system_prompt": "You are a C99 standards specialist.",
+    "user_prompt": "What are the rules for 'inline', 'static inline', and 'extern inline' in C99, and why is 'static inline' standard in header files?",
+    "tags": ["c", "inline", "c99", "header-files", "compilers"]
+  },
+  {
+    "id": "c-build-pkg-config-cflags-libs",
+    "category": "c",
+    "system_prompt": "You are a Linux packaging engineer.",
+    "user_prompt": "How does pkg-config dynamically resolve include directories (--cflags) and linker dependencies (--libs) for third-party libraries like libssl or libcurl?",
+    "tags": ["c", "pkg-config", "packaging", "dependencies", "build-systems"]
+  },
+  {
+    "id": "c-build-clang-tidy-static-analysis",
+    "category": "c",
+    "system_prompt": "You are a software quality auditor.",
+    "user_prompt": "How do you integrate clang-tidy with a compile_commands.json database to enforce readability, bugprone, and performance checks in CI?",
+    "tags": ["c", "clang-tidy", "static-analysis", "code-quality", "ci-cd"]
+  },
+  {
+    "id": "c-build-gcov-lcov-test-coverage",
+    "category": "c",
+    "system_prompt": "You are a test coverage specialist.",
+    "user_prompt": "How do you compile C code with -fprofile-arcs -ftest-coverage and generate HTML line-by-line coverage reports using gcov and lcov?",
+    "tags": ["c", "gcov", "lcov", "code-coverage", "testing"]
+  },
+  {
+    "id": "c-build-precompiled-headers-pch",
+    "category": "c",
+    "system_prompt": "You are a build performance engineer.",
+    "user_prompt": "How do precompiled headers (PCH) in GCC and Clang accelerate build times for large C projects with extensive standard library headers?",
+    "tags": ["c", "pch", "precompiled-headers", "build-speed", "tooling"]
+  }
+]

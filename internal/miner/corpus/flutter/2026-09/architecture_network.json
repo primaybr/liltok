@@ -1,0 +1,142 @@
+[
+  {
+    "id": "flutter-arch-repository-pattern-clean-architecture",
+    "category": "flutter",
+    "system_prompt": "You are a mobile enterprise software architect.",
+    "user_prompt": "Explain the Repository pattern in Flutter: decoupling presentation controllers from remote REST APIs and local caching data sources.",
+    "tags": ["flutter", "dart", "clean-architecture", "repository-pattern"]
+  },
+  {
+    "id": "flutter-arch-dio-interceptors-auth-refresh",
+    "category": "flutter",
+    "system_prompt": "You are a mobile networking specialist.",
+    "user_prompt": "How do you implement a Dio QueuedInterceptor to intercept HTTP 401 Unauthorized, refresh the access token, and replay queued pending requests?",
+    "tags": ["flutter", "dart", "dio", "networking", "auth", "refresh-token"]
+  },
+  {
+    "id": "flutter-arch-json-serializable-code-generation",
+    "category": "flutter",
+    "system_prompt": "You are a Dart serialization expert.",
+    "user_prompt": "How does json_serializable with @JsonSerializable() generate type-safe fromJson and toJson methods with field remapping and custom converters?",
+    "tags": ["flutter", "dart", "json", "serialization", "codegen"]
+  },
+  {
+    "id": "flutter-arch-offline-first-isar-sqlite",
+    "category": "flutter",
+    "system_prompt": "You are an offline-first mobile architect.",
+    "user_prompt": "How do you design an offline-first architecture with Isar or Drift (SQLite) that renders cached data instantly and reconciles background API changes?",
+    "tags": ["flutter", "dart", "sqlite", "isar", "offline-first", "persistence"]
+  },
+  {
+    "id": "flutter-arch-certificate-pinning-ssl-mitm",
+    "category": "flutter",
+    "system_prompt": "You are a mobile security engineer.",
+    "user_prompt": "How do you implement SSL/TLS certificate pinning and public key hash verification in Flutter (SecurityContext, Dio) to defend against MITM attacks?",
+    "tags": ["flutter", "dart", "security", "ssl-pinning", "networking"]
+  },
+  {
+    "id": "flutter-arch-multipart-file-upload-progress",
+    "category": "flutter",
+    "system_prompt": "You are a mobile networking specialist.",
+    "user_prompt": "How do you upload large media files using Dio MultipartFile with FormData, onSendProgress callbacks, and background cancellation support?",
+    "tags": ["flutter", "dart", "dio", "uploads", "multipart", "progress"]
+  },
+  {
+    "id": "flutter-arch-connectivity-plus-offline-banner",
+    "category": "flutter",
+    "system_prompt": "You are a mobile UX and network engineer.",
+    "user_prompt": "How do you listen to network connectivity transitions using connectivity_plus and display a non-intrusive offline banner across all app screens?",
+    "tags": ["flutter", "dart", "connectivity", "offline", "ux"]
+  },
+  {
+    "id": "flutter-arch-web-sockets-channel-reconnection",
+    "category": "flutter",
+    "system_prompt": "You are a real-time mobile systems engineer.",
+    "user_prompt": "How do you build a resilient WebSocket client in Flutter (web_socket_channel) with automatic heartbeat ping-pong and exponential backoff reconnects?",
+    "tags": ["flutter", "dart", "websockets", "real-time", "reconnect"]
+  },
+  {
+    "id": "flutter-arch-secure-storage-keychain-keystore",
+    "category": "flutter",
+    "system_prompt": "You are a mobile security specialist.",
+    "user_prompt": "How does flutter_secure_storage protect authentication tokens using the iOS Keychain and Android EncryptedSharedPreferences (KeyStore)?",
+    "tags": ["flutter", "dart", "security", "keychain", "keystore", "tokens"]
+  },
+  {
+    "id": "flutter-arch-grpc-client-streaming-dart",
+    "category": "flutter",
+    "system_prompt": "You are a gRPC and mobile backend specialist.",
+    "user_prompt": "How do you configure a gRPC ClientChannel in Flutter to consume bi-directional server streaming with protobuf code generation?",
+    "tags": ["flutter", "dart", "grpc", "protobuf", "streaming"]
+  },
+  {
+    "id": "flutter-arch-graphql-ferry-flutter-client",
+    "category": "flutter",
+    "system_prompt": "You are a GraphQL and mobile developer.",
+    "user_prompt": "How does Ferry or graphql_flutter provide normalized in-memory caching and optimistic mutations for GraphQL APIs in Flutter?",
+    "tags": ["flutter", "dart", "graphql", "caching", "api"]
+  },
+  {
+    "id": "flutter-arch-http-client-adapter-cronet",
+    "category": "flutter",
+    "system_prompt": "You are a mobile networking performance specialist.",
+    "user_prompt": "How does integrating Cronet (HTTP/3 and QUIC) on Android and NSURLSession on iOS via cupertino_http and cronet_http boost network latency in Flutter?",
+    "tags": ["flutter", "dart", "http3", "cronet", "networking", "performance"]
+  },
+  {
+    "id": "flutter-arch-error-handling-either-result-pattern",
+    "category": "flutter",
+    "system_prompt": "You are a functional programming in Dart expert.",
+    "user_prompt": "How do you implement the Result or Either<Failure, Success> pattern with fpdart to enforce explicit error handling across service boundaries?",
+    "tags": ["flutter", "dart", "functional", "error-handling", "fpdart"]
+  },
+  {
+    "id": "flutter-arch-background-task-workmanager",
+    "category": "flutter",
+    "system_prompt": "You are an Android and iOS background execution specialist.",
+    "user_prompt": "How do you schedule periodic background data synchronization in Flutter using workmanager on Android (WorkManager) and iOS (BGTaskScheduler)?",
+    "tags": ["flutter", "dart", "background-tasks", "workmanager", "sync"]
+  },
+  {
+    "id": "flutter-arch-push-notifications-fcm-lifecycle",
+    "category": "flutter",
+    "system_prompt": "You are a mobile messaging specialist.",
+    "user_prompt": "How do you handle Firebase Cloud Messaging (FCM) notifications across foreground, background, and terminated app states in Flutter?",
+    "tags": ["flutter", "dart", "firebase", "fcm", "notifications"]
+  },
+  {
+    "id": "flutter-arch-sse-server-sent-events-streaming",
+    "category": "flutter",
+    "system_prompt": "You are a streaming API engineer.",
+    "user_prompt": "How do you parse and stream Server-Sent Events (SSE) responses from LLM completion endpoints in Flutter using raw HTTP byte streams?",
+    "tags": ["flutter", "dart", "sse", "streaming", "llm", "http"]
+  },
+  {
+    "id": "flutter-arch-cache-invalidation-strategies-mobile",
+    "category": "flutter",
+    "system_prompt": "You are a mobile data architect.",
+    "user_prompt": "Explain Stale-While-Revalidate vs Write-Through caching patterns for mobile devices and how to manage SQLite cache invalidation TTLs.",
+    "tags": ["flutter", "dart", "caching", "stale-while-revalidate", "sqlite"]
+  },
+  {
+    "id": "flutter-arch-app-flavor-configuration-env",
+    "category": "flutter",
+    "system_prompt": "You are a mobile DevOps engineer.",
+    "user_prompt": "How do you set up Flutter flavors (development, staging, production) with distinct bundle IDs, app icons, and Firebase configurations?",
+    "tags": ["flutter", "dart", "flavors", "builds", "devops"]
+  },
+  {
+    "id": "flutter-arch-sentry-crashlytics-error-boundary",
+    "category": "flutter",
+    "system_prompt": "You are a mobile reliability and observability engineer.",
+    "user_prompt": "How do you catch unhandled asynchronous errors in Flutter using FlutterError.onError and PlatformDispatcher.instance.onError with Sentry or Crashlytics?",
+    "tags": ["flutter", "dart", "crashlytics", "sentry", "error-tracking"]
+  },
+  {
+    "id": "flutter-arch-etag-conditional-requests-dio",
+    "category": "flutter",
+    "system_prompt": "You are a network efficiency specialist.",
+    "user_prompt": "How do you implement HTTP ETag and 304 Not Modified conditional request caching with Dio cache interceptors (dio_cache_interceptor) in Flutter?",
+    "tags": ["flutter", "dart", "dio", "etag", "caching", "networking"]
+  }
+]

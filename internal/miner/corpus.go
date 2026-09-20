@@ -44,19 +44,9 @@ func GetCuratedPrompts(category string) []PromptItem {
 		return out
 	}
 
-	if category == "php" {
-		var out []PromptItem
-		for _, it := range curatedCache {
-			if hasTag(it.Tags, "php") {
-				out = append(out, it)
-			}
-		}
-		return out
-	}
-
 	var filtered []PromptItem
 	for _, it := range curatedCache {
-		if strings.EqualFold(it.Category, category) {
+		if strings.EqualFold(it.Category, category) || hasTag(it.Tags, category) {
 			filtered = append(filtered, it)
 		}
 	}

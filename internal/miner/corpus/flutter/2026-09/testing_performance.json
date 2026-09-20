@@ -1,0 +1,149 @@
+[
+  {
+    "id": "flutter-test-widget-tester-pump-and-settle",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter test automation engineer.",
+    "user_prompt": "Compare tester.pump() and tester.pumpAndSettle() in Flutter widget tests, and explain why infinite animations cause pumpAndSettle timeouts.",
+    "tags": ["flutter", "dart", "widget-tests", "testing", "pumpandsettle"]
+  },
+  {
+    "id": "flutter-test-finders-by-type-key-text",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter QA engineer.",
+    "user_prompt": "Explain Flutter widget test Finders (find.byKey, find.byType, find.text, find.descendant) and best practices for resilient test selectors.",
+    "tags": ["flutter", "dart", "finders", "widget-tests", "testing"]
+  },
+  {
+    "id": "flutter-test-mockito-vs-mocktail",
+    "category": "flutter",
+    "system_prompt": "You are a Dart and Flutter testing specialist.",
+    "user_prompt": "Compare Mockito (requires build_runner code generation) vs Mocktail (zero code generation with Dart reflection/noSuchMethod) for mocking services.",
+    "tags": ["flutter", "dart", "mocks", "mockito", "mocktail", "testing"]
+  },
+  {
+    "id": "flutter-test-integration-test-driver-flows",
+    "category": "flutter",
+    "system_prompt": "You are a mobile end-to-end testing architect.",
+    "user_prompt": "How do you construct end-to-end integration tests using package:integration_test running on real Android emulators and iOS simulators?",
+    "tags": ["flutter", "dart", "integration-tests", "e2e", "testing"]
+  },
+  {
+    "id": "flutter-test-golden-toolkit-screenshot-tests",
+    "category": "flutter",
+    "system_prompt": "You are a visual regression testing engineer.",
+    "user_prompt": "How do you write golden screenshot regression tests with golden_toolkit in Flutter, handling cross-platform font rendering and pixel diffs?",
+    "tags": ["flutter", "dart", "golden-tests", "visual-regression", "testing"]
+  },
+  {
+    "id": "flutter-test-devtools-timeline-frame-jank",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter graphics and rendering performance expert.",
+    "user_prompt": "How do you diagnose 60fps/120fps UI frame jank using Flutter DevTools Performance Timeline, identifying build, layout, and raster thread stalls?",
+    "tags": ["flutter", "dart", "devtools", "performance", "jank", "rendering"]
+  },
+  {
+    "id": "flutter-test-const-constructors-memory-profiling",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter memory optimization engineer.",
+    "user_prompt": "Why do const constructors prevent redundant widget instantiations, and how do you verify canonical instance sharing in DevTools Memory profiler?",
+    "tags": ["flutter", "dart", "const", "performance", "memory", "widgets"]
+  },
+  {
+    "id": "flutter-test-isolates-compute-heavy-computation",
+    "category": "flutter",
+    "system_prompt": "You are a high-performance Dart concurrency engineer.",
+    "user_prompt": "How does compute() and Isolate.spawn() offload CPU-intensive operations (JSON parsing, image manipulation) off the main UI thread to prevent UI freezing?",
+    "tags": ["flutter", "dart", "isolates", "concurrency", "performance"]
+  },
+  {
+    "id": "flutter-test-repaint-boundary-raster-cache",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter rendering engine specialist.",
+    "user_prompt": "How does RepaintBoundary isolate expensive animations and complex custom painters from triggering full-screen repaints?",
+    "tags": ["flutter", "dart", "repaintboundary", "performance", "rendering"]
+  },
+  {
+    "id": "flutter-test-image-cache-maximum-size-tuning",
+    "category": "flutter",
+    "system_prompt": "You are a mobile memory and performance specialist.",
+    "user_prompt": "How do you configure PaintingBinding.instance.imageCache.maximumSizeBytes and maximumSize to prevent out-of-memory crashes in image-heavy feeds?",
+    "tags": ["flutter", "dart", "imagecache", "memory", "performance"]
+  },
+  {
+    "id": "flutter-test-simulating-touch-gestures-drag",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter test automation developer.",
+    "user_prompt": "How do you simulate swipe, drag, fling, and long-press gestures in widget tests using tester.drag(), tester.timedDrag(), and tester.longPress()?",
+    "tags": ["flutter", "dart", "gestures", "widget-tests", "testing"]
+  },
+  {
+    "id": "flutter-test-table-driven-unit-tests-dart",
+    "category": "flutter",
+    "system_prompt": "You are a software quality engineer.",
+    "user_prompt": "Provide the pattern for writing clean, table-driven unit tests in Dart with package:test for complex business logic and edge cases.",
+    "tags": ["flutter", "dart", "unit-tests", "table-driven", "testing"]
+  },
+  {
+    "id": "flutter-test-memory-leak-detection-devtools",
+    "category": "flutter",
+    "system_prompt": "You are a mobile reliability and memory leak specialist.",
+    "user_prompt": "How do you take heap snapshots in Flutter DevTools to track retained memory sizes and identify uncancelled StreamSubscriptions or TextEditingControllers?",
+    "tags": ["flutter", "dart", "memory-leak", "devtools", "heap", "profiling"]
+  },
+  {
+    "id": "flutter-test-mocking-http-responses-nock",
+    "category": "flutter",
+    "system_prompt": "You are an API testing engineer.",
+    "user_prompt": "How do you mock HTTP responses at the transport layer in Dart unit tests using MockClient or http_mock_adapter for Dio without live internet calls?",
+    "tags": ["flutter", "dart", "dio", "http-mock", "testing"]
+  },
+  {
+    "id": "flutter-test-coverage-lcov-filtering",
+    "category": "flutter",
+    "system_prompt": "You are a CI/CD test automation specialist.",
+    "user_prompt": "How do you generate lcov test coverage reports with 'flutter test --coverage' and filter out generated files (.g.dart, .freezed.dart) via lcov/genhtml?",
+    "tags": ["flutter", "dart", "coverage", "lcov", "cicd", "testing"]
+  },
+  {
+    "id": "flutter-test-shader-compilation-jank-impeller",
+    "category": "flutter",
+    "system_prompt": "You are a graphics engine specialist.",
+    "user_prompt": "How does the Impeller rendering engine in Flutter eliminate shader compilation jank on iOS and Android by precompiling shaders at build time?",
+    "tags": ["flutter", "dart", "impeller", "shaders", "graphics", "jank"]
+  },
+  {
+    "id": "flutter-test-rebuilding-widgets-keys-preservation",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter widget tree specialist.",
+    "user_prompt": "Why do ValueKey, ObjectKey, and UniqueKey prevent state swapping when reordering or filtering items in a stateful ListView?",
+    "tags": ["flutter", "dart", "keys", "valuekey", "listview", "state"]
+  },
+  {
+    "id": "flutter-test-testing-async-streams-emits-in-order",
+    "category": "flutter",
+    "system_prompt": "You are a reactive programming and testing specialist.",
+    "user_prompt": "How do you test Dart Streams using expectLater() and emitsInOrder() matchers to verify event emissions over time?",
+    "tags": ["flutter", "dart", "streams", "testing", "async"]
+  },
+  {
+    "id": "flutter-test-automatic-keep-alive-client-mixin",
+    "category": "flutter",
+    "system_prompt": "You are a mobile performance engineer.",
+    "user_prompt": "How does AutomaticKeepAliveClientMixin with wantKeepAlive: true preserve tab and list view scroll positions without resetting off-screen state?",
+    "tags": ["flutter", "dart", "keep-alive", "performance", "scroll"]
+  },
+  {
+    "id": "flutter-test-obfuscation-tree-shaking-release",
+    "category": "flutter",
+    "system_prompt": "You are a mobile security and build optimization specialist.",
+    "user_prompt": "How do you build production release APKs and IPAs with code obfuscation (--obfuscate --split-debug-info) and font/icon tree-shaking to minimize size?",
+    "tags": ["flutter", "dart", "obfuscation", "security", "builds", "app-size"]
+  },
+  {
+    "id": "flutter-test-mocking-native-platform-channels",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter platform interop specialist.",
+    "user_prompt": "How do you mock MethodChannel and EventChannel platform channels in widget tests using tester.binding.defaultBinaryMessenger to test native camera or sensors?",
+    "tags": ["flutter", "dart", "platform-channels", "native", "testing", "methodchannel"]
+  }
+]

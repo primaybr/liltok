@@ -1,0 +1,149 @@
+[
+  {
+    "id": "docker-diag-oom-137-investigation",
+    "category": "docker",
+    "system_prompt": "You are a container troubleshooting and Linux memory specialist.",
+    "user_prompt": "How do you inspect why a Docker container exited with code 137 (OOMKilled) using docker inspect, dmesg, and how do you tune --memory and --memory-swap?",
+    "tags": ["docker", "oom", "exit-137", "memory", "troubleshooting"]
+  },
+  {
+    "id": "docker-diag-rootless-docker-setup",
+    "category": "docker",
+    "system_prompt": "You are a container security architect.",
+    "user_prompt": "How does Rootless Docker allow running the Docker daemon and containers as an unprivileged user (UID namespaces) to eliminate root escalation risks?",
+    "tags": ["docker", "security", "rootless", "uid-namespaces", "hardening"]
+  },
+  {
+    "id": "docker-diag-exit-code-139-segfault",
+    "category": "docker",
+    "system_prompt": "You are a Linux systems engineer.",
+    "user_prompt": "What causes a Docker container to exit with code 139 (SIGSEGV segmentation fault) and how do you debug native C/C++ or shared library glibc mismatches?",
+    "tags": ["docker", "exit-139", "segfault", "debugging", "linux"]
+  },
+  {
+    "id": "docker-diag-exit-code-143-sigterm",
+    "category": "docker",
+    "system_prompt": "You are a container lifecycle specialist.",
+    "user_prompt": "Why does a container exit with code 143 (128 + 15 SIGTERM) during 'docker stop' and how do you verify if the application shut down cleanly?",
+    "tags": ["docker", "exit-143", "sigterm", "lifecycle", "graceful-shutdown"]
+  },
+  {
+    "id": "docker-diag-drop-all-capabilities",
+    "category": "docker",
+    "system_prompt": "You are a container hardening engineer.",
+    "user_prompt": "Why should production containers be launched with --cap-drop=ALL and only explicit required capabilities (e.g. --cap-add=NET_BIND_SERVICE) added back?",
+    "tags": ["docker", "security", "capabilities", "hardening", "linux"]
+  },
+  {
+    "id": "docker-diag-read-only-rootfs-hardening",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "How do you run containers with a read-only root filesystem (--read-only) while mounting tmpfs at /tmp and /run for applications that require scratch space?",
+    "tags": ["docker", "security", "read-only", "tmpfs", "hardening"]
+  },
+  {
+    "id": "docker-diag-daemon-live-restore",
+    "category": "docker",
+    "system_prompt": "You are a DevOps systems administrator.",
+    "user_prompt": "How does enabling 'live-restore: true' in /etc/docker/daemon.json keep containers running uninterrupted during Docker daemon restarts and upgrades?",
+    "tags": ["docker", "daemon", "live-restore", "high-availability", "devops"]
+  },
+  {
+    "id": "docker-diag-docker-events-monitoring",
+    "category": "docker",
+    "system_prompt": "You are a container observability engineer.",
+    "user_prompt": "How do you use 'docker events --filter' to stream and monitor real-time container lifecycle events (die, oom, kill, restart) for automated alerting?",
+    "tags": ["docker", "events", "monitoring", "observability", "cli"]
+  },
+  {
+    "id": "docker-diag-docker-top-host-pids",
+    "category": "docker",
+    "system_prompt": "You are a Linux systems administrator.",
+    "user_prompt": "How does 'docker top <container>' map container processes to their corresponding host PIDs, and how do you inspect container threads with host ps/htop?",
+    "tags": ["docker", "processes", "pids", "linux", "monitoring"]
+  },
+  {
+    "id": "docker-diag-cgroup-v2-migration",
+    "category": "docker",
+    "system_prompt": "You are a Linux kernel and container systems engineer.",
+    "user_prompt": "What are the advantages of cgroup v2 over cgroup v1 for Docker (unified hierarchy, accurate rootless resource limits, PSI pressure metrics)?",
+    "tags": ["docker", "cgroups", "cgroup-v2", "linux", "kernel", "memory"]
+  },
+  {
+    "id": "docker-diag-system-prune-space-recovery",
+    "category": "docker",
+    "system_prompt": "You are a systems operations engineer.",
+    "user_prompt": "What does 'docker system df' report, and how do you safely recover disk space with 'docker system prune --volumes' without dropping named data volumes?",
+    "tags": ["docker", "cleanup", "disk-space", "prune", "maintenance"]
+  },
+  {
+    "id": "docker-diag-docker-diff-layer-inspection",
+    "category": "docker",
+    "system_prompt": "You are an incident response and container forensics specialist.",
+    "user_prompt": "How do you use 'docker diff' to inspect modified (C), added (A), or deleted (D) files in a container's writable layer during security incident investigations?",
+    "tags": ["docker", "forensics", "diff", "security", "incident-response"]
+  },
+  {
+    "id": "docker-diag-container-pause-unpause",
+    "category": "docker",
+    "system_prompt": "You are a Linux cgroups specialist.",
+    "user_prompt": "How does 'docker pause' use the cgroup freezer subsystem to freeze all processes in a container without terminating them or losing memory state?",
+    "tags": ["docker", "cgroups", "freezer", "pause", "internals"]
+  },
+  {
+    "id": "docker-diag-userns-remap-daemon-hardening",
+    "category": "docker",
+    "system_prompt": "You are an enterprise container security architect.",
+    "user_prompt": "How does configuring 'userns-remap: default' in daemon.json map container root (UID 0) to a high unprivileged UID on the host to prevent container breakouts?",
+    "tags": ["docker", "security", "userns-remap", "hardening", "privilege-escalation"]
+  },
+  {
+    "id": "docker-diag-docker-stats-real-time-metrics",
+    "category": "docker",
+    "system_prompt": "You are a systems performance engineer.",
+    "user_prompt": "How do you use 'docker stats --no-stream --format' to query live CPU percentage, memory usage, network I/O, and block I/O across all running containers?",
+    "tags": ["docker", "stats", "metrics", "performance", "monitoring"]
+  },
+  {
+    "id": "docker-diag-seccomp-profile-default",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "What dangerous Linux system calls does Docker's default seccomp profile block (e.g. reboot, swapon, keyctl), and how do you load custom JSON seccomp filters?",
+    "tags": ["docker", "seccomp", "security", "syscalls", "linux"]
+  },
+  {
+    "id": "docker-diag-pid-limit-fork-bomb-prevention",
+    "category": "docker",
+    "system_prompt": "You are a Linux container security engineer.",
+    "user_prompt": "How does setting '--pids-limit=100' prevent a container from launching a fork bomb that exhausts all process table entries on the host machine?",
+    "tags": ["docker", "security", "pids-limit", "fork-bomb", "denial-of-service"]
+  },
+  {
+    "id": "docker-diag-docker-bench-security-audit",
+    "category": "docker",
+    "system_prompt": "You are a container compliance and audit specialist.",
+    "user_prompt": "How do you run Docker Bench for Security to audit host configuration, daemon settings, and container images against the CIS Docker Benchmark?",
+    "tags": ["docker", "cis-benchmark", "audit", "security", "compliance"]
+  },
+  {
+    "id": "docker-diag-inspect-container-entrypoint-args",
+    "category": "docker",
+    "system_prompt": "You are a container debugging engineer.",
+    "user_prompt": "How do you override both ENTRYPOINT and CMD when launching a container for troubleshooting using 'docker run --entrypoint /bin/sh -it image'?",
+    "tags": ["docker", "debugging", "entrypoint", "cli", "troubleshooting"]
+  },
+  {
+    "id": "docker-diag-device-mapping-gpus-nvidia",
+    "category": "docker",
+    "system_prompt": "You are an AI infrastructure and GPU container specialist.",
+    "user_prompt": "How do you configure the NVIDIA Container Toolkit and pass GPUs into Docker containers using '--gpus all' or '--device' flags?",
+    "tags": ["docker", "gpu", "nvidia", "cuda", "ai-infrastructure"]
+  },
+  {
+    "id": "docker-diag-restart-stuck-container-kill",
+    "category": "docker",
+    "system_prompt": "You are a systems operations engineer.",
+    "user_prompt": "How do you terminate a container that refuses to stop with 'docker stop' by sending SIGKILL immediately with 'docker kill' or finding the kernel shim PID?",
+    "tags": ["docker", "kill", "sigkill", "troubleshooting", "operations"]
+  }
+]

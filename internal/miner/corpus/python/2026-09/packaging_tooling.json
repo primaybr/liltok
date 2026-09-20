@@ -1,0 +1,142 @@
+[
+  {
+    "id": "py-pack-uv-blazing-fast-package-installer",
+    "category": "python",
+    "system_prompt": "You are a modern Python tooling specialist.",
+    "user_prompt": "How does Astral uv written in Rust replace pip, pip-tools, and virtualenv with 10x-100x faster package resolution and global disk caching?",
+    "tags": ["python", "uv", "packaging", "pip", "tooling", "rust"]
+  },
+  {
+    "id": "py-pack-pyproject-toml-standard-pep-621",
+    "category": "python",
+    "system_prompt": "You are a Python packaging standards engineer.",
+    "user_prompt": "Explain PEP 621 pyproject.toml specification: [project], [build-system], dependencies, optional-dependencies, and entry-points replacing setup.py.",
+    "tags": ["python", "pyproject", "pep621", "packaging", "standards"]
+  },
+  {
+    "id": "py-pack-poetry-vs-hatch-vs-flit",
+    "category": "python",
+    "system_prompt": "You are a Python build systems architect.",
+    "user_prompt": "Compare Poetry, Hatch, Flit, and setuptools: lockfile determinism, build backend performance, virtual environment management, and monorepo support.",
+    "tags": ["python", "poetry", "hatch", "flit", "packaging", "builds"]
+  },
+  {
+    "id": "py-pack-wheels-vs-sdist-abi-tags",
+    "category": "python",
+    "system_prompt": "You are a binary distribution and packaging specialist.",
+    "user_prompt": "What is the difference between source distributions (.tar.gz sdist) and built wheels (.whl), and how do ABI tags (cp312-manylinux2014) ensure compatibility?",
+    "tags": ["python", "wheels", "sdist", "packaging", "c-extensions"]
+  },
+  {
+    "id": "py-pack-ruff-linter-formatter-rust",
+    "category": "python",
+    "system_prompt": "You are a code quality and linting engineer.",
+    "user_prompt": "How does Ruff replace Flake8, Black, isort, and pyupgrade in pyproject.toml with near-instantaneous Rust-powered linting and formatting?",
+    "tags": ["python", "ruff", "linting", "formatting", "tooling"]
+  },
+  {
+    "id": "py-pack-pip-tools-compile-lockfiles",
+    "category": "python",
+    "system_prompt": "You are a DevOps dependency management engineer.",
+    "user_prompt": "How do pip-compile and requirements.in generate pinned, reproducible requirements.txt lockfiles with cryptographic SHA-256 hashes?",
+    "tags": ["python", "pip-tools", "dependencies", "security", "lockfiles"]
+  },
+  {
+    "id": "py-pack-cffi-vs-ctypes-c-interop",
+    "category": "python",
+    "system_prompt": "You are a Python C-interoperability specialist.",
+    "user_prompt": "Compare ctypes and CFFI (C Foreign Function Interface): API mode vs ABI mode, shared library loading, and execution performance for native C integration.",
+    "tags": ["python", "cffi", "ctypes", "c-interop", "foreign-functions"]
+  },
+  {
+    "id": "py-pack-editable-installs-pep-660",
+    "category": "python",
+    "system_prompt": "You are a Python packaging developer.",
+    "user_prompt": "How do editable package installs (pip install -e .) work under PEP 660 without legacy .egg-link files using import hooks and path finders?",
+    "tags": ["python", "packaging", "pip", "pep660", "editable-installs"]
+  },
+  {
+    "id": "py-pack-cli-entrypoints-click-typer-argparse",
+    "category": "python",
+    "system_prompt": "You are a CLI application architect.",
+    "user_prompt": "Compare argparse, Click, and Typer for building production Python CLI tools: type hint integration, auto-generated shell completion, and subcommands.",
+    "tags": ["python", "cli", "argparse", "click", "typer"]
+  },
+  {
+    "id": "py-pack-pip-cache-purge-docker-optimization",
+    "category": "python",
+    "system_prompt": "You are a containerization specialist.",
+    "user_prompt": "Why should 'pip install --no-cache-dir' be used in Dockerfiles, and how do BuildKit cache mounts (/root/.cache/pip) accelerate builds without bloating layers?",
+    "tags": ["python", "docker", "pip", "caching", "optimization"]
+  },
+  {
+    "id": "py-pack-cibuildwheel-cross-platform-binaries",
+    "category": "python",
+    "system_prompt": "You are a release engineering and CI/CD specialist.",
+    "user_prompt": "How does cibuildwheel automate building and testing native C-extension wheels across Linux manylinux, macOS, and Windows in GitHub Actions?",
+    "tags": ["python", "cibuildwheel", "wheels", "cicd", "github-actions"]
+  },
+  {
+    "id": "py-pack-namespace-packages-pep-420",
+    "category": "python",
+    "system_prompt": "You are a large-scale repository architect.",
+    "user_prompt": "How do implicit namespace packages (PEP 420) allow splitting a single top-level package namespace across multiple separate distribution packages without __init__.py?",
+    "tags": ["python", "packaging", "namespace-packages", "pep420", "monorepo"]
+  },
+  {
+    "id": "py-pack-pyinstaller-vs-nuitka-standalone-executables",
+    "category": "python",
+    "system_prompt": "You are an executable compilation and distribution specialist.",
+    "user_prompt": "Compare PyInstaller (bundling CPython + bytecode into self-extracting archive) vs Nuitka (transpiling Python directly to native C/C++ binaries).",
+    "tags": ["python", "pyinstaller", "nuitka", "compilation", "binaries"]
+  },
+  {
+    "id": "py-pack-importlib-metadata-version-discovery",
+    "category": "python",
+    "system_prompt": "You are a Python runtime tooling engineer.",
+    "user_prompt": "How do you programmatically query installed package version, entry points, and dependencies at runtime using importlib.metadata?",
+    "tags": ["python", "importlib", "metadata", "runtime", "packages"]
+  },
+  {
+    "id": "py-pack-tox-vs-nox-matrix-testing",
+    "category": "python",
+    "system_prompt": "You are a Python quality assurance and testing engineer.",
+    "user_prompt": "Compare tox (INI/TOML declarative) and nox (Python-scripted) for orchestrating test matrices across multiple Python versions (3.10, 3.11, 3.12, 3.13).",
+    "tags": ["python", "tox", "nox", "matrix-testing", "testing"]
+  },
+  {
+    "id": "py-pack-pypi-trusted-publishing-oidc",
+    "category": "python",
+    "system_prompt": "You are a supply chain security specialist.",
+    "user_prompt": "How does PyPI Trusted Publishing use GitHub Actions OIDC tokens to publish packages without storing long-lived API tokens in repository secrets?",
+    "tags": ["python", "pypi", "security", "oidc", "supply-chain", "github-actions"]
+  },
+  {
+    "id": "py-pack-pre-commit-framework-git-hooks",
+    "category": "python",
+    "system_prompt": "You are a developer tooling engineer.",
+    "user_prompt": "How do you configure .pre-commit-config.yaml to enforce Ruff formatting, Mypy type-checking, and trailing-whitespace cleanup automatically on git commit?",
+    "tags": ["python", "pre-commit", "git-hooks", "tooling", "quality"]
+  },
+  {
+    "id": "py-pack-virtual-environment-isolation-internals",
+    "category": "python",
+    "system_prompt": "You are a Python internals specialist.",
+    "user_prompt": "How does pyvenv.cfg in a virtual environment tell Python where to find the standard library and site-packages without copying interpreter binaries?",
+    "tags": ["python", "venv", "virtualenv", "internals", "sys-path"]
+  },
+  {
+    "id": "py-pack-private-pypi-pip-extra-index-url-risk",
+    "category": "python",
+    "system_prompt": "You are a software security and dependency confusion specialist.",
+    "user_prompt": "Explain dependency confusion attacks with pip's --extra-index-url flag and how --index-url or scoped index proxies protect enterprise packages.",
+    "tags": ["python", "security", "pip", "dependency-confusion", "supply-chain"]
+  },
+  {
+    "id": "py-pack-pkgutil-iter-modules-plugin-discovery",
+    "category": "python",
+    "system_prompt": "You are a plugin architecture engineer.",
+    "user_prompt": "How do you implement dynamic plugin discovery using pkgutil.iter_modules() or entry_points(group='app.plugins') in Python applications?",
+    "tags": ["python", "plugins", "pkgutil", "entry-points", "architecture"]
+  }
+]

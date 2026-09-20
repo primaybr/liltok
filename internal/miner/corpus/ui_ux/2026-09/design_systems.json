@@ -1,0 +1,149 @@
+[
+  {
+    "id": "ui-tokens-three-tier-architecture",
+    "category": "ui_ux",
+    "system_prompt": "You are a design systems architect.",
+    "user_prompt": "How do you structure a 3-tier design token architecture (global tokens, alias/semantic tokens, component tokens) for scalable multi-brand theming?",
+    "tags": ["ui_ux", "design-tokens", "design-systems", "theming", "css"]
+  },
+  {
+    "id": "ui-color-oklch-accessible-palettes",
+    "category": "ui_ux",
+    "system_prompt": "You are a color theory and UI engineering specialist.",
+    "user_prompt": "Why is the OKLCH color space superior to hex or HSL for generating perceptually uniform color palettes and automated dark mode variants?",
+    "tags": ["ui_ux", "color-theory", "oklch", "dark-mode", "accessibility"]
+  },
+  {
+    "id": "ui-typography-modular-scale-fluid",
+    "category": "ui_ux",
+    "system_prompt": "You are a digital typography specialist.",
+    "user_prompt": "How do you establish a responsive typographic scale using modular ratios (e.g. 1.25 Major Third) and CSS clamp() for fluid font sizing without breakpoint jumps?",
+    "tags": ["ui_ux", "typography", "modular-scale", "fluid-typography", "css"]
+  },
+  {
+    "id": "ui-spacing-8pt-grid-system",
+    "category": "ui_ux",
+    "system_prompt": "You are a layout and design systems specialist.",
+    "user_prompt": "What are the rules and benefits of an 8-point spatial grid system (with 4-point half-step) for spacing, component padding, and alignment across devices?",
+    "tags": ["ui_ux", "spacing", "grid-system", "layout", "8pt-grid"]
+  },
+  {
+    "id": "ui-dark-mode-semantic-tokens",
+    "category": "ui_ux",
+    "system_prompt": "You are a front-end UI theming engineer.",
+    "user_prompt": "How do you architect dark mode using semantic CSS variables (e.g. --bg-surface, --text-primary) to avoid inverted contrast traps and pure black (#000000) eye fatigue?",
+    "tags": ["ui_ux", "dark-mode", "css-variables", "theming", "color-contrast"]
+  },
+  {
+    "id": "ui-elevation-realistic-shadows",
+    "category": "ui_ux",
+    "system_prompt": "You are a UI visual design specialist.",
+    "user_prompt": "How do you design realistic multi-layered elevation shadows using CSS box-shadow (ambient light blur + key light offset) to create subtle depth without harsh borders?",
+    "tags": ["ui_ux", "shadows", "elevation", "depth", "visual-design"]
+  },
+  {
+    "id": "ui-form-labels-vs-placeholders",
+    "category": "ui_ux",
+    "system_prompt": "You are a UX form design and usability researcher.",
+    "user_prompt": "Why should placeholder text never replace persistent form labels, and what usability problems arise from disappearing placeholders during input?",
+    "tags": ["ui_ux", "forms", "placeholders", "usability", "ux-research"]
+  },
+  {
+    "id": "ui-button-hierarchy-states",
+    "category": "ui_ux",
+    "system_prompt": "You are an interaction design specialist.",
+    "user_prompt": "What is the complete visual and interactive state hierarchy for buttons: primary, secondary, tertiary, hover, active, focus-visible, loading, and disabled?",
+    "tags": ["ui_ux", "buttons", "states", "interaction-design", "components"]
+  },
+  {
+    "id": "ui-modals-vs-drawers-vs-sheets",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile and desktop UX architect.",
+    "user_prompt": "When should an interface use a centered modal dialog, a sliding side drawer, or a mobile bottom sheet based on user intent and task complexity?",
+    "tags": ["ui_ux", "modals", "drawers", "bottom-sheets", "information-architecture"]
+  },
+  {
+    "id": "ui-skeleton-screens-vs-spinners",
+    "category": "ui_ux",
+    "system_prompt": "You are a perceptual performance engineer.",
+    "user_prompt": "Why do skeleton loading screens reduce perceived wait times compared to centered spinners, and how do you prevent cumulative layout shift (CLS) during transition?",
+    "tags": ["ui_ux", "skeleton-screens", "perceived-performance", "cls", "loading-states"]
+  },
+  {
+    "id": "ui-data-tables-alignment-rules",
+    "category": "ui_ux",
+    "system_prompt": "You are a data visualization and enterprise UX specialist.",
+    "user_prompt": "What are the essential UX formatting rules for enterprise data tables: numerical right-alignment, tabular font figures, sticky headers, and column density?",
+    "tags": ["ui_ux", "data-tables", "enterprise-ux", "alignment", "typography"]
+  },
+  {
+    "id": "ui-empty-states-user-guidance",
+    "category": "ui_ux",
+    "system_prompt": "You are a product onboarding specialist.",
+    "user_prompt": "How do you design effective empty states (zero-data screens) that explain the missing context, demonstrate product value, and provide a clear primary action?",
+    "tags": ["ui_ux", "empty-states", "onboarding", "ux-design", "conversion"]
+  },
+  {
+    "id": "ui-toast-notifications-vs-banners",
+    "category": "ui_ux",
+    "system_prompt": "You are a UI feedback and messaging specialist.",
+    "user_prompt": "How do you categorize feedback messaging between ephemeral toasts, persistent inline banners, and interruptive modals based on criticality and urgency?",
+    "tags": ["ui_ux", "notifications", "toasts", "banners", "feedback"]
+  },
+  {
+    "id": "ui-tooltips-vs-popovers-accessibility",
+    "category": "ui_ux",
+    "system_prompt": "You are a web accessibility and interaction engineer.",
+    "user_prompt": "What is the behavioral and accessibility difference between an informational tooltip (hover/focus triggered, non-interactive) and a rich interactive popover?",
+    "tags": ["ui_ux", "tooltips", "popovers", "accessibility", "aria"]
+  },
+  {
+    "id": "ui-breadcrumbs-hierarchy-navigation",
+    "category": "ui_ux",
+    "system_prompt": "You are an information architect.",
+    "user_prompt": "When are breadcrumbs necessary for secondary navigation in deep hierarchical applications, and how should mobile viewports handle truncation?",
+    "tags": ["ui_ux", "breadcrumbs", "navigation", "information-architecture", "mobile-ux"]
+  },
+  {
+    "id": "ui-card-grids-visual-consistency",
+    "category": "ui_ux",
+    "system_prompt": "You are a component design specialist.",
+    "user_prompt": "How do you maintain visual harmony in dynamic card feeds when card contents vary wildly in title length, metadata badges, and thumbnail aspect ratios?",
+    "tags": ["ui_ux", "cards", "grid", "visual-hierarchy", "layout"]
+  },
+  {
+    "id": "ui-iconography-optical-alignment",
+    "category": "ui_ux",
+    "system_prompt": "You are an icon designer and design system artist.",
+    "user_prompt": "How does optical alignment differ from geometric centering when placing icons inside circular buttons or alongside text labels?",
+    "tags": ["ui_ux", "icons", "optical-alignment", "visual-design", "geometry"]
+  },
+  {
+    "id": "ui-figma-tokens-studio-pipeline",
+    "category": "ui_ux",
+    "system_prompt": "You are a design operations (DesignOps) engineer.",
+    "user_prompt": "How do you automate design token synchronization from Figma Variables / Tokens Studio into GitHub pull requests generating Tailwind config and CSS tokens?",
+    "tags": ["ui_ux", "designops", "figma", "tokens-studio", "ci-cd"]
+  },
+  {
+    "id": "ui-search-experience-instant-filters",
+    "category": "ui_ux",
+    "system_prompt": "You are an e-commerce and search UX specialist.",
+    "user_prompt": "What are best UX practices for high-intent search interfaces: auto-complete suggestions, recent search history, faceted filters, and zero-results fallback?",
+    "tags": ["ui_ux", "search-ux", "filters", "facets", "autocomplete"]
+  },
+  {
+    "id": "ui-design-system-versioning-deprecation",
+    "category": "ui_ux",
+    "system_prompt": "You are a design systems engineering manager.",
+    "user_prompt": "How do you manage semantic versioning, breaking UI component updates, and sunset deprecation cycles across hundreds of consuming application teams?",
+    "tags": ["ui_ux", "design-systems", "versioning", "deprecation", "governance"]
+  },
+  {
+    "id": "ui-badge-vs-chip-interaction-patterns",
+    "category": "ui_ux",
+    "system_prompt": "You are a UI component interaction specialist.",
+    "user_prompt": "Differentiate the interaction models of static status badges, selectable multi-value filter chips, and dismissible input tags in web applications.",
+    "tags": ["ui_ux", "badges", "chips", "tags", "interaction-patterns"]
+  }
+]

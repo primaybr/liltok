@@ -1,0 +1,142 @@
+[
+  {
+    "id": "go-mem-escape-analysis-stack-heap",
+    "category": "go",
+    "system_prompt": "You are a Go compiler optimization specialist.",
+    "user_prompt": "How do you inspect Go compiler escape analysis using go build -gcflags='-m' to identify why variables escape to the heap?",
+    "tags": ["go", "compiler", "escape-analysis", "heap", "stack"]
+  },
+  {
+    "id": "go-mem-pprof-heap-inuse-vs-alloc",
+    "category": "go",
+    "system_prompt": "You are a Go performance diagnostic engineer.",
+    "user_prompt": "What is the difference between inuse_space and alloc_space in pprof heap profiles, and how do you locate active memory leaks?",
+    "tags": ["go", "pprof", "memory-leaks", "heap-profile", "profiling"]
+  },
+  {
+    "id": "go-mem-cpu-profiling-flamegraphs",
+    "category": "go",
+    "system_prompt": "You are a systems performance engineer.",
+    "user_prompt": "How do you collect and analyze CPU profiles using net/http/pprof and generate interactive SVG flame graphs with go tool pprof?",
+    "tags": ["go", "pprof", "cpu", "flamegraph", "performance"]
+  },
+  {
+    "id": "go-mem-trace-tool-scheduler-latency",
+    "category": "go",
+    "system_prompt": "You are a Go runtime engineer.",
+    "user_prompt": "How do you record execution traces with runtime/trace and use go tool trace to diagnose goroutine scheduling delays and lock contention?",
+    "tags": ["go", "trace", "runtime", "scheduler", "latency"]
+  },
+  {
+    "id": "go-mem-slice-preallocation-growth",
+    "category": "go",
+    "system_prompt": "You are a low-latency Go developer.",
+    "user_prompt": "Why does preallocating slice capacity with make([]T, 0, cap) prevent repeated reallocation copying, and what is Go slice growth factor?",
+    "tags": ["go", "slices", "allocation", "memory", "growth"]
+  },
+  {
+    "id": "go-mem-zero-copy-string-bytes",
+    "category": "go",
+    "system_prompt": "You are a high-performance Go engineer.",
+    "user_prompt": "How do unsafe.String and unsafe.StringData in Go 1.20+ allow zero-copy conversions between []byte and string safely?",
+    "tags": ["go", "unsafe", "zero-copy", "strings", "go120"]
+  },
+  {
+    "id": "go-mem-struct-alignment-padding",
+    "category": "go",
+    "system_prompt": "You are a systems programmer.",
+    "user_prompt": "How does struct field ordering affect memory footprint due to CPU word alignment and padding, and how can field reordering save memory?",
+    "tags": ["go", "structs", "alignment", "padding", "memory"]
+  },
+  {
+    "id": "go-mem-gomemlimit-kubernetes-pods",
+    "category": "go",
+    "system_prompt": "You are a cloud infrastructure architect.",
+    "user_prompt": "How does GOMEMLIMIT (introduced in Go 1.19) prevent OOMKills in Kubernetes pods when paired with GOGC tuning?",
+    "tags": ["go", "gomemlimit", "gogc", "kubernetes", "oomkill"]
+  },
+  {
+    "id": "go-mem-subslice-retention-leak",
+    "category": "go",
+    "system_prompt": "You are a Go memory debugger.",
+    "user_prompt": "Explain how reslicing a small portion of a large slice (e.g. data[:5]) keeps the entire backing array in memory, and how to fix it with copy().",
+    "tags": ["go", "slices", "memory-leaks", "gc", "copy"]
+  },
+  {
+    "id": "go-mem-map-buckets-reclamation",
+    "category": "go",
+    "system_prompt": "You are a Go internals architect.",
+    "user_prompt": "Why does deleting keys from a Go map not free allocated bucket memory, and how do you reclaim memory from sprawling maps?",
+    "tags": ["go", "maps", "buckets", "memory", "gc"]
+  },
+  {
+    "id": "go-mem-strings-builder-vs-buffer",
+    "category": "go",
+    "system_prompt": "You are a Go optimization specialist.",
+    "user_prompt": "Compare strings.Builder, bytes.Buffer, and fmt.Sprintf for string concatenation in high-frequency loops with respect to allocations.",
+    "tags": ["go", "strings-builder", "bytes-buffer", "allocations", "benchmarking"]
+  },
+  {
+    "id": "go-mem-cgo-overhead-pointer-rules",
+    "category": "go",
+    "system_prompt": "You are a systems interop specialist.",
+    "user_prompt": "What are the performance costs of cgo transitions, and what are the strict rules for passing Go pointers to C code?",
+    "tags": ["go", "cgo", "interop", "pointers", "overhead"]
+  },
+  {
+    "id": "go-mem-runtime-memstats-metrics",
+    "category": "go",
+    "system_prompt": "You are a site reliability engineer.",
+    "user_prompt": "How do you interpret runtime.MemStats metrics (Alloc, TotalAlloc, Sys, NumGC, PauseTotalNs) to detect memory anomalies?",
+    "tags": ["go", "memstats", "metrics", "runtime", "monitoring"]
+  },
+  {
+    "id": "go-mem-interface-boxing-allocations",
+    "category": "go",
+    "system_prompt": "You are a Go compiler engineer.",
+    "user_prompt": "When does passing a concrete value to an interface parameter trigger heap allocation, and how can generics avoid boxing overhead?",
+    "tags": ["go", "interfaces", "boxing", "generics", "allocations"]
+  },
+  {
+    "id": "go-mem-mmap-large-dataset-cache",
+    "category": "go",
+    "system_prompt": "You are a storage engine developer.",
+    "user_prompt": "How do database engines like BoltDB or Badger use mmap in Go to access multi-gigabyte datasets without loading everything into heap?",
+    "tags": ["go", "mmap", "storage", "databases", "off-heap"]
+  },
+  {
+    "id": "go-mem-copy-on-write-techniques",
+    "category": "go",
+    "system_prompt": "You are a high-concurrency systems architect.",
+    "user_prompt": "How do you implement a Copy-On-Write (COW) data structure in Go using atomic pointers for lock-free read access with infrequent updates?",
+    "tags": ["go", "copy-on-write", "atomic", "lock-free", "concurrency"]
+  },
+  {
+    "id": "go-mem-finalizers-vs-cleanup",
+    "category": "go",
+    "system_prompt": "You are a Go runtime engineer.",
+    "user_prompt": "What are the limitations of runtime.SetFinalizer, and how does the new runtime.AddCleanup mechanism improve resource finalization?",
+    "tags": ["go", "finalizers", "cleanup", "gc", "resources"]
+  },
+  {
+    "id": "go-mem-arena-memory-allocator",
+    "category": "go",
+    "system_prompt": "You are an experimental Go researcher.",
+    "user_prompt": "What was the design goal of GOEXPERIMENT=arenas in Go 1.20, and why were arena allocators explored for high-throughput batch workloads?",
+    "tags": ["go", "arenas", "memory-management", "allocator", "experiments"]
+  },
+  {
+    "id": "go-mem-madvise-dontneed-vs-free",
+    "category": "go",
+    "system_prompt": "You are a Linux Go systems engineer.",
+    "user_prompt": "How does GODEBUG=madvdontneed=1 influence whether Go returns scavenged memory immediately to the Linux kernel via MADV_DONTNEED?",
+    "tags": ["go", "madvise", "linux", "godebug", "resident-set-size"]
+  },
+  {
+    "id": "go-mem-pprof-block-mutex-contention",
+    "category": "go",
+    "system_prompt": "You are a concurrency performance specialist.",
+    "user_prompt": "How do you configure runtime.SetBlockProfileRate and runtime.SetMutexProfileFraction to diagnose lock contention in pprof?",
+    "tags": ["go", "pprof", "mutex-profile", "block-profile", "contention"]
+  }
+]

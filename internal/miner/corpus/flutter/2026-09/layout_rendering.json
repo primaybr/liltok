@@ -1,0 +1,142 @@
+[
+  {
+    "id": "flutter-layout-renderflex-overflow-bottom-right",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter layout and UI specialist.",
+    "user_prompt": "How do you fix 'A RenderFlex overflowed by X pixels on the bottom/right' defensively using Expanded, Flexible, and SingleChildScrollView?",
+    "tags": ["flutter", "dart", "renderflex", "overflow", "layout"]
+  },
+  {
+    "id": "flutter-layout-unbounded-height-listview-column",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI architecture specialist.",
+    "user_prompt": "Why does nesting a ListView inside a Column cause 'Vertical viewport was given unbounded height', and how do Expanded or shrinkWrap: true fix it?",
+    "tags": ["flutter", "dart", "listview", "column", "unbounded-height"]
+  },
+  {
+    "id": "flutter-layout-customscrollview-slivers",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI engineering expert.",
+    "user_prompt": "How do you build complex scrolling interfaces using CustomScrollView with SliverAppBar, SliverList, and SliverPersistentHeader?",
+    "tags": ["flutter", "dart", "slivers", "customscrollview", "scrolling"]
+  },
+  {
+    "id": "flutter-layout-intrinsic-height-row-stretching",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter layout specialist.",
+    "user_prompt": "How does IntrinsicHeight allow children inside a Row to match the height of the tallest child (e.g. vertical dividers), and what is the O(N^2) layout cost?",
+    "tags": ["flutter", "dart", "intrinsicheight", "row", "performance"]
+  },
+  {
+    "id": "flutter-layout-layoutbuilder-responsive-breakpoints",
+    "category": "flutter",
+    "system_prompt": "You are a multi-platform responsive Flutter specialist.",
+    "user_prompt": "How do you use LayoutBuilder and BoxConstraints to switch between mobile single-column and desktop/tablet split-view multi-column layouts?",
+    "tags": ["flutter", "dart", "layoutbuilder", "responsive", "breakpoints"]
+  },
+  {
+    "id": "flutter-layout-expanded-vs-flexible-fit",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter developer.",
+    "user_prompt": "Explain the difference between Expanded and Flexible with FlexFit.tight vs FlexFit.loose inside Row and Column widgets.",
+    "tags": ["flutter", "dart", "expanded", "flexible", "flex"]
+  },
+  {
+    "id": "flutter-layout-stack-positioned-fractionally",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI layout engineer.",
+    "user_prompt": "How do Stack and Positioned widgets handle overlapping elements, badge placements, and coordinate positioning relative to parent constraints?",
+    "tags": ["flutter", "dart", "stack", "positioned", "ui"]
+  },
+  {
+    "id": "flutter-layout-wrap-vs-row-overflow",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter developer.",
+    "user_prompt": "When should the Wrap widget be used instead of Row to allow chips and tags to automatically wrap into subsequent lines without overflowing?",
+    "tags": ["flutter", "dart", "wrap", "chips", "layout"]
+  },
+  {
+    "id": "flutter-layout-custom-renderobject-flow",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter rendering engine internals specialist.",
+    "user_prompt": "How does the Flutter three-tree architecture (Widget, Element, RenderObject) work, and how are constraints passed down and sizes passed up?",
+    "tags": ["flutter", "dart", "renderobject", "internals", "layout"]
+  },
+  {
+    "id": "flutter-layout-aspect-ratio-fitted-box",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI developer.",
+    "user_prompt": "How do AspectRatio and FittedBox scale images and video players proportionally across varying screen dimensions without distortion?",
+    "tags": ["flutter", "dart", "aspect-ratio", "fittedbox", "media"]
+  },
+  {
+    "id": "flutter-layout-mediaquery-safearea-notches",
+    "category": "flutter",
+    "system_prompt": "You are a mobile device UI specialist.",
+    "user_prompt": "How does SafeArea adapt UI padding for device notches, camera punch-holes, and system navigation bars using MediaQuery.of(context).padding?",
+    "tags": ["flutter", "dart", "safearea", "mediaquery", "mobile-ui"]
+  },
+  {
+    "id": "flutter-layout-reparenting-global-key-hero",
+    "category": "flutter",
+    "system_prompt": "You are an advanced Flutter UI engineer.",
+    "user_prompt": "How does Hero animation seamlessly reparent and animate a RenderObject across route transitions without resetting widget state?",
+    "tags": ["flutter", "dart", "hero", "animations", "transitions"]
+  },
+  {
+    "id": "flutter-layout-fractionally-sized-box",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter layout specialist.",
+    "user_prompt": "How do FractionallySizedBox and FractionalOffset scale button widths and card sizes relative to available parent width percentage (e.g. 80% width)?",
+    "tags": ["flutter", "dart", "fractionallysizedbox", "responsive", "layout"]
+  },
+  {
+    "id": "flutter-layout-overflowbox-unconstrained",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter layout engineer.",
+    "user_prompt": "When should OverflowBox or UnconstrainedBox be used to intentionally render child widgets larger than parent incoming box constraints?",
+    "tags": ["flutter", "dart", "overflowbox", "unconstrainedbox", "constraints"]
+  },
+  {
+    "id": "flutter-layout-custom-clippers-bezier-curves",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter graphics and UI designer.",
+    "user_prompt": "How do you implement a CustomClipper<Path> to draw smooth quadratic and cubic Bezier wave curves for custom card and app header backgrounds?",
+    "tags": ["flutter", "dart", "customclipper", "bezier", "graphics"]
+  },
+  {
+    "id": "flutter-layout-baseline-text-alignment",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter typography and layout specialist.",
+    "user_prompt": "How does the Baseline widget align text of differing font sizes and styles along a shared alphabetic baseline inside a Row?",
+    "tags": ["flutter", "dart", "baseline", "typography", "alignment"]
+  },
+  {
+    "id": "flutter-layout-indexed-stack-tab-preservation",
+    "category": "flutter",
+    "system_prompt": "You are a mobile navigation specialist.",
+    "user_prompt": "Why does IndexedStack preserve scroll positions and form input states across bottom navigation tabs while keeping all pages in memory?",
+    "tags": ["flutter", "dart", "indexedstack", "tabs", "navigation"]
+  },
+  {
+    "id": "flutter-layout-offstage-visibility-performance",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI performance engineer.",
+    "user_prompt": "Compare Offstage vs Visibility vs conditional widget rendering ('if (show) ...') in terms of layout calculations, animation preservation, and memory.",
+    "tags": ["flutter", "dart", "offstage", "visibility", "performance"]
+  },
+  {
+    "id": "flutter-layout-reorderable-listview-drag-drop",
+    "category": "flutter",
+    "system_prompt": "You are a mobile interactions engineer.",
+    "user_prompt": "How do you configure ReorderableListView with drag handles and animated reordering callbacks (onReorder) in Flutter?",
+    "tags": ["flutter", "dart", "reorderablelistview", "drag-and-drop", "ui"]
+  },
+  {
+    "id": "flutter-layout-interactive-viewer-pan-zoom",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter gesture and interaction specialist.",
+    "user_prompt": "How do you use InteractiveViewer to enable smooth pinch-to-zoom and two-finger panning on high-resolution images and document canvases?",
+    "tags": ["flutter", "dart", "interactiveviewer", "gestures", "zoom"]
+  }
+]

@@ -1,0 +1,142 @@
+[
+  {
+    "id": "k8s-net-service-types-clusterip-nodeport-lb",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes networking specialist.",
+    "user_prompt": "Compare ClusterIP, NodePort, LoadBalancer, and ExternalName service types in Kubernetes: traffic routing, port ranges, and use cases.",
+    "tags": ["kubernetes", "services", "networking", "clusterip", "loadbalancer"]
+  },
+  {
+    "id": "k8s-net-ingress-nginx-canary-deployments",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes traffic engineer.",
+    "user_prompt": "How do you configure canary traffic shifting (e.g. 10% canary traffic via nginx.ingress.kubernetes.io/canary-weight) using Ingress-NGINX annotations?",
+    "tags": ["kubernetes", "ingress", "nginx", "canary", "traffic-routing"]
+  },
+  {
+    "id": "k8s-net-network-policy-default-deny",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes security and networking architect.",
+    "user_prompt": "How do you construct a default-deny ingress and egress NetworkPolicy and selectively permit pod-to-pod communication across namespaces?",
+    "tags": ["kubernetes", "networkpolicy", "security", "firewall", "cni"]
+  },
+  {
+    "id": "k8s-net-gateway-api-vs-ingress",
+    "category": "kubernetes",
+    "system_prompt": "You are a modern cloud infrastructure architect.",
+    "user_prompt": "Explain the Kubernetes Gateway API (GatewayClass, Gateway, HTTPRoute) and how its role-oriented design supersedes traditional Ingress resources.",
+    "tags": ["kubernetes", "gateway-api", "networking", "httproute"]
+  },
+  {
+    "id": "k8s-net-coredns-ndots-5-dns-latency",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes performance and networking engineer.",
+    "user_prompt": "Explain the 'ndots:5' DNS resolution penalty in /etc/resolv.conf in Kubernetes pods and how NodeLocal DNSCache eliminates CoreDNS saturation.",
+    "tags": ["kubernetes", "dns", "coredns", "networking", "performance"]
+  },
+  {
+    "id": "k8s-net-cert-manager-letsencrypt-http01",
+    "category": "kubernetes",
+    "system_prompt": "You are a DevSecOps engineer.",
+    "user_prompt": "How do you configure cert-manager with a Let's Encrypt ClusterIssuer and Ingress annotations for automated TLS certificate provisioning and renewal?",
+    "tags": ["kubernetes", "cert-manager", "tls", "ssl", "ingress", "letsencrypt"]
+  },
+  {
+    "id": "k8s-net-kube-proxy-iptables-vs-ipvs",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes systems and kernel networking specialist.",
+    "user_prompt": "Compare kube-proxy in iptables mode vs IPVS mode: routing table scalability (O(N) vs O(1) hash tables), connection balancing, and performance at 10,000+ services.",
+    "tags": ["kubernetes", "kube-proxy", "iptables", "ipvs", "networking"]
+  },
+  {
+    "id": "k8s-net-cilium-ebpf-host-routing",
+    "category": "kubernetes",
+    "system_prompt": "You are an eBPF and cloud networking engineer.",
+    "user_prompt": "How does Cilium eBPF host routing replace kube-proxy and iptables to provide high-throughput pod networking, L7 filtering, and Hubble observability?",
+    "tags": ["kubernetes", "cilium", "ebpf", "networking", "cni"]
+  },
+  {
+    "id": "k8s-net-ingress-ssl-passthrough-vs-termination",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes networking architect.",
+    "user_prompt": "What are the configuration trade-offs between SSL termination at the Ingress controller vs SSL passthrough directly to backend pods via SNI?",
+    "tags": ["kubernetes", "ingress", "tls", "ssl-passthrough", "security"]
+  },
+  {
+    "id": "k8s-net-endpointslice-scalability",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes control plane architect.",
+    "user_prompt": "Why did Kubernetes introduce EndpointSlice resources to replace monolithic Endpoints objects when scaling services beyond 1,000 pods?",
+    "tags": ["kubernetes", "endpoints", "endpointslice", "scalability", "networking"]
+  },
+  {
+    "id": "k8s-net-external-traffic-policy-local",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud networking specialist.",
+    "user_prompt": "How does externalTrafficPolicy: Local preserve client source IP addresses on NodePort and LoadBalancer services and avoid extra node network hops?",
+    "tags": ["kubernetes", "services", "external-traffic-policy", "source-ip"]
+  },
+  {
+    "id": "k8s-net-calico-bgp-peering",
+    "category": "kubernetes",
+    "system_prompt": "You are a network infrastructure architect.",
+    "user_prompt": "How does Calico CNI use BGP peering with top-of-rack switches to route pod CIDR subnets without overlay encapsulation (VXLAN/Geneve)?",
+    "tags": ["kubernetes", "calico", "bgp", "networking", "cni"]
+  },
+  {
+    "id": "k8s-net-grpc-load-balancing-l7",
+    "category": "kubernetes",
+    "system_prompt": "You are a microservices and networking architect.",
+    "user_prompt": "Why does default Kubernetes L4 service load balancing fail for HTTP/2 and gRPC streams, and how do service meshes or L7 proxies balance persistent gRPC calls?",
+    "tags": ["kubernetes", "grpc", "http2", "load-balancing", "envoy"]
+  },
+  {
+    "id": "k8s-net-ingress-cors-configuration",
+    "category": "kubernetes",
+    "system_prompt": "You are a web API infrastructure specialist.",
+    "user_prompt": "How do you configure global and per-route CORS response headers on Ingress-NGINX with pre-flight OPTIONS request handling?",
+    "tags": ["kubernetes", "ingress", "cors", "http", "api"]
+  },
+  {
+    "id": "k8s-net-websocket-upgrade-proxy-timeout",
+    "category": "kubernetes",
+    "system_prompt": "You are a real-time web infrastructure engineer.",
+    "user_prompt": "What annotations are required in Ingress-NGINX (proxy-read-timeout, proxy-send-timeout) to maintain persistent WebSocket and SSE connections without premature disconnects?",
+    "tags": ["kubernetes", "ingress", "websockets", "sse", "nginx"]
+  },
+  {
+    "id": "k8s-net-service-mesh-istio-mtls",
+    "category": "kubernetes",
+    "system_prompt": "You are a zero-trust cloud security architect.",
+    "user_prompt": "How does Istio enforce strict mutual TLS (mTLS) between microservices using PeerAuthentication and automatic SPIFFE identity certificates?",
+    "tags": ["kubernetes", "istio", "mtls", "service-mesh", "security"]
+  },
+  {
+    "id": "k8s-net-multi-cluster-service-networking",
+    "category": "kubernetes",
+    "system_prompt": "You are an enterprise cloud infrastructure architect.",
+    "user_prompt": "How does Kubernetes Multi-Cluster Services (MCS API / Submariner) route traffic across distinct Kubernetes clusters in multi-cloud environments?",
+    "tags": ["kubernetes", "multi-cluster", "networking", "submariner"]
+  },
+  {
+    "id": "k8s-net-session-affinity-client-ip",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes application engineer.",
+    "user_prompt": "How do you configure sessionAffinity: ClientIP with sessionAffinityConfig.clientIP.timeoutSeconds on a Kubernetes Service for stateful sticky routing?",
+    "tags": ["kubernetes", "services", "session-affinity", "sticky-sessions"]
+  },
+  {
+    "id": "k8s-net-ipv4-ipv6-dual-stack",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud networking engineer.",
+    "user_prompt": "How do you configure IPv4/IPv6 Dual-Stack networking on Kubernetes pods and services using ipFamilyPolicy: PreferDualStack?",
+    "tags": ["kubernetes", "ipv6", "dual-stack", "networking"]
+  },
+  {
+    "id": "k8s-net-metallb-bare-metal-loadbalancer",
+    "category": "kubernetes",
+    "system_prompt": "You are a bare-metal infrastructure engineer.",
+    "user_prompt": "How does MetalLB provide Type: LoadBalancer IP allocation on on-premise bare-metal Kubernetes clusters using Layer 2 (ARP/NDP) or BGP mode?",
+    "tags": ["kubernetes", "metallb", "bare-metal", "loadbalancer", "on-premise"]
+  }
+]

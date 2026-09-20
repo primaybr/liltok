@@ -1,0 +1,149 @@
+[
+  {
+    "id": "py-diag-cprofile-snakeviz-visualization",
+    "category": "python",
+    "system_prompt": "You are a Python performance optimization specialist.",
+    "user_prompt": "How do you profile Python CPU bottlenecks with cProfile and visualize cumulative call times and call counts using SnakeViz or pstats?",
+    "tags": ["python", "profiling", "cprofile", "snakeviz", "performance"]
+  },
+  {
+    "id": "py-diag-pytest-fixtures-autouse-scopes",
+    "category": "python",
+    "system_prompt": "You are a Python test automation specialist.",
+    "user_prompt": "Explain pytest fixture scopes (function, class, module, package, session), yield teardown patterns, and autouse=True execution mechanics.",
+    "tags": ["python", "pytest", "testing", "fixtures"]
+  },
+  {
+    "id": "py-diag-pytest-parametrize-edge-cases",
+    "category": "python",
+    "system_prompt": "You are a test-driven development specialist.",
+    "user_prompt": "How do you construct table-driven test matrices using @pytest.mark.parametrize with custom test IDs to thoroughly cover boundary conditions?",
+    "tags": ["python", "pytest", "testing", "parametrize", "table-driven"]
+  },
+  {
+    "id": "py-diag-gc-circular-reference-leaks",
+    "category": "python",
+    "system_prompt": "You are a CPython memory management specialist.",
+    "user_prompt": "How does gc.get_referrers() and objgraph inspect circular object references that prevent immediate deallocation when reference count hits zero?",
+    "tags": ["python", "memory-leaks", "garbage-collection", "gc", "objgraph"]
+  },
+  {
+    "id": "py-diag-exception-group-add-note-python-311",
+    "category": "python",
+    "system_prompt": "You are a modern Python error handling specialist.",
+    "user_prompt": "How do ExceptionGroup, 'except* ExceptionType', and add_note() in Python 3.11 enhance multi-error handling in concurrent tasks?",
+    "tags": ["python", "exceptions", "python311", "exceptiongroup", "error-handling"]
+  },
+  {
+    "id": "py-diag-breakpoint-pdb-debugging-tricks",
+    "category": "python",
+    "system_prompt": "You are a Python debugging engineer.",
+    "user_prompt": "How do you use the built-in breakpoint() and pdb/ipdb commands (n, s, c, u, d, sticky, display) to inspect runtime variable states interactively?",
+    "tags": ["python", "pdb", "debugging", "breakpoint", "cli"]
+  },
+  {
+    "id": "py-diag-pytest-mock-mocker-fixture",
+    "category": "python",
+    "system_prompt": "You are a Python unit testing specialist.",
+    "user_prompt": "How does pytest-mock (the mocker fixture) provide automatic unmocking, spec validation, and call assertions compared to unittest.mock.patch?",
+    "tags": ["python", "pytest", "mock", "testing", "pytest-mock"]
+  },
+  {
+    "id": "py-diag-dis-bytecode-disassembly",
+    "category": "python",
+    "system_prompt": "You are a CPython virtual machine internals specialist.",
+    "user_prompt": "How do you use the dis module (dis.dis()) to inspect CPython bytecode instructions (LOAD_FAST, BINARY_OP, JUMP_FORWARD) and benchmark execution speed?",
+    "tags": ["python", "dis", "bytecode", "cpython", "internals"]
+  },
+  {
+    "id": "py-diag-cython-pybind11-c-extensions",
+    "category": "python",
+    "system_prompt": "You are a high-performance Python compiler specialist.",
+    "user_prompt": "Compare Cython and pybind11: compiling Python code to C-extensions with static C types vs writing native C++ wrappers for zero-overhead execution.",
+    "tags": ["python", "cython", "pybind11", "c-extensions", "performance"]
+  },
+  {
+    "id": "py-diag-faulthandler-segfault-traceback",
+    "category": "python",
+    "system_prompt": "You are a Linux and Python systems reliability specialist.",
+    "user_prompt": "How does enabling faulthandler (PYTHONFAULTHANDLER=1) dump Python tracebacks on C-extension segmentation faults (SIGSEGV, SIGBUS, SIGFPE)?",
+    "tags": ["python", "faulthandler", "segfault", "debugging", "c-extensions"]
+  },
+  {
+    "id": "py-diag-exception-chaining-from-none",
+    "category": "python",
+    "system_prompt": "You are a Python software engineer.",
+    "user_prompt": "What is the difference between 'raise CustomError() from err' (__cause__) and 'raise CustomError() from None' to suppress redundant exception contexts?",
+    "tags": ["python", "exceptions", "error-handling", "clean-code"]
+  },
+  {
+    "id": "py-diag-logging-structured-json-structlog",
+    "category": "python",
+    "system_prompt": "You are an observability and log aggregation engineer.",
+    "user_prompt": "How do you configure structlog in Python to emit structured, contextual JSON logs with trace IDs, log levels, and ISO timestamps for Datadog or ELK?",
+    "tags": ["python", "logging", "structlog", "json", "observability"]
+  },
+  {
+    "id": "py-diag-memory-profiler-line-by-line",
+    "category": "python",
+    "system_prompt": "You are a Python memory optimization specialist.",
+    "user_prompt": "How do you use @profile from memory_profiler to measure exact physical RAM increments (MiB) line-by-line during function execution?",
+    "tags": ["python", "memory-profiler", "profiling", "memory", "debugging"]
+  },
+  {
+    "id": "py-diag-pytest-benchmark-microbenchmarking",
+    "category": "python",
+    "system_prompt": "You are a software performance and benchmarking engineer.",
+    "user_prompt": "How do you run statistically rigorous microbenchmarks using pytest-benchmark (min, max, mean, stddev) to track regression performance in CI/CD?",
+    "tags": ["python", "pytest-benchmark", "benchmarking", "performance", "testing"]
+  },
+  {
+    "id": "py-diag-py-spy-sampling-profiler-production",
+    "category": "python",
+    "system_prompt": "You are a production systems performance engineer.",
+    "user_prompt": "How does py-spy sample call stacks of a running Python process without restarting or instrumenting code, and how do you generate SVG flame graphs?",
+    "tags": ["python", "py-spy", "flame-graphs", "profiling", "production"]
+  },
+  {
+    "id": "py-diag-logging-handler-queue-non-blocking",
+    "category": "python",
+    "system_prompt": "You are a high-throughput backend engineer.",
+    "user_prompt": "Why can standard logging handlers block application threads during disk I/O, and how does logging.handlers.QueueHandler solve it with background worker threads?",
+    "tags": ["python", "logging", "queuehandler", "async", "performance"]
+  },
+  {
+    "id": "py-diag-sys-settrace-custom-debugger-coverage",
+    "category": "python",
+    "system_prompt": "You are a Python tooling developer.",
+    "user_prompt": "How does sys.settrace() intercept call, line, return, and exception events in CPython, and how do coverage.py and debuggers utilize it?",
+    "tags": ["python", "settrace", "debugging", "coverage", "internals"]
+  },
+  {
+    "id": "py-diag-pytest-xdist-parallel-test-execution",
+    "category": "python",
+    "system_prompt": "You are a CI/CD build acceleration engineer.",
+    "user_prompt": "How do you run pytest test suites across multiple CPU cores with pytest -n auto (pytest-xdist) while ensuring database fixture isolation per worker?",
+    "tags": ["python", "pytest", "pytest-xdist", "parallel", "testing", "cicd"]
+  },
+  {
+    "id": "py-diag-warnings-filterwarnings-action",
+    "category": "python",
+    "system_prompt": "You are a software quality engineer.",
+    "user_prompt": "How do you turn deprecation warnings into fatal test errors using PYTHONWARNINGS='error' and warnings.filterwarnings() in pytest to prevent future breakages?",
+    "tags": ["python", "warnings", "deprecation", "pytest", "quality"]
+  },
+  {
+    "id": "py-diag-re-sub-regex-performance-catastrophic-backtracking",
+    "category": "python",
+    "system_prompt": "You are an algorithms and regex security specialist.",
+    "user_prompt": "How do you diagnose and prevent catastrophic backtracking (ReDoS) in Python regular expressions using re.compile() and possessive quantifiers or atomic grouping?",
+    "tags": ["python", "regex", "redos", "performance", "security"]
+  },
+  {
+    "id": "py-diag-sys-monitoring-python-312",
+    "category": "python",
+    "system_prompt": "You are a Python 3.12 internals specialist.",
+    "user_prompt": "How does the low-overhead sys.monitoring API in Python 3.12 provide near-zero overhead event hooks for profilers, debuggers, and coverage tools?",
+    "tags": ["python", "python312", "sys-monitoring", "profiling", "internals"]
+  }
+]

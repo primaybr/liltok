@@ -1,0 +1,142 @@
+[
+  {
+    "id": "docker-net-port-mapping-collision-127",
+    "category": "docker",
+    "system_prompt": "You are a container networking specialist.",
+    "user_prompt": "How do you diagnose and resolve 'Bind for 0.0.0.0:8080 failed: port is already allocated' using netstat, lsof, or binding to 127.0.0.1:specific_port?",
+    "tags": ["docker", "networking", "ports", "troubleshooting", "collisions"]
+  },
+  {
+    "id": "docker-net-custom-bridge-vs-default",
+    "category": "docker",
+    "system_prompt": "You are a Docker networking architect.",
+    "user_prompt": "Why does user-defined bridge network provide automatic container DNS name resolution while the default bridge network requires legacy --link flags?",
+    "tags": ["docker", "networking", "bridge", "dns", "discovery"]
+  },
+  {
+    "id": "docker-net-macvlan-ipvlan-networks",
+    "category": "docker",
+    "system_prompt": "You are an enterprise network systems engineer.",
+    "user_prompt": "Compare macvlan and ipvlan network drivers in Docker: assigning physical LAN IP addresses to containers without NAT or bridge overhead.",
+    "tags": ["docker", "networking", "macvlan", "ipvlan", "lan"]
+  },
+  {
+    "id": "docker-net-overlay-network-vxlan",
+    "category": "docker",
+    "system_prompt": "You are a distributed systems network engineer.",
+    "user_prompt": "How does Docker overlay network driver use VXLAN encapsulation to route traffic across multiple Docker Swarm host nodes without physical re-cabling?",
+    "tags": ["docker", "networking", "overlay", "vxlan", "swarm"]
+  },
+  {
+    "id": "docker-net-exposed-vs-published-ports",
+    "category": "docker",
+    "system_prompt": "You are a Docker specialist.",
+    "user_prompt": "Explain the difference between EXPOSE in a Dockerfile (documentation/metadata) vs -p/--publish at runtime (actual iptables NAT rule creation).",
+    "tags": ["docker", "networking", "ports", "expose", "publish"]
+  },
+  {
+    "id": "docker-net-bind-127-0-0-1-security",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "Why does publishing ports with -p 8080:8080 expose them to the public internet by default, and why should internal databases bind to -p 127.0.0.1:5432:5432?",
+    "tags": ["docker", "networking", "security", "firewall", "localhost"]
+  },
+  {
+    "id": "docker-net-container-to-host-communication",
+    "category": "docker",
+    "system_prompt": "You are a development environment engineer.",
+    "user_prompt": "How do containers reach services running on the host machine across Linux, macOS, and Windows using host.docker.internal or 172.17.0.1?",
+    "tags": ["docker", "networking", "host", "dns", "localhost"]
+  },
+  {
+    "id": "docker-net-internal-network-flag",
+    "category": "docker",
+    "system_prompt": "You are a container security architect.",
+    "user_prompt": "How does the 'internal: true' flag on a Docker network create an air-gapped subnet that completely blocks inbound and outbound internet traffic?",
+    "tags": ["docker", "networking", "security", "air-gap", "isolation"]
+  },
+  {
+    "id": "docker-net-iptables-manipulation-ufw",
+    "category": "docker",
+    "system_prompt": "You are a Linux system administrator and security engineer.",
+    "user_prompt": "Why does Docker bypass UFW (Uncomplicated Firewall) rules on Linux by inserting rules directly into the DOCKER iptables chain, and how do you fix it?",
+    "tags": ["docker", "networking", "iptables", "ufw", "linux", "security"]
+  },
+  {
+    "id": "docker-net-dns-search-domains-options",
+    "category": "docker",
+    "system_prompt": "You are a network systems specialist.",
+    "user_prompt": "How do you configure custom DNS servers (--dns), search domains (--dns-search), and options (--dns-opt) on Docker containers and the daemon?",
+    "tags": ["docker", "networking", "dns", "resolv", "configuration"]
+  },
+  {
+    "id": "docker-net-packet-mtu-mismatch",
+    "category": "docker",
+    "system_prompt": "You are a cloud networking engineer.",
+    "user_prompt": "How does an MTU mismatch between the Docker bridge (default 1500) and cloud network interfaces (e.g. 1450 on OpenStack/WireGuard) cause silent packet drops?",
+    "tags": ["docker", "networking", "mtu", "packet-drops", "vpn"]
+  },
+  {
+    "id": "docker-net-container-network-sharing",
+    "category": "docker",
+    "system_prompt": "You are an advanced container systems engineer.",
+    "user_prompt": "How does '--net=container:target_container' allow two containers to share the exact same network namespace and communicate over localhost (pod-like pattern)?",
+    "tags": ["docker", "networking", "namespaces", "sidecars", "localhost"]
+  },
+  {
+    "id": "docker-net-inspect-container-ip-address",
+    "category": "docker",
+    "system_prompt": "You are a DevOps automation engineer.",
+    "user_prompt": "What is the fastest way to extract a container's assigned IP address using 'docker inspect --format' and jq?",
+    "tags": ["docker", "networking", "inspect", "jq", "cli"]
+  },
+  {
+    "id": "docker-net-embedded-dns-127-0-0-11",
+    "category": "docker",
+    "system_prompt": "You are a container networking internals specialist.",
+    "user_prompt": "How does Docker's embedded DNS server at 127.0.0.11 handle internal service discovery, round-robin load balancing, and upstream fallback?",
+    "tags": ["docker", "networking", "dns", "discovery", "internals"]
+  },
+  {
+    "id": "docker-net-subnet-cidr-collision",
+    "category": "docker",
+    "system_prompt": "You are a corporate network infrastructure specialist.",
+    "user_prompt": "How do you configure default-address-pools in /etc/docker/daemon.json to prevent Docker's default 172.17.0.0/16 subnet from colliding with corporate VPNs?",
+    "tags": ["docker", "networking", "vpn", "cidr", "daemon"]
+  },
+  {
+    "id": "docker-net-prune-stale-networks",
+    "category": "docker",
+    "system_prompt": "You are a systems operations engineer.",
+    "user_prompt": "How do you identify and prune dangling, unattached Docker bridge networks without interrupting active container networking?",
+    "tags": ["docker", "networking", "cleanup", "prune", "operations"]
+  },
+  {
+    "id": "docker-net-disable-icc-inter-container-comm",
+    "category": "docker",
+    "system_prompt": "You are a container hardening specialist.",
+    "user_prompt": "How does setting '--icc=false' on the default Docker bridge restrict inter-container communication to enforce strict multi-tenant isolation?",
+    "tags": ["docker", "networking", "security", "isolation", "icc"]
+  },
+  {
+    "id": "docker-net-traffic-shaping-wondershaper",
+    "category": "docker",
+    "system_prompt": "You are a network chaos and resilience engineer.",
+    "user_prompt": "How do you simulate network latency, bandwidth throttling, and packet loss on container veth interfaces using Linux tc (Traffic Control)?",
+    "tags": ["docker", "networking", "traffic-control", "chaos-engineering", "latency"]
+  },
+  {
+    "id": "docker-net-ipam-static-ip-assignment",
+    "category": "docker",
+    "system_prompt": "You are a network systems engineer.",
+    "user_prompt": "How do you create a Docker network with custom IPAM config and assign a static, predictable IP address (--ip) to a specific container?",
+    "tags": ["docker", "networking", "ipam", "static-ip", "configuration"]
+  },
+  {
+    "id": "docker-net-tcpdump-container-traffic",
+    "category": "docker",
+    "system_prompt": "You are a network packet analysis specialist.",
+    "user_prompt": "How do you sniff and capture network packets on a running container using nsenter or an ephemeral tcpdump container without installing tools inside the app container?",
+    "tags": ["docker", "networking", "tcpdump", "wireshark", "troubleshooting"]
+  }
+]

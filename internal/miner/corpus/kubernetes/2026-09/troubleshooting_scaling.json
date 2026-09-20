@@ -1,0 +1,149 @@
+[
+  {
+    "id": "k8s-diag-crashloopbackoff-investigation",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes troubleshooting specialist.",
+    "user_prompt": "Provide a systematic diagnostic checklist for CrashLoopBackOff: kubectl logs --previous, exit codes (1, 137, 139), and entrypoint script syntax debugging.",
+    "tags": ["kubernetes", "troubleshooting", "crashloopbackoff", "debugging"]
+  },
+  {
+    "id": "k8s-diag-oomkilled-exit-137-investigation",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes reliability engineer.",
+    "user_prompt": "How do you investigate and fix an OOMKilled (Exit Code 137) container in Kubernetes: inspecting lastState.terminated.reason, cgroup limits, and JVM memory flags?",
+    "tags": ["kubernetes", "oom", "exit-137", "memory", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-imagepullbackoff-errimagepull",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operations engineer.",
+    "user_prompt": "How do you diagnose ImagePullBackOff and ErrImagePull errors: imagePullSecrets, private registry authentication, rate limits (Docker Hub 429), and image tag typos?",
+    "tags": ["kubernetes", "imagepullbackoff", "docker", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-pending-pod-scheduling-failure",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes cluster administrator.",
+    "user_prompt": "How do you troubleshoot a pod stuck in Pending state: kubectl describe pod Events, 0/N nodes available, insufficient cpu/memory, and affinity mismatch?",
+    "tags": ["kubernetes", "scheduling", "pending", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-node-notready-investigation",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes infrastructure specialist.",
+    "user_prompt": "How do you diagnose a node in NotReady state: kubelet service logs (journalctl -u kubelet), disk pressure, PID pressure, and container runtime socket responsiveness?",
+    "tags": ["kubernetes", "nodes", "notready", "kubelet", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-terminating-pod-stuck-finalizer",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operations specialist.",
+    "user_prompt": "Why do pods or namespaces get stuck in Terminating status, and how do you safely inspect and remove blocking finalizers without causing resource leaks?",
+    "tags": ["kubernetes", "terminating", "finalizers", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-karpenter-vs-cluster-autoscaler",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud infrastructure architect.",
+    "user_prompt": "Compare Karpenter and Kubernetes Cluster Autoscaler: node provisioning latency (sub-minute vs 5+ min), NodePool bin-packing, and spot instance disruption handling.",
+    "tags": ["kubernetes", "autoscaling", "karpenter", "cluster-autoscaler", "cloud"]
+  },
+  {
+    "id": "k8s-diag-vpa-vertical-pod-autoscaler",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes capacity planning engineer.",
+    "user_prompt": "How does the Vertical Pod Autoscaler (VPA) recommend and automatically adjust pod CPU and memory requests based on historical usage with updateMode: Auto vs Initial?",
+    "tags": ["kubernetes", "vpa", "autoscaling", "capacity-planning", "resources"]
+  },
+  {
+    "id": "k8s-diag-keda-event-driven-autoscaling",
+    "category": "kubernetes",
+    "system_prompt": "You are an event-driven architecture specialist.",
+    "user_prompt": "How does KEDA (Kubernetes Event-driven Autoscaling) scale deployments to and from zero pods based on Kafka partition lag, RabbitMQ queues, or AWS SQS message counts?",
+    "tags": ["kubernetes", "keda", "autoscaling", "kafka", "rabbitmq", "event-driven"]
+  },
+  {
+    "id": "k8s-diag-dns-lookup-timeout-coredns-troubleshooting",
+    "category": "kubernetes",
+    "system_prompt": "You are a network reliability engineer.",
+    "user_prompt": "How do you diagnose intermittent DNS lookup timeouts in Kubernetes pods: testing with dig/nslookup, CoreDNS auto-path plugin, and conntrack table exhaustion?",
+    "tags": ["kubernetes", "dns", "coredns", "conntrack", "networking", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-cfs-cpu-throttling-detection",
+    "category": "kubernetes",
+    "system_prompt": "You are a Linux and Kubernetes performance engineer.",
+    "user_prompt": "How do you detect silent Linux CFS CPU throttling on pods using container_cpu_cfs_throttled_periods_total, and why do strict CPU limits cause tail latency spikes?",
+    "tags": ["kubernetes", "cpu", "cfs-throttling", "performance", "latency"]
+  },
+  {
+    "id": "k8s-diag-etcd-defrag-database-maintenance",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes control plane administrator.",
+    "user_prompt": "How do you monitor etcd database size (quota 8GB) and perform safe online defragmentation (etcdctl defrag) and snapshot backups without control plane downtime?",
+    "tags": ["kubernetes", "etcd", "maintenance", "control-plane", "backup"]
+  },
+  {
+    "id": "k8s-diag-node-drain-cordon-upgrade",
+    "category": "kubernetes",
+    "system_prompt": "You are a cluster operations engineer.",
+    "user_prompt": "What is the correct sequence for node maintenance: kubectl cordon, kubectl drain --ignore-daemonsets --delete-emptydir-data, OS upgrade, and kubectl uncordon?",
+    "tags": ["kubernetes", "nodes", "drain", "cordon", "maintenance", "upgrades"]
+  },
+  {
+    "id": "k8s-diag-readiness-probe-flapping-load-shedding",
+    "category": "kubernetes",
+    "system_prompt": "You are a reliability engineer.",
+    "user_prompt": "How do you diagnose readiness probe flapping under high traffic load, and how do you prevent probe failures from triggering catastrophic load concentration on surviving pods?",
+    "tags": ["kubernetes", "probes", "readiness", "load-shedding", "cascading-failure"]
+  },
+  {
+    "id": "k8s-diag-ingress-504-gateway-timeout",
+    "category": "kubernetes",
+    "system_prompt": "You are a web infrastructure engineer.",
+    "user_prompt": "How do you troubleshoot HTTP 504 Gateway Timeout errors on Ingress controllers: upstream pod processing delay vs proxy-read-timeout configuration?",
+    "tags": ["kubernetes", "ingress", "504-timeout", "http", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-ephemeral-storage-eviction",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes node operations engineer.",
+    "user_prompt": "What causes 'Pod ephemeral local storage usage exceeds the total limit of containers' eviction and how do you set ephemeral-storage requests and limits?",
+    "tags": ["kubernetes", "storage", "ephemeral-storage", "eviction", "troubleshooting"]
+  },
+  {
+    "id": "k8s-diag-coredns-scaling-proportional",
+    "category": "kubernetes",
+    "system_prompt": "You are a large-scale Kubernetes platform engineer.",
+    "user_prompt": "How does cluster-proportional-autoscaler automatically scale CoreDNS replica counts based on the number of nodes and cores in the cluster?",
+    "tags": ["kubernetes", "coredns", "autoscaling", "scalability"]
+  },
+  {
+    "id": "k8s-diag-velero-backup-and-disaster-recovery",
+    "category": "kubernetes",
+    "system_prompt": "You are a disaster recovery architect.",
+    "user_prompt": "How do you configure Velero with object storage (S3/GCS) and CSI snapshot plugins for automated scheduled cluster backups and cross-cluster disaster recovery?",
+    "tags": ["kubernetes", "velero", "backup", "disaster-recovery", "storage"]
+  },
+  {
+    "id": "k8s-diag-kube-state-metrics-monitoring",
+    "category": "kubernetes",
+    "system_prompt": "You are an observability engineer.",
+    "user_prompt": "How does kube-state-metrics translate raw Kubernetes API resource states into Prometheus metrics (pod phases, deployment replicas, container wait states)?",
+    "tags": ["kubernetes", "monitoring", "prometheus", "kube-state-metrics", "observability"]
+  },
+  {
+    "id": "k8s-diag-network-packet-drops-conntrack",
+    "category": "kubernetes",
+    "system_prompt": "You are a kernel networking specialist.",
+    "user_prompt": "How do you detect and remediate nf_conntrack table exhaustion on Kubernetes nodes (net.netfilter.nf_conntrack_max) causing silent TCP connection drops?",
+    "tags": ["kubernetes", "conntrack", "networking", "kernel", "packet-drops"]
+  },
+  {
+    "id": "k8s-diag-hpa-flapping-stabilization-window",
+    "category": "kubernetes",
+    "system_prompt": "You are an autoscaling specialist.",
+    "user_prompt": "How does behavior.scaleDown.stabilizationWindowSeconds in HPA v2 prevent rapid scaling thrashing (flapping) during bursty traffic patterns?",
+    "tags": ["kubernetes", "hpa", "autoscaling", "stabilization-window", "performance"]
+  }
+]

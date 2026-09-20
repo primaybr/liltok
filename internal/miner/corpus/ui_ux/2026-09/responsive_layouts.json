@@ -1,0 +1,142 @@
+[
+  {
+    "id": "ui-layout-container-queries-vs-media-queries",
+    "category": "ui_ux",
+    "system_prompt": "You are a modern CSS layout architect.",
+    "user_prompt": "How do CSS Container Queries (@container) fundamentally change component design by letting components adapt to parent container width rather than viewport?",
+    "tags": ["ui_ux", "css", "container-queries", "responsive-design", "components"]
+  },
+  {
+    "id": "ui-layout-css-subgrid-card-alignment",
+    "category": "ui_ux",
+    "system_prompt": "You are a CSS Grid layout specialist.",
+    "user_prompt": "How does CSS Subgrid (grid-template-rows: subgrid) solve the problem of aligning card titles, content, and footers across adjacent columns of varying height?",
+    "tags": ["ui_ux", "css-grid", "subgrid", "card-layout", "alignment"]
+  },
+  {
+    "id": "ui-layout-mobile-first-vs-desktop-first",
+    "category": "ui_ux",
+    "system_prompt": "You are a front-end architecture specialist.",
+    "user_prompt": "Why is a mobile-first min-width media query strategy technically and ergonomically superior to desktop-first max-width overrides in modern CSS?",
+    "tags": ["ui_ux", "mobile-first", "media-queries", "css", "architecture"]
+  },
+  {
+    "id": "ui-layout-viewport-units-dvh-svh-lvh",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile web performance engineer.",
+    "user_prompt": "How do new viewport height units (dvh, svh, lvh) fix the mobile browser jumping viewport bug caused by collapsible URL address bars?",
+    "tags": ["ui_ux", "viewport-units", "dvh", "mobile-web", "css"]
+  },
+  {
+    "id": "ui-layout-autofit-minmax-grid",
+    "category": "ui_ux",
+    "system_prompt": "You are a responsive layout specialist.",
+    "user_prompt": "Explain how 'grid-template-columns: repeat(auto-fit, minmax(280px, 1fr))' generates an intrinsically responsive multi-column grid without any media queries.",
+    "tags": ["ui_ux", "css-grid", "auto-fit", "minmax", "responsive"]
+  },
+  {
+    "id": "ui-layout-safe-area-insets-notch",
+    "category": "ui_ux",
+    "system_prompt": "You are an iOS and mobile web UX specialist.",
+    "user_prompt": "How do you use 'viewport-fit=cover' and CSS 'env(safe-area-inset-top/bottom)' to prevent content clipping behind mobile camera notches and home bars?",
+    "tags": ["ui_ux", "safe-area", "mobile-ux", "notch", "ios"]
+  },
+  {
+    "id": "ui-layout-responsive-images-picture-srcset",
+    "category": "ui_ux",
+    "system_prompt": "You are a web performance and imaging specialist.",
+    "user_prompt": "How do you combine <picture>, <source type='image/avif'>, srcset, and the 'sizes' attribute to serve optimally formatted and sized images by viewport?",
+    "tags": ["ui_ux", "images", "srcset", "picture-element", "web-performance"]
+  },
+  {
+    "id": "ui-layout-aspect-ratio-cls-prevention",
+    "category": "ui_ux",
+    "system_prompt": "You are a Core Web Vitals optimization engineer.",
+    "user_prompt": "How does the CSS aspect-ratio property prevent Cumulative Layout Shift (CLS) for dynamically loaded media, embeds, and hero banners?",
+    "tags": ["ui_ux", "aspect-ratio", "cls", "core-web-vitals", "css"]
+  },
+  {
+    "id": "ui-layout-responsive-navigation-patterns",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile UX interaction designer.",
+    "user_prompt": "Compare navigation patterns for responsive web apps: hamburger drawers, bottom navigation bars, and priority+ tabs across mobile, tablet, and desktop.",
+    "tags": ["ui_ux", "navigation", "responsive-design", "mobile-ux", "patterns"]
+  },
+  {
+    "id": "ui-layout-responsive-tables-patterns",
+    "category": "ui_ux",
+    "system_prompt": "You are an enterprise UX layout specialist.",
+    "user_prompt": "What are the trade-offs between transforming tables into stacked card lists versus horizontal scrolling with sticky headers on mobile viewports?",
+    "tags": ["ui_ux", "data-tables", "responsive-tables", "mobile-ux", "layout"]
+  },
+  {
+    "id": "ui-layout-flexbox-vs-grid-decision",
+    "category": "ui_ux",
+    "system_prompt": "You are a CSS standards and layout expert.",
+    "user_prompt": "What is the definitive decision mental model for choosing CSS Flexbox (1-dimensional content-driven) versus CSS Grid (2-dimensional layout-driven)?",
+    "tags": ["ui_ux", "flexbox", "css-grid", "css", "layout-strategy"]
+  },
+  {
+    "id": "ui-layout-intrinsic-sizing-keywords",
+    "category": "ui_ux",
+    "system_prompt": "You are an advanced CSS developer.",
+    "user_prompt": "How do intrinsic sizing keywords (min-content, max-content, fit-content) allow UI components to shrink-wrap or expand to natural boundaries?",
+    "tags": ["ui_ux", "intrinsic-sizing", "min-content", "max-content", "css"]
+  },
+  {
+    "id": "ui-layout-responsive-dialog-bottom-sheet",
+    "category": "ui_ux",
+    "system_prompt": "You are a cross-platform UI developer.",
+    "user_prompt": "How do you implement an adaptive dialog component that renders as a draggable bottom sheet on mobile screens and a centered modal on desktop viewports?",
+    "tags": ["ui_ux", "modal", "bottom-sheet", "adaptive-ui", "components"]
+  },
+  {
+    "id": "ui-layout-content-driven-breakpoints",
+    "category": "ui_ux",
+    "system_prompt": "You are a responsive design theorist.",
+    "user_prompt": "Why should breakpoints be determined by where content breaks rather than specific device hardware resolutions (iPhone, iPad, MacBook)?",
+    "tags": ["ui_ux", "breakpoints", "responsive-design", "content-driven", "philosophy"]
+  },
+  {
+    "id": "ui-layout-off-canvas-dashboard-sidebar",
+    "category": "ui_ux",
+    "system_prompt": "You are a dashboard UI architect.",
+    "user_prompt": "How do you build a responsive dashboard layout with a collapsible desktop sidebar and an accessible overlay mobile drawer without duplicate DOM markup?",
+    "tags": ["ui_ux", "sidebar", "dashboard", "drawer", "responsive-design"]
+  },
+  {
+    "id": "ui-layout-scroll-padding-sticky-anchors",
+    "category": "ui_ux",
+    "system_prompt": "You are a web usability specialist.",
+    "user_prompt": "How does CSS 'scroll-padding-top' prevent fixed or sticky headers from obscuring anchor link targets when jumping down a page?",
+    "tags": ["ui_ux", "sticky-header", "scroll-padding", "anchors", "css"]
+  },
+  {
+    "id": "ui-layout-foldable-dual-screen-devices",
+    "category": "ui_ux",
+    "system_prompt": "You are a modern device capabilities engineer.",
+    "user_prompt": "How do CSS viewport segments (@media (horizontal-viewport-segments: 2)) enable split-screen layouts on foldable phones and dual-screen laptops?",
+    "tags": ["ui_ux", "foldables", "dual-screen", "viewport-segments", "modern-css"]
+  },
+  {
+    "id": "ui-layout-print-stylesheet-optimization",
+    "category": "ui_ux",
+    "system_prompt": "You are a web document publishing specialist.",
+    "user_prompt": "What are best practices for @media print styles: stripping navigation and sidebars, expanding URLs, forcing high contrast, and page break controls?",
+    "tags": ["ui_ux", "print-styles", "media-queries", "publishing", "css"]
+  },
+  {
+    "id": "ui-layout-masonry-css-vs-javascript",
+    "category": "ui_ux",
+    "system_prompt": "You are a visual feed layout developer.",
+    "user_prompt": "What is the status of native CSS Grid masonry (grid-template-rows: masonry) and what are lightweight JavaScript alternatives for Pinterest-style feeds?",
+    "tags": ["ui_ux", "masonry", "css-grid", "javascript", "feeds"]
+  },
+  {
+    "id": "ui-layout-split-view-master-detail",
+    "category": "ui_ux",
+    "system_prompt": "You are an enterprise application designer.",
+    "user_prompt": "How do you design an adaptive Master-Detail pattern that displays a dual-pane split view on tablet/desktop and full-screen push transitions on mobile?",
+    "tags": ["ui_ux", "master-detail", "split-view", "tablet-ux", "information-architecture"]
+  }
+]

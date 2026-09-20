@@ -1,0 +1,142 @@
+[
+  {
+    "id": "docker-compose-depends-on-condition-service-healthy",
+    "category": "docker",
+    "system_prompt": "You are a Docker Compose specialist.",
+    "user_prompt": "How do you configure depends_on with condition: service_healthy in Docker Compose v2 to ensure database readiness before web services start?",
+    "tags": ["docker", "compose", "depends-on", "healthcheck", "services"]
+  },
+  {
+    "id": "docker-compose-environment-interpolation-default",
+    "category": "docker",
+    "system_prompt": "You are a DevOps engineer.",
+    "user_prompt": "Explain environment variable interpolation syntax in docker-compose.yml: ${VAR}, ${VAR:-default}, ${VAR:?error}, and .env file precedence.",
+    "tags": ["docker", "compose", "environment-variables", "configuration"]
+  },
+  {
+    "id": "docker-compose-profiles-selective-services",
+    "category": "docker",
+    "system_prompt": "You are a local development environment specialist.",
+    "user_prompt": "How do Docker Compose profiles allow tagging optional services (e.g. profiles: ['debug', 'tools']) so they only launch when explicitly requested (--profile debug)?",
+    "tags": ["docker", "compose", "profiles", "developer-experience"]
+  },
+  {
+    "id": "docker-compose-multiple-override-files",
+    "category": "docker",
+    "system_prompt": "You are a DevOps and infrastructure architect.",
+    "user_prompt": "How does Docker Compose merge multiple files (docker-compose.yml, docker-compose.override.yml, docker-compose.prod.yml) and what are array replacement rules?",
+    "tags": ["docker", "compose", "override", "configuration", "staging"]
+  },
+  {
+    "id": "docker-compose-secrets-file-vs-environment",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "Why are Docker Compose secrets (mounted in /run/secrets/) more secure than passing database credentials via environment variables?",
+    "tags": ["docker", "compose", "secrets", "security"]
+  },
+  {
+    "id": "docker-compose-restart-policies-comparison",
+    "category": "docker",
+    "system_prompt": "You are a systems operations engineer.",
+    "user_prompt": "Compare Docker Compose restart policies (no, always, on-failure, unless-stopped) and explain which is best for production services vs CLI tools.",
+    "tags": ["docker", "compose", "restart-policy", "reliability"]
+  },
+  {
+    "id": "docker-compose-extension-fields-anchors",
+    "category": "docker",
+    "system_prompt": "You are a Docker Compose architect.",
+    "user_prompt": "How do YAML anchors (&anchor, *anchor) and extension fields (x-logging, x-environment) prevent DRY duplication across services in docker-compose.yml?",
+    "tags": ["docker", "compose", "yaml", "dry", "clean-code"]
+  },
+  {
+    "id": "docker-compose-init-process-flag",
+    "category": "docker",
+    "system_prompt": "You are a Linux and container engineer.",
+    "user_prompt": "How does setting 'init: true' in a Docker Compose service definition solve zombie process accumulation and signal forwarding without custom Dockerfile edits?",
+    "tags": ["docker", "compose", "init", "zombies", "linux"]
+  },
+  {
+    "id": "docker-compose-extra-hosts-dns-mapping",
+    "category": "docker",
+    "system_prompt": "You are a networking and container specialist.",
+    "user_prompt": "How do you use extra_hosts: ['host.docker.internal:host-gateway'] in Docker Compose on Linux to allow containerized apps to access host localhost services?",
+    "tags": ["docker", "compose", "networking", "dns", "localhost"]
+  },
+  {
+    "id": "docker-compose-shm-size-tuning",
+    "category": "docker",
+    "system_prompt": "You are a browser automation and ML engineer.",
+    "user_prompt": "Why do headless Chrome/Puppeteer and PyTorch containers crash with default 64MB shared memory, and how do you increase it with 'shm_size: 2gb' in Docker Compose?",
+    "tags": ["docker", "compose", "shm-size", "shared-memory", "chrome"]
+  },
+  {
+    "id": "docker-compose-logging-driver-max-size",
+    "category": "docker",
+    "system_prompt": "You are a DevOps and infrastructure specialist.",
+    "user_prompt": "How do you configure logging drivers in Docker Compose (driver: 'json-file', max-size: '10m', max-file: '3') to prevent container logs from filling the host disk?",
+    "tags": ["docker", "compose", "logging", "json-file", "disk-cleanup"]
+  },
+  {
+    "id": "docker-compose-deploy-resources-limits",
+    "category": "docker",
+    "system_prompt": "You are a container resource management specialist.",
+    "user_prompt": "How do deploy.resources.limits (cpus, memory) enforce hard resource ceilings in Docker Compose v2 without Docker Swarm?",
+    "tags": ["docker", "compose", "resources", "limits", "cgroups"]
+  },
+  {
+    "id": "docker-compose-watch-sync-development",
+    "category": "docker",
+    "system_prompt": "You are a developer experience engineer.",
+    "user_prompt": "How does the 'docker compose watch' feature sync local source code into running containers automatically without full rebuilds or volume latency?",
+    "tags": ["docker", "compose", "watch", "live-reload", "dev-experience"]
+  },
+  {
+    "id": "docker-compose-sysctls-tuning-network",
+    "category": "docker",
+    "system_prompt": "You are a high-performance network engineer.",
+    "user_prompt": "How do you tune Linux kernel parameters (e.g. sysctls: ['net.core.somaxconn=1024']) in Docker Compose for high-concurrency web servers?",
+    "tags": ["docker", "compose", "sysctls", "kernel", "networking"]
+  },
+  {
+    "id": "docker-compose-network-mode-host",
+    "category": "docker",
+    "system_prompt": "You are a network systems architect.",
+    "user_prompt": "When should 'network_mode: host' be used in Docker Compose, and what are the security and port namespace implications on Linux?",
+    "tags": ["docker", "compose", "network-mode", "host-network"]
+  },
+  {
+    "id": "docker-compose-container-name-vs-scaling",
+    "category": "docker",
+    "system_prompt": "You are an infrastructure operations specialist.",
+    "user_prompt": "Why does setting an explicit 'container_name' in Docker Compose break horizontal scaling ('docker compose up --scale web=3') due to name collisions?",
+    "tags": ["docker", "compose", "container-name", "scaling"]
+  },
+  {
+    "id": "docker-compose-stop-grace-period-tuning",
+    "category": "docker",
+    "system_prompt": "You are a reliability engineer.",
+    "user_prompt": "How does 'stop_grace_period: 30s' in Docker Compose give queue workers and HTTP servers enough time to drain tasks before Docker sends SIGKILL?",
+    "tags": ["docker", "compose", "graceful-shutdown", "sigkill", "signals"]
+  },
+  {
+    "id": "docker-compose-cap-add-cap-drop",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "How do cap_drop: ['ALL'] and cap_add: ['NET_BIND_SERVICE'] restrict Linux kernel capabilities in a Docker Compose service definition?",
+    "tags": ["docker", "compose", "capabilities", "security", "linux"]
+  },
+  {
+    "id": "docker-compose-tmpfs-mount-ephemeral",
+    "category": "docker",
+    "system_prompt": "You are a high-speed systems engineer.",
+    "user_prompt": "How do you configure tmpfs: ['/tmp:size=512M,mode=1777'] in Docker Compose for blazing fast RAM-disk caching and secure ephemeral scratch space?",
+    "tags": ["docker", "compose", "tmpfs", "performance", "memory"]
+  },
+  {
+    "id": "docker-compose-down-volumes-rmi",
+    "category": "docker",
+    "system_prompt": "You are a DevOps operations engineer.",
+    "user_prompt": "Explain the differences between 'docker compose down', 'docker compose down -v' (volumes), and 'docker compose down --rmi all' for local cleanup.",
+    "tags": ["docker", "compose", "cleanup", "volumes", "images"]
+  }
+]

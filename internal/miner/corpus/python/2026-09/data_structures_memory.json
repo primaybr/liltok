@@ -1,0 +1,142 @@
+[
+  {
+    "id": "py-data-defaultdict-counter-deque",
+    "category": "python",
+    "system_prompt": "You are a Python data structures specialist.",
+    "user_prompt": "Compare collections.defaultdict, collections.Counter, and collections.deque: memory footprint, time complexity of appendleft/popleft vs list.pop(0).",
+    "tags": ["python", "collections", "defaultdict", "counter", "deque"]
+  },
+  {
+    "id": "py-data-itertools-chain-groupby-islice",
+    "category": "python",
+    "system_prompt": "You are a functional Python and memory efficiency expert.",
+    "user_prompt": "How do itertools.chain(), itertools.groupby(), and itertools.islice() iterate through large datasets without allocating intermediate lists in RAM?",
+    "tags": ["python", "itertools", "generators", "memory", "iterators"]
+  },
+  {
+    "id": "py-data-slots-attribute-dictionary-optimization",
+    "category": "python",
+    "system_prompt": "You are a Python memory optimization specialist.",
+    "user_prompt": "How does defining __slots__ eliminate the internal __dict__ on Python class instances, saving 60%+ RAM when allocating millions of objects?",
+    "tags": ["python", "slots", "memory", "performance", "internals"]
+  },
+  {
+    "id": "py-data-heapq-priority-queue",
+    "category": "python",
+    "system_prompt": "You are an algorithms and systems engineer.",
+    "user_prompt": "How do you implement a priority queue and top-K frequent elements algorithm using Python's heapq module (heappush, heappop, nlargest)?",
+    "tags": ["python", "heapq", "algorithms", "priority-queue"]
+  },
+  {
+    "id": "py-data-bisect-binary-search-sorted-lists",
+    "category": "python",
+    "system_prompt": "You are a Python algorithm optimization engineer.",
+    "user_prompt": "How do bisect.bisect_left() and bisect.insort() maintain sorted lists with O(log N) lookup without repeated full O(N log N) re-sorting?",
+    "tags": ["python", "bisect", "algorithms", "binary-search"]
+  },
+  {
+    "id": "py-data-memoryview-bytearray-zero-copy",
+    "category": "python",
+    "system_prompt": "You are a systems programmer and network engineer.",
+    "user_prompt": "How does memoryview allow zero-copy slicing of byte buffers and network payloads without allocating duplicate string memory in Python?",
+    "tags": ["python", "memoryview", "zero-copy", "buffers", "performance"]
+  },
+  {
+    "id": "py-data-tracemalloc-memory-leak-profiling",
+    "category": "python",
+    "system_prompt": "You are a Python performance profiling expert.",
+    "user_prompt": "How do you use tracemalloc.take_snapshot() and compare_to() to locate exact Python source lines responsible for memory allocation spikes?",
+    "tags": ["python", "tracemalloc", "memory-leaks", "profiling", "debugging"]
+  },
+  {
+    "id": "py-data-generator-expressions-vs-comprehensions",
+    "category": "python",
+    "system_prompt": "You are a Python performance specialist.",
+    "user_prompt": "Compare list comprehensions vs generator expressions: lazy evaluation, memory consumption on 10M records, and performance trade-offs.",
+    "tags": ["python", "generators", "comprehensions", "memory", "performance"]
+  },
+  {
+    "id": "py-data-dict-hash-table-internals",
+    "category": "python",
+    "system_prompt": "You are a CPython internals engineer.",
+    "user_prompt": "Explain the compact dictionary implementation in CPython (indices array + entries table) and how it preserves insertion order while reducing memory.",
+    "tags": ["python", "dict", "hash-table", "cpython", "internals"]
+  },
+  {
+    "id": "py-data-weakref-cycle-collection",
+    "category": "python",
+    "system_prompt": "You are a Python memory management engineer.",
+    "user_prompt": "How does weakref.ref and weakref.WeakKeyDictionary break circular reference cycles to allow immediate CPython reference count deallocation?",
+    "tags": ["python", "weakref", "garbage-collection", "memory", "cycles"]
+  },
+  {
+    "id": "py-data-array-module-compact-numerical-storage",
+    "category": "python",
+    "system_prompt": "You are a Python systems engineer.",
+    "user_prompt": "When should the standard library array.array module be used instead of list to store millions of uniform C-type integers or floats in flat memory?",
+    "tags": ["python", "array", "memory", "performance", "c-types"]
+  },
+  {
+    "id": "py-data-functools-lru-cache-memory-leaks",
+    "category": "python",
+    "system_prompt": "You are a backend performance architect.",
+    "user_prompt": "Why can @functools.lru_cache() on instance methods cause permanent memory leaks (bound self reference), and how does @functools.cached_property prevent it?",
+    "tags": ["python", "functools", "lru-cache", "memory-leaks", "caching"]
+  },
+  {
+    "id": "py-data-copy-copy-vs-deepcopy-cycles",
+    "category": "python",
+    "system_prompt": "You are an object-oriented Python specialist.",
+    "user_prompt": "How does copy.deepcopy() handle recursive self-referential object graphs using its internal memo dictionary to prevent infinite recursion?",
+    "tags": ["python", "copy", "deepcopy", "memory", "recursion"]
+  },
+  {
+    "id": "py-data-operator-itemgetter-attrgetter-sorting",
+    "category": "python",
+    "system_prompt": "You are a clean Python programming expert.",
+    "user_prompt": "How do operator.itemgetter and operator.attrgetter provide faster C-level key extraction for sort() and min()/max() compared to lambda functions?",
+    "tags": ["python", "operator", "sorting", "performance", "clean-code"]
+  },
+  {
+    "id": "py-data-contextlib-suppress-redirect-stdout",
+    "category": "python",
+    "system_prompt": "You are an idiomatic Python developer.",
+    "user_prompt": "How do contextlib.suppress() and contextlib.redirect_stdout() write cleaner, more maintainable code without verbose try/except/pass blocks?",
+    "tags": ["python", "contextlib", "idioms", "clean-code"]
+  },
+  {
+    "id": "py-data-mmap-fast-file-scanning",
+    "category": "python",
+    "system_prompt": "You are a systems and I/O performance engineer.",
+    "user_prompt": "How does mmap (memory-mapped files) allow reading and regex-searching 50GB log files using OS page cache without loading them into Python process memory?",
+    "tags": ["python", "mmap", "io", "performance", "files"]
+  },
+  {
+    "id": "py-data-set-operations-bit-logic",
+    "category": "python",
+    "system_prompt": "You are an algorithm optimization specialist.",
+    "user_prompt": "Explain set union (|), intersection (&), difference (-), and symmetric difference (^): time complexity, hash requirements, and deduplication patterns.",
+    "tags": ["python", "set", "algorithms", "data-structures"]
+  },
+  {
+    "id": "py-data-struct-pack-unpack-binary-data",
+    "category": "python",
+    "system_prompt": "You are a binary protocol and network engineer.",
+    "user_prompt": "How do struct.pack() and struct.unpack() serialize and deserialize binary network headers (endianness, padding, integers) in pure Python?",
+    "tags": ["python", "struct", "binary", "networking", "serialization"]
+  },
+  {
+    "id": "py-data-chainmap-context-scopes",
+    "category": "python",
+    "system_prompt": "You are a Python configuration systems architect.",
+    "user_prompt": "How does collections.ChainMap merge CLI arguments, environment variables, and configuration files into layered lookup scopes without dictionary copying?",
+    "tags": ["python", "collections", "chainmap", "configuration"]
+  },
+  {
+    "id": "py-data-generator-delegation-yield-from",
+    "category": "python",
+    "system_prompt": "You are an advanced Python language specialist.",
+    "user_prompt": "How does 'yield from' delegate iteration to sub-generators while establishing a transparent bi-directional communication channel for send() and throw()?",
+    "tags": ["python", "generators", "yield-from", "iterators"]
+  }
+]

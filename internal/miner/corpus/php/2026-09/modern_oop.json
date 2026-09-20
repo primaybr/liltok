@@ -1,0 +1,149 @@
+[
+  {
+    "id": "php-oop-constructor-promotion",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How does constructor property promotion work in PHP 8, and how does it interact with default values and visibility modifiers?",
+    "tags": ["php", "oop", "constructor-promotion"]
+  },
+  {
+    "id": "php-oop-readonly-classes",
+    "category": "php",
+    "system_prompt": "You are an expert PHP architect.",
+    "user_prompt": "Explain readonly classes in PHP 8.2 and how they enforce immutability across all properties and inheritance trees.",
+    "tags": ["php", "oop", "immutability", "readonly"]
+  },
+  {
+    "id": "php-oop-enums-backed",
+    "category": "php",
+    "system_prompt": "You are a modern PHP developer.",
+    "user_prompt": "How do backed enums (string and int) work in PHP 8.1, and how can methods and interfaces be implemented on enums?",
+    "tags": ["php", "enums", "oop"]
+  },
+  {
+    "id": "php-oop-match-vs-switch",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "Compare match expressions and switch statements in PHP 8: strict type comparison, return values, and unhandled match error handling.",
+    "tags": ["php", "match-expression", "syntax"]
+  },
+  {
+    "id": "php-oop-named-arguments",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How do named arguments work in PHP 8, and what are the best practices when refactoring function signatures?",
+    "tags": ["php", "named-arguments", "refactoring"]
+  },
+  {
+    "id": "php-oop-nullsafe-operator",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How does the nullsafe operator (?->) prevent call on null errors in chained method invocations in PHP 8?",
+    "tags": ["php", "nullsafe", "operators"]
+  },
+  {
+    "id": "php-oop-attributes-reflection",
+    "category": "php",
+    "system_prompt": "You are an expert PHP architect.",
+    "user_prompt": "Explain PHP 8 native attributes (annotations) and how to read them at runtime using the Reflection API.",
+    "tags": ["php", "attributes", "reflection", "metadata"]
+  },
+  {
+    "id": "php-oop-union-intersection-types",
+    "category": "php",
+    "system_prompt": "You are an expert PHP type theorist.",
+    "user_prompt": "Explain union types (A|B) in PHP 8.0, intersection types (A&B) in PHP 8.1, and Disjunctive Normal Form (DNF) types in PHP 8.2.",
+    "tags": ["php", "types", "dnf", "union-types"]
+  },
+  {
+    "id": "php-oop-first-class-callables",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How do first-class callable syntax ($fn = strlen(...)) work in PHP 8.1, and how do they improve static analysis over call_user_func?",
+    "tags": ["php", "callables", "closures", "functional"]
+  },
+  {
+    "id": "php-oop-fibers-concurrency",
+    "category": "php",
+    "system_prompt": "You are an expert PHP runtime engineer.",
+    "user_prompt": "What are PHP 8.1 Fibers, how do they implement cooperative multitasking, and how do async frameworks like Revolt use them?",
+    "tags": ["php", "fibers", "concurrency", "async"]
+  },
+  {
+    "id": "php-oop-trait-conflict-resolution",
+    "category": "php",
+    "system_prompt": "You are an expert PHP architect.",
+    "user_prompt": "How do you resolve method name collisions when using multiple traits in PHP using insteadof and as aliases?",
+    "tags": ["php", "traits", "oop", "conflict-resolution"]
+  },
+  {
+    "id": "php-oop-anonymous-classes",
+    "category": "php",
+    "system_prompt": "You are a modern PHP developer.",
+    "user_prompt": "When should anonymous classes be used in PHP, and how can they implement interfaces or extend base classes inline?",
+    "tags": ["php", "oop", "anonymous-classes"]
+  },
+  {
+    "id": "php-oop-interface-segregation",
+    "category": "php",
+    "system_prompt": "You are a software architect.",
+    "user_prompt": "Demonstrate Interface Segregation Principle (ISP) in PHP with small, focused interfaces rather than fat monoliths.",
+    "tags": ["php", "solid", "interfaces", "architecture"]
+  },
+  {
+    "id": "php-oop-dependency-injection-container",
+    "category": "php",
+    "system_prompt": "You are an expert PHP architect.",
+    "user_prompt": "Explain how a PSR-11 compliant Dependency Injection Container resolves class dependencies using constructor reflection.",
+    "tags": ["php", "psr-11", "dependency-injection", "container"]
+  },
+  {
+    "id": "php-oop-magic-methods-invoke",
+    "category": "php",
+    "system_prompt": "You are a modern PHP developer.",
+    "user_prompt": "Explain PHP magic methods __invoke, __toString, and __clone, and describe production use cases for invokable action classes.",
+    "tags": ["php", "magic-methods", "invoke", "oop"]
+  },
+  {
+    "id": "php-oop-never-return-type",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "What is the 'never' return type in PHP 8.1, how does it differ from 'void', and how does it assist static analysis for exit/redirect functions?",
+    "tags": ["php", "types", "never", "static-analysis"]
+  },
+  {
+    "id": "php-oop-final-class-constants",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do final class constants in PHP 8.1 prevent child classes from overriding constant values in class hierarchies?",
+    "tags": ["php", "constants", "oop", "final"]
+  },
+  {
+    "id": "php-oop-dynamic-class-instantiation",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do you safely instantiate classes dynamically from configuration strings in PHP while validating interface compliance?",
+    "tags": ["php", "reflection", "factories", "interfaces"]
+  },
+  {
+    "id": "php-oop-static-variable-inheritance",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "Explain Late Static Binding (static:: vs self::) in PHP and how static method resolution works in polymorphic inheritance.",
+    "tags": ["php", "late-static-binding", "oop", "inheritance"]
+  },
+  {
+    "id": "php-oop-weak-references",
+    "category": "php",
+    "system_prompt": "You are a PHP performance and memory engineer.",
+    "user_prompt": "How does WeakReference and WeakMap work in PHP 8 to prevent memory leaks in object caches without preventing garbage collection?",
+    "tags": ["php", "weak-references", "memory", "cache"]
+  },
+  {
+    "id": "php-oop-override-attribute",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "Explain the #[\\Override] attribute introduced in PHP 8.3 and how it prevents silent bugs when parent method signatures change.",
+    "tags": ["php", "php83", "attributes", "override"]
+  }
+]

@@ -1,0 +1,149 @@
+[
+  {
+    "id": "ui-heuristic-nielsen-ten-principles",
+    "category": "ui_ux",
+    "system_prompt": "You are a usability and human-computer interaction (HCI) expert.",
+    "user_prompt": "Summarize Jakob Nielsen's 10 Usability Heuristics for UI design and provide a modern web application example for each heuristic.",
+    "tags": ["ui_ux", "usability", "heuristics", "jakob-nielsen", "hci"]
+  },
+  {
+    "id": "ui-heuristic-fitts-law-target-reach",
+    "category": "ui_ux",
+    "system_prompt": "You are an interaction design researcher.",
+    "user_prompt": "How does Fitts's Law govern the sizing and placement of interactive targets, and why do screen edges and corners have effectively infinite width?",
+    "tags": ["ui_ux", "fitts-law", "interaction-design", "ergonomics", "hci"]
+  },
+  {
+    "id": "ui-heuristic-hicks-law-choice-overload",
+    "category": "ui_ux",
+    "system_prompt": "You are a cognitive psychology and UX specialist.",
+    "user_prompt": "How does Hick's Law explain decision paralysis in navigation menus and pricing tables, and how does categorization reduce cognitive decision time?",
+    "tags": ["ui_ux", "hicks-law", "cognitive-load", "navigation", "decision-making"]
+  },
+  {
+    "id": "ui-heuristic-jakobs-law-familiarity",
+    "category": "ui_ux",
+    "system_prompt": "You are a product design strategist.",
+    "user_prompt": "What is Jakob's Law of Internet User Experience ('users spend most of their time on other sites'), and why does novelty in core interactions increase friction?",
+    "tags": ["ui_ux", "jakobs-law", "mental-models", "usability", "conventions"]
+  },
+  {
+    "id": "ui-heuristic-millers-law-chunking",
+    "category": "ui_ux",
+    "system_prompt": "You are an information architecture specialist.",
+    "user_prompt": "How does Miller's Law (7 plus/minus 2) inform information chunking in credit card numbers, phone inputs, and multi-step wizard workflows?",
+    "tags": ["ui_ux", "millers-law", "chunking", "information-architecture", "memory"]
+  },
+  {
+    "id": "ui-heuristic-progressive-disclosure",
+    "category": "ui_ux",
+    "system_prompt": "You are an enterprise software UX architect.",
+    "user_prompt": "How do you implement progressive disclosure in complex enterprise tools to keep beginner interfaces simple while providing rapid access for power users?",
+    "tags": ["ui_ux", "progressive-disclosure", "enterprise-ux", "complexity", "interaction"]
+  },
+  {
+    "id": "ui-heuristic-peak-end-rule-offboarding",
+    "category": "ui_ux",
+    "system_prompt": "You are a behavioral UX researcher.",
+    "user_prompt": "How does the Peak-End Rule shape user memory of a digital journey, and how do successful apps optimize the final checkout or task completion step?",
+    "tags": ["ui_ux", "peak-end-rule", "behavioral-ux", "psychology", "experience"]
+  },
+  {
+    "id": "ui-heuristic-doherty-threshold-responsiveness",
+    "category": "ui_ux",
+    "system_prompt": "You are a software performance and ergonomics engineer.",
+    "user_prompt": "What is the Doherty Threshold (system response under 400ms), and how does instantaneous feedback maintain user focus and productive flow state?",
+    "tags": ["ui_ux", "doherty-threshold", "responsiveness", "performance", "flow-state"]
+  },
+  {
+    "id": "ui-heuristic-aesthetic-usability-effect",
+    "category": "ui_ux",
+    "system_prompt": "You are a UX research psychologist.",
+    "user_prompt": "Explain the Aesthetic-Usability Effect: why do users perceive aesthetically pleasing interfaces as more usable and forgive minor usability flaws?",
+    "tags": ["ui_ux", "aesthetic-usability", "visual-design", "psychology", "usability"]
+  },
+  {
+    "id": "ui-heuristic-zeigarnik-effect-progress-bars",
+    "category": "ui_ux",
+    "system_prompt": "You are an onboarding and conversion UX specialist.",
+    "user_prompt": "How does the Zeigarnik Effect motivate users to finish incomplete profiles or multi-step checkout processes when visualized with progress indicators?",
+    "tags": ["ui_ux", "zeigarnik-effect", "progress-bars", "motivation", "conversion"]
+  },
+  {
+    "id": "ui-heuristic-steven-hoober-thumb-zones",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile ergonomics researcher.",
+    "user_prompt": "Explain Steven Hoober's mobile thumb zone research (natural, stretch, hard-to-reach zones) and how it dictates modern mobile navigation placement.",
+    "tags": ["ui_ux", "thumb-zone", "mobile-ux", "ergonomics", "touch-interaction"]
+  },
+  {
+    "id": "ui-heuristic-form-inline-validation-timing",
+    "category": "ui_ux",
+    "system_prompt": "You are a forms usability engineer.",
+    "user_prompt": "Why is premature inline validation (flagging errors while the user is still actively typing) frustrating, and why is validation on blur or delayed debounce best practice?",
+    "tags": ["ui_ux", "forms", "inline-validation", "usability", "error-prevention"]
+  },
+  {
+    "id": "ui-heuristic-error-message-copywriting",
+    "category": "ui_ux",
+    "system_prompt": "You are a UX writer and content designer.",
+    "user_prompt": "What are the rules for writing constructive error messages: plain language without internal codes, non-blaming tone, explicit cause, and actionable next steps?",
+    "tags": ["ui_ux", "ux-writing", "error-messages", "microcopy", "content-design"]
+  },
+  {
+    "id": "ui-heuristic-dark-patterns-deceptive-design",
+    "category": "ui_ux",
+    "system_prompt": "You are an ethical design and consumer protection auditor.",
+    "user_prompt": "Define common deceptive design patterns (dark patterns): Roach Motel, Confirmshaming, Sneak into Basket, and Hidden Costs, and their legal/ethical impact.",
+    "tags": ["ui_ux", "dark-patterns", "ethical-design", "deceptive-design", "compliance"]
+  },
+  {
+    "id": "ui-heuristic-system-usability-scale-sus",
+    "category": "ui_ux",
+    "system_prompt": "You are a quantitative UX researcher.",
+    "user_prompt": "How do you administer, score (0-100), and interpret the 10-item System Usability Scale (SUS) questionnaire to benchmark software usability?",
+    "tags": ["ui_ux", "sus", "ux-metrics", "quantitative-research", "benchmarking"]
+  },
+  {
+    "id": "ui-heuristic-think-aloud-protocol-testing",
+    "category": "ui_ux",
+    "system_prompt": "You are a qualitative usability testing moderator.",
+    "user_prompt": "How do you facilitate a concurrent think-aloud usability testing session with 5 users without asking leading questions or biasing task execution?",
+    "tags": ["ui_ux", "think-aloud", "usability-testing", "moderation", "user-research"]
+  },
+  {
+    "id": "ui-heuristic-card-sorting-open-vs-closed",
+    "category": "ui_ux",
+    "system_prompt": "You are an information architect.",
+    "user_prompt": "What is the difference between open card sorting (generative taxonomy) and closed card sorting (evaluative categorization) for website navigation architecture?",
+    "tags": ["ui_ux", "card-sorting", "information-architecture", "taxonomy", "user-research"]
+  },
+  {
+    "id": "ui-heuristic-tree-testing-findability",
+    "category": "ui_ux",
+    "system_prompt": "You are a navigation findability specialist.",
+    "user_prompt": "How does tree testing (reverse card sorting) evaluate menu hierarchy findability in isolation from visual design and brand styling?",
+    "tags": ["ui_ux", "tree-testing", "findability", "navigation", "user-research"]
+  },
+  {
+    "id": "ui-heuristic-cognitive-walkthrough-method",
+    "category": "ui_ux",
+    "system_prompt": "You are a UX evaluation expert.",
+    "user_prompt": "How do you perform a Cognitive Walkthrough using the four classic questions to evaluate how easily a first-time user can accomplish a critical task?",
+    "tags": ["ui_ux", "cognitive-walkthrough", "usability-evaluation", "first-time-user", "ux-audit"]
+  },
+  {
+    "id": "ui-heuristic-ab-testing-statistical-significance",
+    "category": "ui_ux",
+    "system_prompt": "You are an experimentation and conversion rate optimization (CRO) specialist.",
+    "user_prompt": "How do you determine required sample size, statistical power (80%), and p-value significance (p < 0.05) before concluding a UX A/B test?",
+    "tags": ["ui_ux", "ab-testing", "cro", "statistics", "experimentation"]
+  },
+  {
+    "id": "ui-heuristic-accessibility-inclusive-design",
+    "category": "ui_ux",
+    "system_prompt": "You are an inclusive design advocate.",
+    "user_prompt": "How does the Microsoft Inclusive Design philosophy ('Solve for one, extend to many') demonstrate that designing for permanent disabilities benefits situational users?",
+    "tags": ["ui_ux", "inclusive-design", "accessibility", "microsoft-design", "universal-design"]
+  }
+]

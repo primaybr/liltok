@@ -1,0 +1,142 @@
+[
+  {
+    "id": "flutter-nav-go-router-declarative-setup",
+    "category": "flutter",
+    "system_prompt": "You are a modern Flutter routing specialist.",
+    "user_prompt": "How do you configure MaterialApp.router with go_router: defining GoRoute hierarchies, path parameters (/user/:id), and query parameters?",
+    "tags": ["flutter", "dart", "go-router", "navigation", "routing"]
+  },
+  {
+    "id": "flutter-nav-nested-navigation-shell-route",
+    "category": "flutter",
+    "system_prompt": "You are a mobile app architect.",
+    "user_prompt": "How do you implement persistent bottom navigation bar routing with StatefulShellRoute.indexedStack in go_router so each tab maintains its own navigation history?",
+    "tags": ["flutter", "dart", "go-router", "shellroute", "tabs", "bottom-navigation"]
+  },
+  {
+    "id": "flutter-nav-deep-linking-android-ios",
+    "category": "flutter",
+    "system_prompt": "You are a mobile platform integration specialist.",
+    "user_prompt": "How do you configure Universal Links on iOS (apple-app-site-association) and App Links on Android (assetlinks.json) for seamless deep linking in Flutter?",
+    "tags": ["flutter", "dart", "deep-linking", "universal-links", "app-links"]
+  },
+  {
+    "id": "flutter-nav-route-guards-auth-redirect",
+    "category": "flutter",
+    "system_prompt": "You are an authentication and navigation specialist.",
+    "user_prompt": "How do you implement global redirect logic in go_router with Riverpod state (redirect: (context, state) => ...) to protect authenticated routes?",
+    "tags": ["flutter", "dart", "go-router", "auth", "redirect", "security"]
+  },
+  {
+    "id": "flutter-nav-navigator-2-router-delegate-internals",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter framework internals specialist.",
+    "user_prompt": "Explain the architectural components of Navigator 2.0: Router, RouteInformationParser, RouteInformationProvider, and RouterDelegate.",
+    "tags": ["flutter", "dart", "navigator2", "internals", "routing"]
+  },
+  {
+    "id": "flutter-nav-will-pop-scope-vs-popscope",
+    "category": "flutter",
+    "system_prompt": "You are a modern Flutter developer.",
+    "user_prompt": "How do you migrate from the deprecated WillPopScope to the modern PopScope widget introduced in Flutter 3.16 to handle Android predictive back gestures?",
+    "tags": ["flutter", "dart", "popscope", "willpopscope", "back-button", "android"]
+  },
+  {
+    "id": "flutter-nav-returning-result-from-route",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter application developer.",
+    "user_prompt": "How do you push a modal screen and await a returned typed result using context.push<T>() and context.pop(result) in go_router?",
+    "tags": ["flutter", "dart", "navigation", "async", "modal"]
+  },
+  {
+    "id": "flutter-nav-modal-bottom-sheet-draggable",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI interactions expert.",
+    "user_prompt": "How do you build an expandable modal bottom sheet using showModalBottomSheet and DraggableScrollableSheet with snap animation points?",
+    "tags": ["flutter", "dart", "bottomsheet", "modal", "ui", "animations"]
+  },
+  {
+    "id": "flutter-nav-custom-route-transitions-slide-fade",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter animation specialist.",
+    "user_prompt": "How do you create custom PageRouteBuilder route transitions with sliding and fading animations using SlideTransition and FadeTransition?",
+    "tags": ["flutter", "dart", "pagetransition", "animations", "transitions"]
+  },
+  {
+    "id": "flutter-nav-browser-url-web-history",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter Web specialist.",
+    "user_prompt": "How does usePathUrlStrategy() eliminate the '#' hash fragment from browser URLs and sync browser back/forward buttons with Flutter navigation?",
+    "tags": ["flutter", "dart", "flutter-web", "routing", "url-strategy"]
+  },
+  {
+    "id": "flutter-nav-push-vs-go-navigation-stack",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter developer.",
+    "user_prompt": "Explain the difference between context.go() (declarative route replacement) and context.push() (imperative stack push) in go_router.",
+    "tags": ["flutter", "dart", "go-router", "navigation", "stack"]
+  },
+  {
+    "id": "flutter-nav-dialog-route-barrier-dismissible",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI developer.",
+    "user_prompt": "How do showDialog, barrierDismissible, and barrierColor configure modal dialogs, and how do you prevent accidental dismissal during loading operations?",
+    "tags": ["flutter", "dart", "dialogs", "modals", "ui"]
+  },
+  {
+    "id": "flutter-nav-named-routes-type-safety",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter tooling specialist.",
+    "user_prompt": "How do code-generated typed routes (go_router_builder) provide compile-time type safety for route parameters and query strings in Dart?",
+    "tags": ["flutter", "dart", "go-router", "codegen", "type-safety"]
+  },
+  {
+    "id": "flutter-nav-restoring-navigation-state-restoration",
+    "category": "flutter",
+    "system_prompt": "You are an enterprise mobile application architect.",
+    "user_prompt": "How does RootRestorationScope and RestorationManager restore navigation history and scroll state when Android kills a backgrounded app process (OS kill)?",
+    "tags": ["flutter", "dart", "restoration", "android", "state-restoration"]
+  },
+  {
+    "id": "flutter-nav-unfocus-keyboard-on-navigation",
+    "category": "flutter",
+    "system_prompt": "You are a mobile UX engineer.",
+    "user_prompt": "How do you automatically dismiss the software keyboard (FocusManager.instance.primaryFocus?.unfocus()) when navigating between screens in Flutter?",
+    "tags": ["flutter", "dart", "keyboard", "focus", "ux"]
+  },
+  {
+    "id": "flutter-nav-navigator-observer-screen-tracking",
+    "category": "flutter",
+    "system_prompt": "You are a mobile analytics and observability specialist.",
+    "user_prompt": "How do you implement a NavigatorObserver (didPush, didPop, didReplace) to track screen view analytics in Firebase, PostHog, or Datadog?",
+    "tags": ["flutter", "dart", "navigatorobserver", "analytics", "telemetry"]
+  },
+  {
+    "id": "flutter-nav-cupertino-modal-sheet-ios",
+    "category": "flutter",
+    "system_prompt": "You are an iOS design system specialist.",
+    "user_prompt": "How do you implement iOS-style stacked sheet presentations using showCupertinoModalPopup and CupertinoActionSheet in Flutter?",
+    "tags": ["flutter", "dart", "cupertino", "ios", "modal"]
+  },
+  {
+    "id": "flutter-nav-multiple-navigators-nested-flows",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter architecture specialist.",
+    "user_prompt": "When should nested Navigator widgets be used to contain self-contained multi-step wizard or checkout flows inside a parent screen?",
+    "tags": ["flutter", "dart", "navigator", "wizard", "architecture"]
+  },
+  {
+    "id": "flutter-nav-error-builder-404-routing",
+    "category": "flutter",
+    "system_prompt": "You are a web and mobile navigation engineer.",
+    "user_prompt": "How do you configure errorBuilder on GoRouter to render custom, branded 404 Not Found pages with back-to-home recovery navigation?",
+    "tags": ["flutter", "dart", "go-router", "404", "error-handling"]
+  },
+  {
+    "id": "flutter-nav-hero-tag-duplicate-error",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter bug fixing specialist.",
+    "user_prompt": "What causes 'There are multiple heroes that share the same tag within a subtree' and how do you generate unique Hero tags for grid/list items?",
+    "tags": ["flutter", "dart", "hero", "animations", "troubleshooting"]
+  }
+]

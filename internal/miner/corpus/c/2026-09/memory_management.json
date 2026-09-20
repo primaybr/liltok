@@ -1,0 +1,149 @@
+[
+  {
+    "id": "c-mem-realloc-pointer-leak-trap",
+    "category": "c",
+    "system_prompt": "You are a senior C systems programmer.",
+    "user_prompt": "Why does writing 'ptr = realloc(ptr, new_size)' cause a catastrophic memory leak if realloc fails, and what is the safe temporary pointer pattern?",
+    "tags": ["c", "memory", "realloc", "memory-leaks", "pointers"]
+  },
+  {
+    "id": "c-mem-malloc-vs-calloc-zeroing",
+    "category": "c",
+    "system_prompt": "You are a low-level C developer.",
+    "user_prompt": "What is the difference between malloc() and calloc() regarding zero-initialization, page table faults, and integer overflow protection?",
+    "tags": ["c", "memory", "malloc", "calloc", "initialization"]
+  },
+  {
+    "id": "c-mem-use-after-free-double-free",
+    "category": "c",
+    "system_prompt": "You are a software security researcher.",
+    "user_prompt": "Explain the mechanics of Use-After-Free (UAF) and Double Free vulnerabilities, and how defensive null-pointer assignment mitigates them.",
+    "tags": ["c", "security", "use-after-free", "double-free", "memory-safety"]
+  },
+  {
+    "id": "c-mem-valgrind-memcheck-diagnosis",
+    "category": "c",
+    "system_prompt": "You are a Linux systems debugger.",
+    "user_prompt": "How do you use Valgrind Memcheck with --leak-check=full and --show-leak-kinds=all to distinguish definitely lost from indirectly lost allocations?",
+    "tags": ["c", "valgrind", "memcheck", "memory-leaks", "debugging"]
+  },
+  {
+    "id": "c-mem-address-sanitizer-asan",
+    "category": "c",
+    "system_prompt": "You are a C build and tooling engineer.",
+    "user_prompt": "How does AddressSanitizer (-fsanitize=address) detect out-of-bounds stack, heap, and global array accesses at runtime with shadow memory?",
+    "tags": ["c", "asan", "address-sanitizer", "compilers", "tooling"]
+  },
+  {
+    "id": "c-mem-alloca-stack-overflow-risks",
+    "category": "c",
+    "system_prompt": "You are a low-level systems programmer.",
+    "user_prompt": "What are the dangers of dynamic stack allocation via alloca() or C99 variable-length arrays (VLAs), and why can they cause stack overflow without signal?",
+    "tags": ["c", "alloca", "vla", "stack-overflow", "c99"]
+  },
+  {
+    "id": "c-mem-aligned-alloc-cache-lines",
+    "category": "c",
+    "system_prompt": "You are a high-performance C engineer.",
+    "user_prompt": "How do you use posix_memalign() or C11 aligned_alloc() to allocate memory aligned to 64-byte CPU cache lines for SIMD and AVX operations?",
+    "tags": ["c", "aligned-alloc", "simd", "cache-lines", "c11"]
+  },
+  {
+    "id": "c-mem-arena-bump-allocator",
+    "category": "c",
+    "system_prompt": "You are a game engine and systems architect.",
+    "user_prompt": "How do you implement an Arena (bump) memory allocator in C for frame-based or batch workloads to achieve constant-time O(1) allocation and reset?",
+    "tags": ["c", "arena-allocator", "bump-allocator", "game-dev", "performance"]
+  },
+  {
+    "id": "c-mem-memory-fragmentation-long-running",
+    "category": "c",
+    "system_prompt": "You are an embedded systems engineer.",
+    "user_prompt": "How does external heap fragmentation degrade performance in long-running C daemons, and when should custom fixed-size memory pools be chosen?",
+    "tags": ["c", "fragmentation", "memory-pools", "embedded", "reliability"]
+  },
+  {
+    "id": "c-mem-snprintf-vs-strncpy-safety",
+    "category": "c",
+    "system_prompt": "You are a secure coding auditor.",
+    "user_prompt": "Why is strncpy considered unsafe regarding null termination, and why is snprintf or strlcpy preferred for bounded string manipulation in C?",
+    "tags": ["c", "strings", "strncpy", "snprintf", "security"]
+  },
+  {
+    "id": "c-mem-off-by-one-null-terminator",
+    "category": "c",
+    "system_prompt": "You are a C systems programmer.",
+    "user_prompt": "Explain the classic off-by-one error when allocating memory for a C string of length N (forgetting N + 1 for the null terminator '\\0').",
+    "tags": ["c", "strings", "null-terminator", "off-by-one", "buffer-overflow"]
+  },
+  {
+    "id": "c-mem-free-null-semantics",
+    "category": "c",
+    "system_prompt": "You are a C standards specialist.",
+    "user_prompt": "What does the C standard guarantee when passing NULL to free(NULL), and why is defensive 'if (ptr != NULL) free(ptr);' redundant?",
+    "tags": ["c", "free", "null-pointer", "standards", "c99"]
+  },
+  {
+    "id": "c-mem-mmap-anonymous-virtual-pages",
+    "category": "c",
+    "system_prompt": "You are an operating systems developer.",
+    "user_prompt": "How do memory allocators like glibc malloc use mmap() with MAP_ANONYMOUS | MAP_PRIVATE to allocate large chunks outside the sbrk heap?",
+    "tags": ["c", "mmap", "virtual-memory", "glibc", "linux"]
+  },
+  {
+    "id": "c-mem-freelist-fixed-size-allocator",
+    "category": "c",
+    "system_prompt": "You are an operating systems kernel developer.",
+    "user_prompt": "How do you implement a fixed-size block memory pool using an intrusive singly-linked free list with zero per-node allocation overhead?",
+    "tags": ["c", "freelist", "intrusive-list", "memory-pool", "data-structures"]
+  },
+  {
+    "id": "c-mem-flexible-array-member-c99",
+    "category": "c",
+    "system_prompt": "You are an advanced C programmer.",
+    "user_prompt": "How does C99 flexible array member (FAM) syntax (e.g. char payload[]) enable single-allocation dynamic struct sizing without pointer indirection?",
+    "tags": ["c", "flexible-array-member", "structs", "c99", "memory"]
+  },
+  {
+    "id": "c-mem-calloc-overflow-check",
+    "category": "c",
+    "system_prompt": "You are a vulnerability analyst.",
+    "user_prompt": "How does calloc(num, size) prevent integer multiplication overflow vulnerabilities that occur when manually calculating 'num * size' for malloc?",
+    "tags": ["c", "calloc", "integer-overflow", "vulnerabilities", "security"]
+  },
+  {
+    "id": "c-mem-stack-frame-buffer-overflow",
+    "category": "c",
+    "system_prompt": "You are an exploitation and defensive systems expert.",
+    "user_prompt": "Explain how writing beyond a local stack buffer overwrites the saved frame pointer and return address, and how compiler stack canaries (-fstack-protector) protect it.",
+    "tags": ["c", "buffer-overflow", "stack-canaries", "security", "assembly"]
+  },
+  {
+    "id": "c-mem-leaksanitizer-ci-automation",
+    "category": "c",
+    "system_prompt": "You are a CI/CD infrastructure engineer.",
+    "user_prompt": "How do you configure LeakSanitizer (-fsanitize=leak) in GCC/Clang with LSAN_OPTIONS=verbosity=1:log_threads=1 for automated test pipelines?",
+    "tags": ["c", "lsan", "leaksanitizer", "ci-cd", "testing"]
+  },
+  {
+    "id": "c-mem-copy-on-write-fork-memory",
+    "category": "c",
+    "system_prompt": "You are a Linux systems engineer.",
+    "user_prompt": "How does the Linux kernel Copy-On-Write (COW) mechanism manage shared memory pages when a C application calls fork() without immediate exec()?",
+    "tags": ["c", "fork", "copy-on-write", "linux", "virtual-memory"]
+  },
+  {
+    "id": "c-mem-embedded-static-memory-allocation",
+    "category": "c",
+    "system_prompt": "You are an automotive/aerospace embedded software engineer.",
+    "user_prompt": "Why do safety-critical standards like MISRA C ban or strictly restrict dynamic heap allocation (malloc/free), and how is static memory planned?",
+    "tags": ["c", "misra-c", "embedded", "safety-critical", "static-allocation"]
+  },
+  {
+    "id": "c-mem-heap-metadata-corruption-unlink",
+    "category": "c",
+    "system_prompt": "You are a systems security researcher.",
+    "user_prompt": "How do heap overflow attacks corrupt chunk size metadata in glibc ptmalloc, and how do modern mitigations prevent unlink exploitation?",
+    "tags": ["c", "ptmalloc", "glibc", "heap-overflow", "security"]
+  }
+]

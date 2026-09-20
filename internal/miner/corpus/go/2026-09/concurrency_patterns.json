@@ -1,0 +1,149 @@
+[
+  {
+    "id": "go-concurrency-errgroup-structured",
+    "category": "go",
+    "system_prompt": "You are a senior Go systems engineer.",
+    "user_prompt": "How do you use golang.org/x/sync/errgroup with Context to implement structured concurrency and abort sibling goroutines on the first failure?",
+    "tags": ["go", "concurrency", "errgroup", "context", "structured-concurrency"]
+  },
+  {
+    "id": "go-concurrency-context-timeout-leak",
+    "category": "go",
+    "system_prompt": "You are a backend Go reliability specialist.",
+    "user_prompt": "Why must the cancel function returned by context.WithTimeout or context.WithDeadline always be invoked via defer to prevent context timer leaks?",
+    "tags": ["go", "context", "timeout", "resource-leaks", "defer"]
+  },
+  {
+    "id": "go-concurrency-unbuffered-channel-deadlock",
+    "category": "go",
+    "system_prompt": "You are a Go runtime engineer.",
+    "user_prompt": "Explain how sending to an unbuffered channel without an active receiving goroutine causes deadlock, and how select with default prevents blocking.",
+    "tags": ["go", "channels", "deadlock", "select", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-worker-pool-pattern",
+    "category": "go",
+    "system_prompt": "You are a distributed systems architect.",
+    "user_prompt": "Provide an idiomatic Go worker pool implementation using a jobs channel, results channel, and sync.WaitGroup with bounded goroutine count.",
+    "tags": ["go", "worker-pool", "channels", "waitgroup", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-fan-out-fan-in",
+    "category": "go",
+    "system_prompt": "You are a high-throughput backend engineer.",
+    "user_prompt": "How do you implement the Fan-Out / Fan-In concurrency pattern in Go to distribute expensive computations and merge multiple output channels?",
+    "tags": ["go", "fan-out", "fan-in", "channels", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-singleflight-dedup",
+    "category": "go",
+    "system_prompt": "You are a database cache architect.",
+    "user_prompt": "How does golang.org/x/sync/singleflight prevent cache stampedes (thundering herds) by suppressing duplicate concurrent upstream requests?",
+    "tags": ["go", "singleflight", "caching", "thundering-herd", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-sync-mutex-vs-rwmutex",
+    "category": "go",
+    "system_prompt": "You are a Go performance specialist.",
+    "user_prompt": "When is sync.RWMutex beneficial over sync.Mutex, and what read-lock starvation risks occur under high write frequency?",
+    "tags": ["go", "sync", "mutex", "rwmutex", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-sync-once-singleton",
+    "category": "go",
+    "system_prompt": "You are a senior Go architect.",
+    "user_prompt": "How does sync.Once ensure thread-safe lazy initialization, and what is the role of sync.OnceFunc in Go 1.21+?",
+    "tags": ["go", "sync-once", "thread-safe", "initialization", "go121"]
+  },
+  {
+    "id": "go-concurrency-atomic-pointer-lockless",
+    "category": "go",
+    "system_prompt": "You are a low-latency Go systems engineer.",
+    "user_prompt": "How do you use sync/atomic.Pointer to perform lockless atomic pointer swaps for hot configuration updates without mutex contention?",
+    "tags": ["go", "atomic", "lockless", "pointer", "performance"]
+  },
+  {
+    "id": "go-concurrency-closing-channels-rules",
+    "category": "go",
+    "system_prompt": "You are a Go runtime specialist.",
+    "user_prompt": "What are the core rules of channel closure in Go: who should close a channel, and why does sending to a closed channel panic?",
+    "tags": ["go", "channels", "closing", "panic", "safety"]
+  },
+  {
+    "id": "go-concurrency-time-ticker-leak",
+    "category": "go",
+    "system_prompt": "You are a Go reliability engineer.",
+    "user_prompt": "Why should time.NewTicker be preferred over time.Tick in production services, and how does omitting ticker.Stop() cause memory leaks?",
+    "tags": ["go", "time", "ticker", "memory-leaks", "gc"]
+  },
+  {
+    "id": "go-concurrency-pipeline-cancellation",
+    "category": "go",
+    "system_prompt": "You are a backend streaming specialist.",
+    "user_prompt": "How do you structure a multi-stage streaming pipeline in Go where cancellation via context stops upstream producers immediately?",
+    "tags": ["go", "pipeline", "streaming", "context", "cancellation"]
+  },
+  {
+    "id": "go-concurrency-sync-pool-object-reuse",
+    "category": "go",
+    "system_prompt": "You are a Go memory optimization engineer.",
+    "user_prompt": "How does sync.Pool reduce allocation overhead and GC pauses in hot paths, and when does the Go runtime purge pooled objects?",
+    "tags": ["go", "sync-pool", "gc", "memory", "performance"]
+  },
+  {
+    "id": "go-concurrency-semaphore-channel-rate-limit",
+    "category": "go",
+    "system_prompt": "You are a network systems engineer.",
+    "user_prompt": "How do you implement a token bucket or counting semaphore using a buffered channel of empty structs (make(chan struct{}, limit))?",
+    "tags": ["go", "semaphore", "rate-limiting", "channels", "tokens"]
+  },
+  {
+    "id": "go-concurrency-nil-channel-select-disable",
+    "category": "go",
+    "system_prompt": "You are a Go internals specialist.",
+    "user_prompt": "Explain why reading or writing to a nil channel blocks indefinitely, and how this property is used to dynamically disable select cases.",
+    "tags": ["go", "nil-channel", "select", "patterns", "internals"]
+  },
+  {
+    "id": "go-concurrency-goroutine-leak-detection",
+    "category": "go",
+    "system_prompt": "You are a Go diagnostic engineer.",
+    "user_prompt": "How do you detect and debug leaking goroutines in production using runtime.NumGoroutine(), pprof goroutine profiles, and uber-go/goleak in unit tests?",
+    "tags": ["go", "goroutine-leaks", "pprof", "goleak", "diagnostics"]
+  },
+  {
+    "id": "go-concurrency-weighted-semaphore",
+    "category": "go",
+    "system_prompt": "You are a systems resource architect.",
+    "user_prompt": "How does golang.org/x/sync/semaphore.NewWeighted allow acquiring variable capacity weights for jobs with different memory demands?",
+    "tags": ["go", "semaphore", "weighted", "resources", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-context-values-pitfalls",
+    "category": "go",
+    "system_prompt": "You are a Go API design specialist.",
+    "user_prompt": "What are the pitfalls of using context.WithValue for application dependencies instead of explicit parameters, and how should private key types be defined?",
+    "tags": ["go", "context", "withvalue", "type-safety", "best-practices"]
+  },
+  {
+    "id": "go-concurrency-graceful-worker-drain",
+    "category": "go",
+    "system_prompt": "You are a backend infrastructure engineer.",
+    "user_prompt": "How do you implement a clean shutdown signal in Go that stops accepting new tasks, closes input queues, and waits for in-flight tasks to complete?",
+    "tags": ["go", "graceful-shutdown", "drain", "worker", "reliability"]
+  },
+  {
+    "id": "go-concurrency-race-detector-runtime",
+    "category": "go",
+    "system_prompt": "You are a Go QA and tooling engineer.",
+    "user_prompt": "How does the Go race detector (go test -race) work under the hood using ThreadSanitizer, and what is its overhead in memory and CPU?",
+    "tags": ["go", "race-detector", "threadsanitizer", "testing", "concurrency"]
+  },
+  {
+    "id": "go-concurrency-context-without-cancel",
+    "category": "go",
+    "system_prompt": "You are a modern Go specialist.",
+    "user_prompt": "How does context.WithoutCancel in Go 1.21 allow detaching background cleanup tasks from a parent request context while retaining values?",
+    "tags": ["go", "context", "go121", "without-cancel", "background-tasks"]
+  }
+]

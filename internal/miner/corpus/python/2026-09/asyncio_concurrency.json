@@ -1,0 +1,149 @@
+[
+  {
+    "id": "py-async-taskgroup-structured-concurrency",
+    "category": "python",
+    "system_prompt": "You are a modern Python concurrency specialist.",
+    "user_prompt": "How does asyncio.TaskGroup in Python 3.11 provide structured concurrency and how does it handle exception groups (ExceptionGroup) on task failure?",
+    "tags": ["python", "asyncio", "taskgroup", "concurrency", "python311"]
+  },
+  {
+    "id": "py-async-gather-vs-wait-exception-handling",
+    "category": "python",
+    "system_prompt": "You are an async Python engineer.",
+    "user_prompt": "Compare asyncio.gather(return_exceptions=True) and asyncio.wait(return_when=FIRST_EXCEPTION) for orchestrating concurrent coroutines.",
+    "tags": ["python", "asyncio", "gather", "concurrency", "error-handling"]
+  },
+  {
+    "id": "py-async-semaphore-rate-limiting",
+    "category": "python",
+    "system_prompt": "You are a backend performance architect.",
+    "user_prompt": "How do you use asyncio.Semaphore to bound concurrent outbound HTTP requests or database connections and prevent socket exhaustion?",
+    "tags": ["python", "asyncio", "semaphore", "rate-limiting", "concurrency"]
+  },
+  {
+    "id": "py-async-thread-pool-executor-blocking-io",
+    "category": "python",
+    "system_prompt": "You are an async Python systems specialist.",
+    "user_prompt": "Why should CPU-bound or blocking I/O (e.g. disk writes, synchronous SDKs) be wrapped in asyncio.to_thread() to avoid blocking the event loop?",
+    "tags": ["python", "asyncio", "to-thread", "event-loop", "threads"]
+  },
+  {
+    "id": "py-async-cancellation-cleanup-shield",
+    "category": "python",
+    "system_prompt": "You are a Python reliability engineer.",
+    "user_prompt": "How do you handle asyncio.CancelledError cleanly in try/finally blocks, and when should asyncio.shield() protect critical transactions from aborting?",
+    "tags": ["python", "asyncio", "cancellation", "shield", "reliability"]
+  },
+  {
+    "id": "py-async-queue-producer-consumer",
+    "category": "python",
+    "system_prompt": "You are a distributed systems engineer.",
+    "user_prompt": "How do you implement a producer-consumer worker pipeline using asyncio.Queue with task_done() and join() synchronization?",
+    "tags": ["python", "asyncio", "queue", "producer-consumer", "concurrency"]
+  },
+  {
+    "id": "py-async-event-loop-policy-uvloop",
+    "category": "python",
+    "system_prompt": "You are a high-performance Python infrastructure engineer.",
+    "user_prompt": "How does uvloop (libuv) replace the default Python asyncio event loop to achieve Node.js-level I/O throughput in web servers like Uvicorn?",
+    "tags": ["python", "uvloop", "asyncio", "performance", "libuv"]
+  },
+  {
+    "id": "py-async-generator-context-managers",
+    "category": "python",
+    "system_prompt": "You are an advanced Python engineer.",
+    "user_prompt": "How do asynchronous generators (async for) and async context managers (@asynccontextmanager) handle streaming responses and cleanup?",
+    "tags": ["python", "asyncio", "generators", "context-managers"]
+  },
+  {
+    "id": "py-async-multiprocessing-vs-threading-gil",
+    "category": "python",
+    "system_prompt": "You are a Python concurrency and systems internals specialist.",
+    "user_prompt": "Explain the Global Interpreter Lock (GIL) and contrast multiprocessing.Pool vs concurrent.futures.ThreadPoolExecutor vs asyncio for CPU vs I/O tasks.",
+    "tags": ["python", "gil", "multiprocessing", "threading", "concurrency"]
+  },
+  {
+    "id": "py-async-timeout-timeout-context-manager",
+    "category": "python",
+    "system_prompt": "You are a modern Python developer.",
+    "user_prompt": "How do you enforce deadline timeouts using asyncio.timeout() in Python 3.11+ compared to legacy asyncio.wait_for()?",
+    "tags": ["python", "asyncio", "timeout", "python311"]
+  },
+  {
+    "id": "py-async-run-in-executor-custom-pool",
+    "category": "python",
+    "system_prompt": "You are an async systems engineer.",
+    "user_prompt": "How do you dispatch tasks to a custom ProcessPoolExecutor using loop.run_in_executor() to execute CPU-heavy image processing without blocking asyncio?",
+    "tags": ["python", "asyncio", "executors", "multiprocessing", "performance"]
+  },
+  {
+    "id": "py-async-event-synchronization-flag",
+    "category": "python",
+    "system_prompt": "You are a Python concurrency specialist.",
+    "user_prompt": "How do asyncio.Event and asyncio.Condition coordinate task execution order and signal state changes across asynchronous worker coroutines?",
+    "tags": ["python", "asyncio", "synchronization", "events", "condition"]
+  },
+  {
+    "id": "py-async-debugging-slow-callbacks",
+    "category": "python",
+    "system_prompt": "You are an async performance engineer.",
+    "user_prompt": "How do you enable asyncio debug mode (PYTHONASYNCIODEBUG=1, loop.slow_callback_duration) to detect coroutines that block the event loop?",
+    "tags": ["python", "asyncio", "debugging", "profiling", "event-loop"]
+  },
+  {
+    "id": "py-async-contextvars-request-id-tracking",
+    "category": "python",
+    "system_prompt": "You are a backend observability architect.",
+    "user_prompt": "How does the contextvars module maintain asynchronous context-local state (e.g. request IDs, user identity) across coroutine execution frames?",
+    "tags": ["python", "contextvars", "asyncio", "logging", "tracing"]
+  },
+  {
+    "id": "py-async-httpx-vs-aiohttp-client",
+    "category": "python",
+    "system_prompt": "You are a modern Python HTTP networking specialist.",
+    "user_prompt": "Compare HTTPX and aiohttp: HTTP/2 support, connection pooling, sync/async dual API, and timeout ergonomics for high-throughput clients.",
+    "tags": ["python", "httpx", "aiohttp", "http2", "networking"]
+  },
+  {
+    "id": "py-async-free-threading-python-313-nogil",
+    "category": "python",
+    "system_prompt": "You are a Python 3.13 internals specialist.",
+    "user_prompt": "Explain PEP 703 (free-threading mode without GIL) in Python 3.13: reference counting changes, thread safety rules, and impact on pure Python concurrency.",
+    "tags": ["python", "python313", "nogil", "free-threading", "gil"]
+  },
+  {
+    "id": "py-async-subprocesses-asyncio-create-subprocess-exec",
+    "category": "python",
+    "system_prompt": "You are a systems automation engineer.",
+    "user_prompt": "How do you run non-blocking shell processes and stream stdout/stderr asynchronously using asyncio.create_subprocess_exec()?",
+    "tags": ["python", "asyncio", "subprocess", "shell", "streaming"]
+  },
+  {
+    "id": "py-async-locks-reentrancy-pitfall",
+    "category": "python",
+    "system_prompt": "You are an async concurrency specialist.",
+    "user_prompt": "Why is asyncio.Lock non-reentrant, and how does calling acquire() within the same coroutine execution path trigger a self-deadlock?",
+    "tags": ["python", "asyncio", "locks", "deadlocks", "concurrency"]
+  },
+  {
+    "id": "py-async-graceful-signal-handling-sigterm",
+    "category": "python",
+    "system_prompt": "You are a containerized Python service specialist.",
+    "user_prompt": "How do you register SIGINT and SIGTERM handlers on the asyncio event loop using loop.add_signal_handler() to drain in-flight tasks during pod shutdown?",
+    "tags": ["python", "asyncio", "signals", "graceful-shutdown", "devops"]
+  },
+  {
+    "id": "py-async-websocket-broadcasting-fastapi",
+    "category": "python",
+    "system_prompt": "You are a real-time web application architect.",
+    "user_prompt": "How do you architect an in-memory WebSocket connection manager in FastAPI with pub/sub broadcasting and automatic disconnect cleanup?",
+    "tags": ["python", "fastapi", "websockets", "asyncio", "real-time"]
+  },
+  {
+    "id": "py-async-batching-delay-queue",
+    "category": "python",
+    "system_prompt": "You are a high-throughput data ingestion engineer.",
+    "user_prompt": "How do you implement an async batcher in Python that flushes events either when reaching batch_size or when a max_delay_seconds timer expires?",
+    "tags": ["python", "asyncio", "batching", "queue", "performance"]
+  }
+]

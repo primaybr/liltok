@@ -1,0 +1,149 @@
+[
+  {
+    "id": "go-net-http-defaultclient-danger",
+    "category": "go",
+    "system_prompt": "You are a Go backend reliability architect.",
+    "user_prompt": "Why is http.DefaultClient considered dangerous in production services, and how do you configure explicit timeouts on http.Client?",
+    "tags": ["go", "http", "http-client", "timeouts", "reliability"]
+  },
+  {
+    "id": "go-net-transport-connection-pooling",
+    "category": "go",
+    "system_prompt": "You are a high-throughput network engineer.",
+    "user_prompt": "How do you tune http.Transport parameters (MaxIdleConns, MaxIdleConnsPerHost, IdleConnTimeout) to prevent socket exhaustion under high concurrency?",
+    "tags": ["go", "http-transport", "connection-pool", "networking", "sockets"]
+  },
+  {
+    "id": "go-net-response-body-drain-close",
+    "category": "go",
+    "system_prompt": "You are a Go systems programmer.",
+    "user_prompt": "Why must an HTTP response body be both read to EOF (or discarded with io.Discard) and closed to allow TCP connection reuse in Keep-Alive?",
+    "tags": ["go", "http", "response-body", "keep-alive", "io-discard"]
+  },
+  {
+    "id": "go-net-io-readall-memory-exhaustion",
+    "category": "go",
+    "system_prompt": "You are a Go security specialist.",
+    "user_prompt": "Why can io.ReadAll(r.Body) lead to out-of-memory denial of service, and how do you enforce request size limits using http.MaxBytesReader?",
+    "tags": ["go", "io-readall", "maxbytesreader", "security", "dos"]
+  },
+  {
+    "id": "go-net-servemux-go122-routing",
+    "category": "go",
+    "system_prompt": "You are a modern Go web developer.",
+    "user_prompt": "How do Go 1.22 enhanced routing patterns in http.ServeMux support HTTP methods and path wildcards (e.g. GET /items/{id}) without external routers?",
+    "tags": ["go", "servemux", "routing", "go122", "http"]
+  },
+  {
+    "id": "go-net-middleware-chaining-pattern",
+    "category": "go",
+    "system_prompt": "You are a Go API design architect.",
+    "user_prompt": "How do you implement an idiomatic middleware chaining pipeline for http.Handler using func(http.Handler) http.Handler wrappers?",
+    "tags": ["go", "middleware", "http-handler", "design-patterns", "api"]
+  },
+  {
+    "id": "go-net-sse-flusher-streaming",
+    "category": "go",
+    "system_prompt": "You are a real-time web services engineer.",
+    "user_prompt": "How do you implement Server-Sent Events (SSE) in Go using http.ResponseWriter, http.Flusher, and context cancellation listener?",
+    "tags": ["go", "sse", "flusher", "streaming", "real-time"]
+  },
+  {
+    "id": "go-net-websocket-gorilla-vs-coder",
+    "category": "go",
+    "system_prompt": "You are a real-time communications specialist.",
+    "user_prompt": "Compare gorilla/websocket and nhooyr.io/websocket (coder/websocket) regarding context support, zero-copy buffer handling, and concurrent writes.",
+    "tags": ["go", "websocket", "networking", "real-time", "concurrency"]
+  },
+  {
+    "id": "go-net-reverse-proxy-httputil",
+    "category": "go",
+    "system_prompt": "You are an API gateway engineer.",
+    "user_prompt": "How do you implement an intelligent reverse proxy using net/http/httputil.ReverseProxy with custom Director, Rewrite, and ErrorHandler hooks?",
+    "tags": ["go", "httputil", "reverse-proxy", "api-gateway", "networking"]
+  },
+  {
+    "id": "go-net-tls-config-hardening",
+    "category": "go",
+    "system_prompt": "You are a Go security engineer.",
+    "user_prompt": "How do you configure crypto/tls.Config for production services to enforce TLS 1.3, strict cipher suites, and modern elliptic curves?",
+    "tags": ["go", "tls", "crypto", "security", "https"]
+  },
+  {
+    "id": "go-net-mutual-tls-mtls-verification",
+    "category": "go",
+    "system_prompt": "You are a zero-trust security architect.",
+    "user_prompt": "How do you configure mutual TLS (mTLS) in Go with ClientAuth: tls.RequireAndVerifyClientCert and custom root CA pools in tls.Config?",
+    "tags": ["go", "mtls", "tls", "certificates", "zero-trust"]
+  },
+  {
+    "id": "go-net-graceful-server-shutdown",
+    "category": "go",
+    "system_prompt": "You are a production infrastructure engineer.",
+    "user_prompt": "How do you implement graceful HTTP server shutdown in Go using srv.Shutdown(ctx), signal trapping (SIGINT, SIGTERM), and active conn drains?",
+    "tags": ["go", "http-server", "graceful-shutdown", "signals", "infrastructure"]
+  },
+  {
+    "id": "go-net-rate-limiting-token-bucket",
+    "category": "go",
+    "system_prompt": "You are an API resilience specialist.",
+    "user_prompt": "How do you implement per-IP rate limiting middleware in Go using golang.org/x/time/rate and an in-memory TTL cache with eviction?",
+    "tags": ["go", "rate-limiting", "token-bucket", "middleware", "api"]
+  },
+  {
+    "id": "go-net-grpc-unary-vs-streaming-context",
+    "category": "go",
+    "system_prompt": "You are a distributed microservices engineer.",
+    "user_prompt": "How do gRPC client and server interceptors propagate metadata, context deadlines, and distributed trace headers across RPC boundaries?",
+    "tags": ["go", "grpc", "interceptors", "context", "microservices"]
+  },
+  {
+    "id": "go-net-connection-hijacker-protocols",
+    "category": "go",
+    "system_prompt": "You are a low-level network engineer.",
+    "user_prompt": "How does http.Hijacker allow an HTTP handler to take ownership of the underlying net.Conn for custom protocols or terminal multiplexing?",
+    "tags": ["go", "hijacker", "net-conn", "protocols", "networking"]
+  },
+  {
+    "id": "go-net-chunked-transfer-large-files",
+    "category": "go",
+    "system_prompt": "You are a file transfer and storage specialist.",
+    "user_prompt": "How do you stream multi-gigabyte file downloads in Go with chunked transfer encoding, Content-Disposition, and zero-buffering memory footprint?",
+    "tags": ["go", "http", "streaming", "chunked-transfer", "downloads"]
+  },
+  {
+    "id": "go-net-custom-dns-resolver-dialer",
+    "category": "go",
+    "system_prompt": "You are a cloud networking specialist.",
+    "user_prompt": "How do you configure net.Dialer with a custom net.Resolver to route DNS lookups through specific upstream nameservers or custom hosts?",
+    "tags": ["go", "dns", "resolver", "net-dialer", "networking"]
+  },
+  {
+    "id": "go-net-sendfile-zero-copy-socket",
+    "category": "go",
+    "system_prompt": "You are a Linux kernel and systems programmer.",
+    "user_prompt": "How does io.Copy take advantage of Linux splice or sendfile system calls when copying between an *os.File and a *net.TCPConn in Go?",
+    "tags": ["go", "sendfile", "zero-copy", "splice", "linux"]
+  },
+  {
+    "id": "go-net-httptrace-latency-breakdown",
+    "category": "go",
+    "system_prompt": "You are a latency and observability engineer.",
+    "user_prompt": "How do you use net/http/httptrace.ClientTrace to measure granular HTTP request phases: DNS lookup, TCP connect, TLS handshake, and TTFB?",
+    "tags": ["go", "httptrace", "latency", "dns", "observability"]
+  },
+  {
+    "id": "go-net-circuit-breaker-gobreaker",
+    "category": "go",
+    "system_prompt": "You are a microservice resilience specialist.",
+    "user_prompt": "How do you wrap external HTTP calls with a circuit breaker pattern (e.g. sony/gobreaker) to handle transient failures gracefully?",
+    "tags": ["go", "circuit-breaker", "gobreaker", "resilience", "microservices"]
+  },
+  {
+    "id": "go-net-http2-multiplexing-max-streams",
+    "category": "go",
+    "system_prompt": "You are an HTTP/2 protocol specialist.",
+    "user_prompt": "How does Go net/http manage HTTP/2 multiplexed streams, and how do you configure MaxConcurrentStreams and ping frames to detect dead peers?",
+    "tags": ["go", "http2", "multiplexing", "streams", "keep-alive"]
+  }
+]

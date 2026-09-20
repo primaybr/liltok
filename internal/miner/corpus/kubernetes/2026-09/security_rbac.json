@@ -1,0 +1,142 @@
+[
+  {
+    "id": "k8s-sec-rbac-roles-vs-clusterroles",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes security architect.",
+    "user_prompt": "Compare Role vs ClusterRole and RoleBinding vs ClusterRoleBinding in Kubernetes: namespace scoping, API groups, and least-privilege design.",
+    "tags": ["kubernetes", "rbac", "security", "authorization"]
+  },
+  {
+    "id": "k8s-sec-pod-security-standards-pss",
+    "category": "kubernetes",
+    "system_prompt": "You are a DevSecOps engineer.",
+    "user_prompt": "How do you enforce Pod Security Standards (Privileged, Baseline, Restricted) at the namespace level using pod-security.kubernetes.io admission labels?",
+    "tags": ["kubernetes", "security", "pss", "admission-control"]
+  },
+  {
+    "id": "k8s-sec-service-account-token-projection",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes security specialist.",
+    "user_prompt": "How does Bound Service Account Token Projection (projected volume with audience and expirationSeconds) eliminate eternal static ServiceAccount tokens?",
+    "tags": ["kubernetes", "serviceaccount", "tokens", "security", "authentication"]
+  },
+  {
+    "id": "k8s-sec-admission-controllers-validating-mutating",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes platform engineer.",
+    "user_prompt": "Compare MutatingAdmissionWebhook vs ValidatingAdmissionWebhook in Kubernetes: webhook lifecycle execution order, timeout implications, and failurePolicy: Fail vs Ignore.",
+    "tags": ["kubernetes", "admission-control", "webhooks", "security"]
+  },
+  {
+    "id": "k8s-sec-kyverno-opa-gatekeeper-policies",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud policy-as-code architect.",
+    "user_prompt": "Compare Kyverno and OPA Gatekeeper for policy enforcement: YAML-native rules vs Rego query language, mutation capabilities, and CI/CD validation.",
+    "tags": ["kubernetes", "kyverno", "gatekeeper", "opa", "policy-as-code"]
+  },
+  {
+    "id": "k8s-sec-security-context-hardening",
+    "category": "kubernetes",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "Provide a production-hardened container securityContext with readOnlyRootFilesystem, runAsNonRoot, allowPrivilegeEscalation: false, and capabilities: drop: ['ALL'].",
+    "tags": ["kubernetes", "securitycontext", "hardening", "containers"]
+  },
+  {
+    "id": "k8s-sec-etcd-encryption-at-rest",
+    "category": "kubernetes",
+    "system_prompt": "You are an enterprise Kubernetes security architect.",
+    "user_prompt": "How do you configure EncryptionConfiguration on kube-apiserver to encrypt Kubernetes Secrets at rest inside etcd with KMS v2 (AWS KMS / Vault)?",
+    "tags": ["kubernetes", "etcd", "encryption", "secrets", "kms"]
+  },
+  {
+    "id": "k8s-sec-seccomp-apparmor-profiles",
+    "category": "kubernetes",
+    "system_prompt": "You are a Linux and container security engineer.",
+    "user_prompt": "How do you apply seccomp profiles (RuntimeDefault or custom localhost profiles) and AppArmor profiles to Kubernetes pods to restrict kernel syscalls?",
+    "tags": ["kubernetes", "seccomp", "apparmor", "linux", "kernel", "security"]
+  },
+  {
+    "id": "k8s-sec-audit-logging-apiserver",
+    "category": "kubernetes",
+    "system_prompt": "You are a compliance and security auditor.",
+    "user_prompt": "How do you configure kube-apiserver audit policy rules (None, Metadata, Request, RequestResponse) to log cluster events for SOC2/ISO compliance without flooding disk?",
+    "tags": ["kubernetes", "audit-logs", "apiserver", "compliance", "security"]
+  },
+  {
+    "id": "k8s-sec-image-vulnerability-admission-cosign",
+    "category": "kubernetes",
+    "system_prompt": "You are a supply chain security specialist.",
+    "user_prompt": "How do you verify cryptographic container image signatures using Sigstore Cosign in a Kubernetes admission webhook to prevent unverified images from executing?",
+    "tags": ["kubernetes", "supply-chain", "cosign", "signatures", "security"]
+  },
+  {
+    "id": "k8s-sec-node-restriction-admission-plugin",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes control plane security specialist.",
+    "user_prompt": "How does the NodeRestriction admission controller prevent compromised kubelet nodes from modifying other nodes' labels, taints, or non-local pod manifests?",
+    "tags": ["kubernetes", "noderestriction", "apiserver", "kubelet", "security"]
+  },
+  {
+    "id": "k8s-sec-impersonation-rbac-testing",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes security administrator.",
+    "user_prompt": "How do you use kubectl auth can-i with --as and --as-group flags to audit and test RBAC permissions for a specific service account or developer role?",
+    "tags": ["kubernetes", "rbac", "kubectl", "auth", "audit"]
+  },
+  {
+    "id": "k8s-sec-anonymous-auth-kubelet-hardening",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes cluster hardening specialist.",
+    "user_prompt": "How do you disable anonymous authentication on the kubelet (port 10250) and enforce Webhook authentication to prevent unauthorized container execution?",
+    "tags": ["kubernetes", "kubelet", "hardening", "security", "cis-benchmark"]
+  },
+  {
+    "id": "k8s-sec-user-facing-certs-api-csr",
+    "category": "kubernetes",
+    "system_prompt": "You are a PKI and Kubernetes security engineer.",
+    "user_prompt": "How does the CertificateSigningRequest (CSR) API in Kubernetes automate issuing client certificates with X.509 Common Name and Organization groups for developer access?",
+    "tags": ["kubernetes", "csr", "pki", "tls", "certificates", "rbac"]
+  },
+  {
+    "id": "k8s-sec-oidc-identity-provider-dex",
+    "category": "kubernetes",
+    "system_prompt": "You are an enterprise IAM and Kubernetes architect.",
+    "user_prompt": "How do you configure kube-apiserver with OIDC flags (--oidc-issuer-url, --oidc-client-id) to authenticate developers against Okta, Google Workspace, or GitHub via Dex?",
+    "tags": ["kubernetes", "oidc", "iam", "authentication", "sso"]
+  },
+  {
+    "id": "k8s-sec-kube-bench-cis-compliance",
+    "category": "kubernetes",
+    "system_prompt": "You are a security compliance specialist.",
+    "user_prompt": "How do you run kube-bench to audit a cluster against the CIS Kubernetes Benchmark, and how do you remediate fail findings on master and worker nodes?",
+    "tags": ["kubernetes", "cis-benchmark", "kube-bench", "compliance", "hardening"]
+  },
+  {
+    "id": "k8s-sec-network-segmentation-calico-deny",
+    "category": "kubernetes",
+    "system_prompt": "You are a zero-trust network engineer.",
+    "user_prompt": "How do you implement GlobalNetworkPolicy in Calico to enforce cluster-wide egress boundaries (e.g. blocking metadata IP 169.254.169.254 across all pods)?",
+    "tags": ["kubernetes", "networkpolicy", "calico", "zero-trust", "metadata"]
+  },
+  {
+    "id": "k8s-sec-trivy-runtime-vulnerability-scanning",
+    "category": "kubernetes",
+    "system_prompt": "You are a container security engineer.",
+    "user_prompt": "How does Trivy Operator continuously scan deployed container images, ConfigMaps, and cluster configurations in Kubernetes to generate VulnerabilityReport CRDs?",
+    "tags": ["kubernetes", "trivy", "vulnerabilities", "security", "cve"]
+  },
+  {
+    "id": "k8s-sec-falco-runtime-threat-detection",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud detection and response engineer.",
+    "user_prompt": "How does Falco use kernel eBPF probes to detect unauthorized shells in containers, modifications to system binaries, and sensitive file reads in real time?",
+    "tags": ["kubernetes", "falco", "ebpf", "threat-detection", "security"]
+  },
+  {
+    "id": "k8s-sec-least-privilege-operator-serviceaccount",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operator developer.",
+    "user_prompt": "How do you scope Kubernetes Operator ServiceAccounts to the minimum necessary custom resource verbs rather than granting wildcard ('*') cluster-admin rights?",
+    "tags": ["kubernetes", "operators", "rbac", "least-privilege", "security"]
+  }
+]

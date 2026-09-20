@@ -1,0 +1,142 @@
+[
+  {
+    "id": "c-threads-pthread-create-join-lifecycle",
+    "category": "c",
+    "system_prompt": "You are a POSIX systems programmer.",
+    "user_prompt": "How do you create, pass arguments to, and join POSIX threads using pthread_create and pthread_join without creating memory leaks or race conditions?",
+    "tags": ["c", "pthreads", "posix", "threads", "concurrency"]
+  },
+  {
+    "id": "c-threads-condvar-spurious-wakeups",
+    "category": "c",
+    "system_prompt": "You are a multithreading synchronization specialist.",
+    "user_prompt": "Why must pthread_cond_wait always be wrapped in a while loop checking a shared condition rather than an if statement (spurious wakeups)?",
+    "tags": ["c", "pthreads", "condition-variables", "spurious-wakeups", "synchronization"]
+  },
+  {
+    "id": "c-threads-producer-consumer-queue",
+    "category": "c",
+    "system_prompt": "You are a concurrency systems architect.",
+    "user_prompt": "Provide a complete implementation of a bounded producer-consumer queue in C using pthread_mutex_t, two pthread_cond_t, and circular buffer.",
+    "tags": ["c", "pthreads", "producer-consumer", "mutex", "queue"]
+  },
+  {
+    "id": "c-threads-stdatomic-memory-orders",
+    "category": "c",
+    "system_prompt": "You are a low-level hardware concurrency specialist.",
+    "user_prompt": "How do C11 <stdatomic.h> memory orders (memory_order_relaxed, acquire, release, seq_cst) control CPU instruction reordering and store buffering?",
+    "tags": ["c", "stdatomic", "c11", "memory-ordering", "hardware"]
+  },
+  {
+    "id": "c-threads-posix-semaphores-named-unnamed",
+    "category": "c",
+    "system_prompt": "You are an operating systems engineer.",
+    "user_prompt": "What is the difference between unnamed POSIX semaphores (sem_init) and named semaphores (sem_open) for inter-process synchronization?",
+    "tags": ["c", "semaphores", "posix", "ipc", "synchronization"]
+  },
+  {
+    "id": "c-threads-thread-local-storage-c11",
+    "category": "c",
+    "system_prompt": "You are a C systems programmer.",
+    "user_prompt": "How does C11 '_Thread_local' (or GCC '__thread') allocate per-thread storage, and how does it compare to pthread_key_create?",
+    "tags": ["c", "thread-local", "tls", "c11", "pthreads"]
+  },
+  {
+    "id": "c-threads-threadsanitizer-tsan",
+    "category": "c",
+    "system_prompt": "You are a software quality and race detection specialist.",
+    "user_prompt": "How do you build and debug multithreaded C programs with ThreadSanitizer (-fsanitize=thread) to catch data races and lock order inversions?",
+    "tags": ["c", "tsan", "threadsanitizer", "race-conditions", "debugging"]
+  },
+  {
+    "id": "c-threads-rwlock-read-heavy-data",
+    "category": "c",
+    "system_prompt": "You are a high-concurrency database architect.",
+    "user_prompt": "How do you use pthread_rwlock_t (pthread_rwlock_rdlock, pthread_rwlock_wrlock) for read-heavy shared data caches, and what write starvation risks exist?",
+    "tags": ["c", "pthreads", "rwlock", "concurrency", "read-write"]
+  },
+  {
+    "id": "c-threads-lock-ordering-deadlock-prevention",
+    "category": "c",
+    "system_prompt": "You are a distributed systems safety engineer.",
+    "user_prompt": "How does establishing a strict total lock acquisition hierarchy prevent circular wait deadlocks when acquiring multiple mutexes?",
+    "tags": ["c", "deadlock", "mutex", "lock-ordering", "safety"]
+  },
+  {
+    "id": "c-threads-cleanup-handlers-cancellation",
+    "category": "c",
+    "system_prompt": "You are a POSIX thread reliability specialist.",
+    "user_prompt": "How do pthread_cleanup_push and pthread_cleanup_pop guarantee mutex unlocking and resource deallocation when a thread is terminated via pthread_cancel?",
+    "tags": ["c", "pthreads", "cancellation", "cleanup-handlers", "reliability"]
+  },
+  {
+    "id": "c-threads-fork-in-multithreaded-dangers",
+    "category": "c",
+    "system_prompt": "You are a Linux kernel and systems programmer.",
+    "user_prompt": "Why is calling fork() in a multithreaded C program dangerous (deadlocked mutexes held by non-duplicated threads), and how does pthread_atfork help?",
+    "tags": ["c", "fork", "pthreads", "pthread-atfork", "linux"]
+  },
+  {
+    "id": "c-threads-cpu-core-affinity-pinning",
+    "category": "c",
+    "system_prompt": "You are a low-latency systems engineer.",
+    "user_prompt": "How do you pin POSIX threads to specific CPU cores using cpu_set_t and pthread_setaffinity_np to minimize cache thrashing and context switches?",
+    "tags": ["c", "cpu-affinity", "pinning", "performance", "pthreads"]
+  },
+  {
+    "id": "c-threads-spinlock-vs-mutex-overhead",
+    "category": "c",
+    "system_prompt": "You are a high-performance compute engineer.",
+    "user_prompt": "When is pthread_spinlock_t faster than pthread_mutex_t, and why does busy-waiting on spinlocks severely degrade performance under core oversubscription?",
+    "tags": ["c", "spinlocks", "mutex", "pthreads", "performance"]
+  },
+  {
+    "id": "c-threads-barriers-phase-synchronization",
+    "category": "c",
+    "system_prompt": "You are a parallel computing specialist.",
+    "user_prompt": "How do you coordinate phased parallel algorithms across N worker threads using pthread_barrier_init and pthread_barrier_wait?",
+    "tags": ["c", "barriers", "parallelism", "pthreads", "synchronization"]
+  },
+  {
+    "id": "c-threads-detached-thread-descriptor-leak",
+    "category": "c",
+    "system_prompt": "You are a systems reliability engineer.",
+    "user_prompt": "Why does terminating a joinable thread without pthread_join leak thread descriptor resources, and when should pthread_detach be invoked?",
+    "tags": ["c", "pthreads", "pthread-detach", "leaks", "resources"]
+  },
+  {
+    "id": "c-threads-lockfree-spsc-ringbuffer",
+    "category": "c",
+    "system_prompt": "You are a lock-free algorithms specialist.",
+    "user_prompt": "How do you implement a lock-free Single-Producer Single-Consumer (SPSC) circular queue in C using C11 atomic head and tail indices?",
+    "tags": ["c", "lock-free", "spsc", "ring-buffer", "c11"]
+  },
+  {
+    "id": "c-threads-priority-inversion-inheritance",
+    "category": "c",
+    "system_prompt": "You are a real-time embedded systems engineer.",
+    "user_prompt": "Explain the Priority Inversion problem in real-time systems and how pthread_mutexattr_setprotocol with PTHREAD_PRIO_INHERIT resolves it.",
+    "tags": ["c", "priority-inversion", "real-time", "pthreads", "embedded"]
+  },
+  {
+    "id": "c-threads-signal-masking-sigwait",
+    "category": "c",
+    "system_prompt": "You are a Unix daemon developer.",
+    "user_prompt": "Why should asynchronous signals (SIGTERM, SIGHUP) in a multithreaded daemon be blocked across all threads using pthread_sigmask and handled by sigwait?",
+    "tags": ["c", "signals", "pthreads", "sigwait", "daemons"]
+  },
+  {
+    "id": "c-threads-false-sharing-cache-lines",
+    "category": "c",
+    "system_prompt": "You are a CPU microarchitecture optimization engineer.",
+    "user_prompt": "Explain False Sharing when multiple threads write to distinct variables residing on the same 64-byte L1 cache line, and how padding resolves it.",
+    "tags": ["c", "false-sharing", "cache-lines", "performance", "microarchitecture"]
+  },
+  {
+    "id": "c-threads-atomic-compare-exchange-weak-strong",
+    "category": "c",
+    "system_prompt": "You are a low-level synchronization engineer.",
+    "user_prompt": "What is the difference between atomic_compare_exchange_weak and atomic_compare_exchange_strong in C11, and why is weak preferred inside loops on ARM?",
+    "tags": ["c", "cas", "stdatomic", "compare-exchange", "arm"]
+  }
+]

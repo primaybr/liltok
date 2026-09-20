@@ -1,0 +1,142 @@
+[
+  {
+    "id": "docker-vol-named-volumes-vs-bind-mounts",
+    "category": "docker",
+    "system_prompt": "You are a Docker storage specialist.",
+    "user_prompt": "Compare Docker named volumes vs bind mounts vs tmpfs mounts: storage performance, host directory coupling, and cross-platform compatibility.",
+    "tags": ["docker", "storage", "volumes", "bind-mounts", "tmpfs"]
+  },
+  {
+    "id": "docker-vol-uid-gid-permission-denied",
+    "category": "docker",
+    "system_prompt": "You are a Linux and container systems engineer.",
+    "user_prompt": "How do you solve 'Permission denied' on host bind-mounted directories when non-root container users (UID 1000) write to host-owned folders (UID 0)?",
+    "tags": ["docker", "storage", "permissions", "uid-gid", "linux", "security"]
+  },
+  {
+    "id": "docker-vol-backup-tar-stream-restore",
+    "category": "docker",
+    "system_prompt": "You are a backup and disaster recovery specialist.",
+    "user_prompt": "How do you backup a Docker named volume to a compressed tar archive on the host and restore it to a fresh volume using an ephemeral helper container?",
+    "tags": ["docker", "storage", "volumes", "backup", "tar", "disaster-recovery"]
+  },
+  {
+    "id": "docker-vol-read-only-mount-security",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "Why should configuration files and code repositories be mounted as read-only (:ro flag) into containers, and how does it prevent malware persistence?",
+    "tags": ["docker", "storage", "security", "read-only", "hardening"]
+  },
+  {
+    "id": "docker-vol-macos-virtiofs-performance",
+    "category": "docker",
+    "system_prompt": "You are a macOS developer experience specialist.",
+    "user_prompt": "How does VirtioFS in Docker Desktop on macOS accelerate bind mount I/O for large Node.js and PHP projects compared to legacy gRPC-FUSE?",
+    "tags": ["docker", "macos", "virtiofs", "performance", "bind-mounts"]
+  },
+  {
+    "id": "docker-vol-overlayfs-driver-mechanics",
+    "category": "docker",
+    "system_prompt": "You are a Linux container storage internals engineer.",
+    "user_prompt": "How does the Overlay2 storage driver use lowerdir, upperdir, and merged directories to implement Copy-on-Write (CoW) container filesystem layers?",
+    "tags": ["docker", "storage", "overlayfs", "cow", "internals"]
+  },
+  {
+    "id": "docker-vol-nfs-driver-shared-storage",
+    "category": "docker",
+    "system_prompt": "You are an enterprise storage systems architect.",
+    "user_prompt": "How do you configure a Docker named volume with the local driver and custom NFS options (type: nfs, o: addr=...,rw) to attach shared NAS storage?",
+    "tags": ["docker", "storage", "nfs", "nas", "volumes"]
+  },
+  {
+    "id": "docker-vol-volume-prune-data-loss-prevention",
+    "category": "docker",
+    "system_prompt": "You are a systems operations engineer.",
+    "user_prompt": "What are the risks of 'docker volume prune -a' and how do you protect production database volumes from accidental deletion during cleanup scripts?",
+    "tags": ["docker", "storage", "volumes", "prune", "data-loss", "safety"]
+  },
+  {
+    "id": "docker-vol-inspect-mount-point-path",
+    "category": "docker",
+    "system_prompt": "You are a Linux systems administrator.",
+    "user_prompt": "Where are Docker named volumes physically stored on Linux (/var/lib/docker/volumes/) and how do you inspect the exact Mountpoint with docker volume inspect?",
+    "tags": ["docker", "storage", "volumes", "inspect", "linux"]
+  },
+  {
+    "id": "docker-vol-anonymous-volumes-layer-leaks",
+    "category": "docker",
+    "system_prompt": "You are a Docker cleanup and storage optimization specialist.",
+    "user_prompt": "What creates anonymous volumes (e.g. VOLUME /data instructions in base images) and how do you prevent them from silently consuming hundreds of gigabytes?",
+    "tags": ["docker", "storage", "anonymous-volumes", "cleanup", "disk-leak"]
+  },
+  {
+    "id": "docker-vol-copying-files-docker-cp",
+    "category": "docker",
+    "system_prompt": "You are a container operations engineer.",
+    "user_prompt": "How does 'docker cp' copy files between a running container and the host without requiring volume mounts, and how are file ownerships preserved?",
+    "tags": ["docker", "storage", "docker-cp", "cli", "operations"]
+  },
+  {
+    "id": "docker-vol-bind-propagation-shared-slave",
+    "category": "docker",
+    "system_prompt": "You are a Linux kernel and container storage specialist.",
+    "user_prompt": "Explain bind propagation options (rshared, rslave, rprivate, unbindable) in Docker and when rshared is required for nested container storage.",
+    "tags": ["docker", "storage", "bind-propagation", "linux", "mounts"]
+  },
+  {
+    "id": "docker-vol-selinux-z-flag-relabeling",
+    "category": "docker",
+    "system_prompt": "You are a Red Hat Enterprise Linux and security specialist.",
+    "user_prompt": "Why is the :z or :Z suffix required on bind mounts on SELinux systems (Fedora/RHEL) and how does it relabel file contexts for container access?",
+    "tags": ["docker", "storage", "selinux", "rhel", "security", "permissions"]
+  },
+  {
+    "id": "docker-vol-empty-volume-population",
+    "category": "docker",
+    "system_prompt": "You are a Docker storage internals engineer.",
+    "user_prompt": "How does Docker automatically pre-populate an empty named volume with files from the container's image target directory on initial creation?",
+    "tags": ["docker", "storage", "volumes", "internals", "initialization"]
+  },
+  {
+    "id": "docker-vol-tmpfs-sensitive-keys-memory",
+    "category": "docker",
+    "system_prompt": "You are a container security engineer.",
+    "user_prompt": "Why should private keys and decryption keys be mounted into containers using tmpfs mounts rather than standard volumes to prevent persistence on disk?",
+    "tags": ["docker", "storage", "tmpfs", "security", "encryption", "keys"]
+  },
+  {
+    "id": "docker-vol-volume-driver-plugins-rexray",
+    "category": "docker",
+    "system_prompt": "You are a cloud storage infrastructure architect.",
+    "user_prompt": "How do Docker volume plugins (e.g. cloud block store plugins) manage dynamic provisioning and attaching of EBS/Ceph block disks across Docker hosts?",
+    "tags": ["docker", "storage", "plugins", "ebs", "cloud"]
+  },
+  {
+    "id": "docker-vol-disk-quota-xfs-project-quota",
+    "category": "docker",
+    "system_prompt": "You are a Linux storage administrator.",
+    "user_prompt": "How do you enforce per-container disk write quotas using XFS project quotas and the storage-opt size flag in Docker daemon configuration?",
+    "tags": ["docker", "storage", "xfs", "quotas", "disk-limits"]
+  },
+  {
+    "id": "docker-vol-cross-container-volume-sharing",
+    "category": "docker",
+    "system_prompt": "You are a container architecture specialist.",
+    "user_prompt": "How do you share a single named volume between an application container (writing logs/uploads) and an Nginx container (serving static assets)?",
+    "tags": ["docker", "storage", "volumes", "nginx", "sharing"]
+  },
+  {
+    "id": "docker-vol-cifs-samba-windows-share",
+    "category": "docker",
+    "system_prompt": "You are an enterprise Windows and Linux integration specialist.",
+    "user_prompt": "How do you configure a Docker named volume with the CIFS/Samba driver to mount a Windows network share with credentials into a Linux container?",
+    "tags": ["docker", "storage", "cifs", "samba", "windows", "nas"]
+  },
+  {
+    "id": "docker-vol-data-migration-volume-to-volume",
+    "category": "docker",
+    "system_prompt": "You are a DevOps operations specialist.",
+    "user_prompt": "How do you migrate all data from an old Docker named volume to a newly provisioned volume with zero data loss using an ephemeral rsync container?",
+    "tags": ["docker", "storage", "migration", "rsync", "volumes"]
+  }
+]

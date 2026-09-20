@@ -1,0 +1,149 @@
+[
+  {
+    "id": "go-test-table-driven-subtests",
+    "category": "go",
+    "system_prompt": "You are a senior Go testing engineer.",
+    "user_prompt": "What is the idiomatic table-driven test pattern in Go, and how do you use t.Run with t.Parallel() safely without loop variable capture bugs?",
+    "tags": ["go", "testing", "table-driven", "subtests", "parallel"]
+  },
+  {
+    "id": "go-test-cleanup-fixture-lifecycle",
+    "category": "go",
+    "system_prompt": "You are a Go QA and reliability specialist.",
+    "user_prompt": "Why is t.Cleanup() preferred over defer statements for managing test fixture teardown, especially across subtests?",
+    "tags": ["go", "testing", "cleanup", "fixtures", "teardown"]
+  },
+  {
+    "id": "go-test-benchmark-b-n-allocs",
+    "category": "go",
+    "system_prompt": "You are a Go performance benchmarking expert.",
+    "user_prompt": "How do you write a benchmark in Go using b.ResetTimer(), b.ReportAllocs(), and the b.N loop to measure ns/op and B/op?",
+    "tags": ["go", "benchmarking", "testing", "allocs", "performance"]
+  },
+  {
+    "id": "go-test-bench-compiler-sink-optimization",
+    "category": "go",
+    "system_prompt": "You are a Go compiler optimization specialist.",
+    "user_prompt": "How does compiler dead code elimination distort benchmark results, and how do you use a package-level package sink variable to prevent it?",
+    "tags": ["go", "benchmarking", "compiler-optimizations", "dead-code", "sink"]
+  },
+  {
+    "id": "go-test-fuzzing-go118-native",
+    "category": "go",
+    "system_prompt": "You are a software security and fuzzing engineer.",
+    "user_prompt": "How do you write and run native fuzz tests in Go using testing.F, f.Add seed corpus, and f.Fuzz to discover edge-case panics and crashes?",
+    "tags": ["go", "fuzzing", "security", "testing-f", "go118"]
+  },
+  {
+    "id": "go-test-httptest-recorder-and-server",
+    "category": "go",
+    "system_prompt": "You are a web API testing specialist.",
+    "user_prompt": "How do you test HTTP handlers using net/http/httptest.ResponseRecorder and simulate external APIs with httptest.NewServer?",
+    "tags": ["go", "httptest", "http", "testing", "api"]
+  },
+  {
+    "id": "go-test-race-detector-ci-cd",
+    "category": "go",
+    "system_prompt": "You are a DevOps and CI/CD engineer.",
+    "user_prompt": "Why should 'go test -race' always be run in CI pipelines, and what are its runtime overhead and memory footprint implications?",
+    "tags": ["go", "race-detector", "ci-cd", "concurrency", "testing"]
+  },
+  {
+    "id": "go-test-tempdir-filesystem-isolation",
+    "category": "go",
+    "system_prompt": "You are a systems test engineer.",
+    "user_prompt": "How does t.TempDir() provide automated temporary directory isolation and cleanup across test runs without manual os.RemoveAll?",
+    "tags": ["go", "tempdir", "testing", "filesystem", "isolation"]
+  },
+  {
+    "id": "go-test-golden-files-snapshot",
+    "category": "go",
+    "system_prompt": "You are a test automation architect.",
+    "user_prompt": "How do you implement the golden file testing pattern in Go using a -update flag to verify large serialized outputs like JSON or ASTs?",
+    "tags": ["go", "golden-files", "snapshot-testing", "testing", "flags"]
+  },
+  {
+    "id": "go-test-export-test-unexported-access",
+    "category": "go",
+    "system_prompt": "You are an internal Go architecture specialist.",
+    "user_prompt": "How does the export_test.go convention allow white-box testing of unexported variables and methods from an external package_test package?",
+    "tags": ["go", "export-test", "white-box-testing", "packages", "internals"]
+  },
+  {
+    "id": "go-test-build-tags-integration",
+    "category": "go",
+    "system_prompt": "You are an infrastructure test engineer.",
+    "user_prompt": "How do you use build tags (//go:build integration) to segregate slow integration or database tests from fast unit tests in Go?",
+    "tags": ["go", "build-tags", "integration-tests", "test-suite", "tooling"]
+  },
+  {
+    "id": "go-test-cache-busting-flags",
+    "category": "go",
+    "system_prompt": "You are a Go tooling engineer.",
+    "user_prompt": "How does Go test caching work, and why does passing -count=1 force re-execution of tests without clearing the global build cache?",
+    "tags": ["go", "test-cache", "count-flag", "tooling", "flags"]
+  },
+  {
+    "id": "go-test-coverage-profiles-atomic",
+    "category": "go",
+    "system_prompt": "You are a code coverage and quality specialist.",
+    "user_prompt": "How do you generate code coverage profiles with go test -coverprofile=coverage.out -covermode=atomic and visualize with go tool cover -html?",
+    "tags": ["go", "coverage", "coverprofile", "atomic", "quality"]
+  },
+  {
+    "id": "go-test-testmain-lifecycle-setup",
+    "category": "go",
+    "system_prompt": "You are a test suite architect.",
+    "user_prompt": "How do you use TestMain(m *testing.M) to set up global resources (like starting a local test database) and exit cleanly with os.Exit(m.Run())?",
+    "tags": ["go", "testmain", "lifecycle", "testing-m", "fixtures"]
+  },
+  {
+    "id": "go-test-testcontainers-vs-sqlmock",
+    "category": "go",
+    "system_prompt": "You are a database testing specialist.",
+    "user_prompt": "Compare unit testing database logic with DATA-DOG/go-sqlmock against integration testing with real containerized PostgreSQL via testcontainers-go.",
+    "tags": ["go", "database-testing", "sqlmock", "testcontainers", "integration"]
+  },
+  {
+    "id": "go-test-testing-panics-recover",
+    "category": "go",
+    "system_prompt": "You are a Go testing specialist.",
+    "user_prompt": "How do you assert that a specific function panics with an expected error message in Go using defer and recover inside a test helper?",
+    "tags": ["go", "panics", "recover", "assertions", "test-helper"]
+  },
+  {
+    "id": "go-test-benchmark-profiling-cpu-mem",
+    "category": "go",
+    "system_prompt": "You are a Go systems performance specialist.",
+    "user_prompt": "How do you collect CPU and memory profiles directly during benchmark execution using go test -bench=. -benchmem -cpuprofile=cpu.out -memprofile=mem.out?",
+    "tags": ["go", "benchmarks", "pprof", "profiling", "performance"]
+  },
+  {
+    "id": "go-test-concurrent-deadlock-timeout",
+    "category": "go",
+    "system_prompt": "You are a concurrency testing specialist.",
+    "user_prompt": "How do you guard concurrent unit tests against hanging indefinitely by pairing sync.WaitGroup with select and time.After channels?",
+    "tags": ["go", "concurrency-tests", "waitgroup", "timeouts", "deadlock-guard"]
+  },
+  {
+    "id": "go-test-helper-line-numbers",
+    "category": "go",
+    "system_prompt": "You are a Go developer experience architect.",
+    "user_prompt": "Why should test helper functions always call t.Helper(), and how does this ensure failing assertion line numbers point to the test caller?",
+    "tags": ["go", "t-helper", "line-numbers", "developer-experience", "testing"]
+  },
+  {
+    "id": "go-test-testify-vs-stdlib-philosophy",
+    "category": "go",
+    "system_prompt": "You are a Go software design engineer.",
+    "user_prompt": "What are the trade-offs between using assertion frameworks like stretchr/testify versus the standard library's 'if got != want { t.Errorf(...) }' philosophy?",
+    "tags": ["go", "testify", "standard-library", "assertions", "philosophy"]
+  },
+  {
+    "id": "go-test-go122-loop-var-subtests",
+    "category": "go",
+    "system_prompt": "You are a modern Go language historian.",
+    "user_prompt": "How does the Go 1.22 per-iteration loop variable scoping change eliminate the classic 'tc := tc' closure capture bug in parallel subtests?",
+    "tags": ["go", "go122", "loop-variables", "subtests", "closure-bugs"]
+  }
+]

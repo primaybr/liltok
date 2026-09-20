@@ -1,0 +1,142 @@
+[
+  {
+    "id": "php-perf-opcache-jit-tuning",
+    "category": "php",
+    "system_prompt": "You are a PHP performance and internals specialist.",
+    "user_prompt": "How does the PHP 8 JIT compiler work, how do opcache.jit and opcache.jit_buffer_size settings function, and which workloads actually benefit?",
+    "tags": ["php", "jit", "opcache", "performance", "internals"]
+  },
+  {
+    "id": "php-perf-generators-yield-streaming",
+    "category": "php",
+    "system_prompt": "You are a backend performance engineer.",
+    "user_prompt": "How do PHP generators and the yield keyword enable processing multi-gigabyte CSV and JSON files with flat O(1) memory consumption?",
+    "tags": ["php", "generators", "yield", "streaming", "memory"]
+  },
+  {
+    "id": "php-perf-frankenphp-worker-mode",
+    "category": "php",
+    "system_prompt": "You are a high-performance web systems engineer.",
+    "user_prompt": "How does FrankenPHP worker mode maintain the application bootstrap in memory across requests, and what state leaks (static variables) must be guarded?",
+    "tags": ["php", "frankenphp", "worker-mode", "performance"]
+  },
+  {
+    "id": "php-perf-gc-collect-cycles-batch",
+    "category": "php",
+    "system_prompt": "You are a PHP memory and systems engineer.",
+    "user_prompt": "When running long batch jobs in PHP, why does cyclic garbage collection cause CPU stalls and how can gc_collect_cycles() or gc_disable() be used strategically?",
+    "tags": ["php", "garbage-collection", "memory", "batch", "performance"]
+  },
+  {
+    "id": "php-perf-apcu-in-memory-cache",
+    "category": "php",
+    "system_prompt": "You are a web performance architect.",
+    "user_prompt": "How does APCu provide sub-millisecond in-memory caching for read-heavy configuration and metadata in PHP-FPM without network roundtrips?",
+    "tags": ["php", "apcu", "caching", "performance", "memory"]
+  },
+  {
+    "id": "php-perf-memory-profiling-xdebug-xhprof",
+    "category": "php",
+    "system_prompt": "You are a PHP performance profiling expert.",
+    "user_prompt": "How do you profile memory allocations and CPU bottlenecks in production PHP using XHProf or Tideways without excessive overhead?",
+    "tags": ["php", "profiling", "xhprof", "performance"]
+  },
+  {
+    "id": "php-perf-fastcgi-finish-request",
+    "category": "php",
+    "system_prompt": "You are a backend systems engineer.",
+    "user_prompt": "How does fastcgi_finish_request() send the HTTP response to the client immediately while continuing background execution in PHP-FPM?",
+    "tags": ["php", "fastcgi", "php-fpm", "async", "performance"]
+  },
+  {
+    "id": "php-perf-spl-fixed-array-memory",
+    "category": "php",
+    "system_prompt": "You are a PHP systems engineer.",
+    "user_prompt": "When should SplFixedArray be used instead of standard PHP associative arrays, and what are the memory and index lookup trade-offs?",
+    "tags": ["php", "data-structures", "spl", "memory", "performance"]
+  },
+  {
+    "id": "php-perf-strtr-vs-str-replace",
+    "category": "php",
+    "system_prompt": "You are a PHP performance specialist.",
+    "user_prompt": "Compare the performance and execution mechanics of strtr() vs str_replace() when performing multi-key template interpolation in PHP.",
+    "tags": ["php", "strings", "benchmarks", "performance"]
+  },
+  {
+    "id": "php-perf-php-fpm-pm-tuning",
+    "category": "php",
+    "system_prompt": "You are a DevOps and infrastructure engineer.",
+    "user_prompt": "How do you tune PHP-FPM process managers (static vs dynamic vs ondemand) and calculate pm.max_children based on available RAM?",
+    "tags": ["php", "php-fpm", "devops", "linux", "tuning"]
+  },
+  {
+    "id": "php-perf-fragment-cache-test-bypass",
+    "category": "php",
+    "system_prompt": "You are a software architecture and testing expert.",
+    "user_prompt": "Why should fragment or query caching layers automatically bypass disk writes during automated testing (APP_ENV === 'testing') to prevent state leakage?",
+    "tags": ["php", "caching", "testing", "architecture"]
+  },
+  {
+    "id": "php-perf-socket-connection-pooling",
+    "category": "php",
+    "system_prompt": "You are a distributed systems engineer.",
+    "user_prompt": "How do persistent sockets (pfsockopen, stream_socket_client) and keep-alive connections eliminate TCP handshake latency for internal microservices in PHP?",
+    "tags": ["php", "sockets", "networking", "tcp", "performance"]
+  },
+  {
+    "id": "php-perf-json-streaming-parser",
+    "category": "php",
+    "system_prompt": "You are a data processing specialist.",
+    "user_prompt": "How do you parse multi-gigabyte JSON payloads in PHP using streaming parsers (like JSONMachine) without loading the entire JSON tree into memory?",
+    "tags": ["php", "json", "streaming", "memory"]
+  },
+  {
+    "id": "php-perf-opcache-preload",
+    "category": "php",
+    "system_prompt": "You are an expert PHP runtime engineer.",
+    "user_prompt": "How does opcache.preload compile and load core framework classes and functions into memory on server startup in PHP 7.4+ and PHP 8?",
+    "tags": ["php", "opcache", "preload", "performance"]
+  },
+  {
+    "id": "php-perf-string-concatenation-memory",
+    "category": "php",
+    "system_prompt": "You are a PHP internals engineer.",
+    "user_prompt": "How does PHP allocate memory for string concatenation ($a .= $b) and why is collecting substrings in an array before implode() often faster for huge text?",
+    "tags": ["php", "strings", "memory", "internals"]
+  },
+  {
+    "id": "php-perf-redis-pipelining",
+    "category": "php",
+    "system_prompt": "You are a high-concurrency systems architect.",
+    "user_prompt": "How does Redis pipelining in PhpRedis reduce network RTT when executing hundreds of cache read/write operations in a single request?",
+    "tags": ["php", "redis", "caching", "pipelining", "performance"]
+  },
+  {
+    "id": "php-perf-microtime-benchmarking-precision",
+    "category": "php",
+    "system_prompt": "You are a software performance engineer.",
+    "user_prompt": "How do you use hrtime(true) in PHP for nanosecond-precision execution benchmarking without clock skew artifacts from microtime()?",
+    "tags": ["php", "benchmarking", "hrtime", "performance"]
+  },
+  {
+    "id": "php-perf-file-locking-flock-concurrency",
+    "category": "php",
+    "system_prompt": "You are a systems programmer.",
+    "user_prompt": "How do you use flock() in PHP for atomic file cache synchronization and handle non-blocking locks with LOCK_NB to avoid thread starvation?",
+    "tags": ["php", "flock", "concurrency", "file-locks"]
+  },
+  {
+    "id": "php-perf-output-buffering-chunked-transfer",
+    "category": "php",
+    "system_prompt": "You are a web infrastructure engineer.",
+    "user_prompt": "How do you configure PHP and Nginx for HTTP chunked transfer encoding to stream SSE (Server-Sent Events) or live progress to clients without buffering?",
+    "tags": ["php", "sse", "streaming", "nginx", "http"]
+  },
+  {
+    "id": "php-perf-temp-file-memory-management",
+    "category": "php",
+    "system_prompt": "You are a backend systems specialist.",
+    "user_prompt": "How does php://temp and maxmemory threshold manage in-memory storage before automatically overflowing large file uploads to disk in PHP?",
+    "tags": ["php", "streams", "memory", "uploads", "io"]
+  }
+]

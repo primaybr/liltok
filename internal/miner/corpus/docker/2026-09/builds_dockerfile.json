@@ -1,0 +1,149 @@
+[
+  {
+    "id": "docker-build-multistage-caching",
+    "category": "docker",
+    "system_prompt": "You are a Docker build optimization specialist.",
+    "user_prompt": "How do multi-stage Docker builds reduce final production image sizes by separating compile-time dependencies from minimal runtime environments?",
+    "tags": ["docker", "dockerfile", "multistage", "optimization"]
+  },
+  {
+    "id": "docker-build-cache-mounts-buildkit",
+    "category": "docker",
+    "system_prompt": "You are a BuildKit and container build engineer.",
+    "user_prompt": "How do BuildKit cache mounts (--mount=type=cache,target=/root/.cache/go-build) accelerate Go, Rust, and Node.js compilation across rebuilds?",
+    "tags": ["docker", "buildkit", "caching", "builds"]
+  },
+  {
+    "id": "docker-build-dockerignore-best-practices",
+    "category": "docker",
+    "system_prompt": "You are a Docker systems specialist.",
+    "user_prompt": "Why is a comprehensive .dockerignore file critical for build performance, layer cache invalidation, and preventing accidental credential leakage?",
+    "tags": ["docker", "dockerignore", "security", "performance"]
+  },
+  {
+    "id": "docker-build-scratch-vs-alpine-vs-distroless",
+    "category": "docker",
+    "system_prompt": "You are a container security and systems architect.",
+    "user_prompt": "Compare Scratch, Alpine, and Google Distroless base images: glibc vs musl libc compatibility, attack surface, and debugging trade-offs.",
+    "tags": ["docker", "distroless", "alpine", "scratch", "security"]
+  },
+  {
+    "id": "docker-build-non-root-user-creation",
+    "category": "docker",
+    "system_prompt": "You are a container security specialist.",
+    "user_prompt": "Provide the production pattern for creating and switching to a dedicated non-root UID/GID user in a Dockerfile with correct file ownership.",
+    "tags": ["docker", "security", "non-root", "user", "dockerfile"]
+  },
+  {
+    "id": "docker-build-layer-order-invalidation",
+    "category": "docker",
+    "system_prompt": "You are a container optimization specialist.",
+    "user_prompt": "How does Docker layer caching work, and why should dependency manifests (package.json, go.mod) be copied before application source code?",
+    "tags": ["docker", "caching", "layers", "dockerfile"]
+  },
+  {
+    "id": "docker-build-secret-mounts-buildkit",
+    "category": "docker",
+    "system_prompt": "You are a DevSecOps engineer.",
+    "user_prompt": "How do you securely pass SSH keys or private repository tokens during docker build using RUN --mount=type=secret without baking them into final layers?",
+    "tags": ["docker", "buildkit", "secrets", "security"]
+  },
+  {
+    "id": "docker-build-entrypoint-vs-cmd-exec-form",
+    "category": "docker",
+    "system_prompt": "You are a Docker systems specialist.",
+    "user_prompt": "Explain the difference between ENTRYPOINT and CMD, and explain why exec form (['node', 'app.js']) must be used instead of shell form for POSIX signal passing.",
+    "tags": ["docker", "entrypoint", "cmd", "posix", "signals"]
+  },
+  {
+    "id": "docker-build-multi-arch-buildx-qemu",
+    "category": "docker",
+    "system_prompt": "You are a cross-platform DevOps engineer.",
+    "user_prompt": "How do you build and publish multi-architecture container images (linux/amd64 and linux/arm64) using Docker Buildx and QEMU?",
+    "tags": ["docker", "buildx", "multi-arch", "arm64", "devops"]
+  },
+  {
+    "id": "docker-build-arg-vs-env-persistence",
+    "category": "docker",
+    "system_prompt": "You are a Dockerfile engineer.",
+    "user_prompt": "Compare ARG and ENV instructions in a Dockerfile: build-time scope vs runtime container environment variable persistence.",
+    "tags": ["docker", "arg", "env", "dockerfile", "configuration"]
+  },
+  {
+    "id": "docker-build-healthcheck-instruction",
+    "category": "docker",
+    "system_prompt": "You are a container reliability specialist.",
+    "user_prompt": "How do you configure a HEALTHCHECK instruction in a Dockerfile with --interval, --timeout, --start-period, and --retries for container status reporting?",
+    "tags": ["docker", "healthcheck", "reliability", "dockerfile"]
+  },
+  {
+    "id": "docker-build-tini-init-process-zombies",
+    "category": "docker",
+    "system_prompt": "You are a Linux and container systems engineer.",
+    "user_prompt": "Why are PID 1 zombie child process reaping and signal forwarding problems in containers, and how does using Tini (--init) resolve them?",
+    "tags": ["docker", "tini", "pid-1", "linux", "signals", "zombies"]
+  },
+  {
+    "id": "docker-build-chown-flag-copy-optimization",
+    "category": "docker",
+    "system_prompt": "You are a Docker image optimization specialist.",
+    "user_prompt": "Why does running 'RUN chown -R user:user /app' after COPY duplicate entire layers and balloon image size, and how does 'COPY --chown=user:user' fix it?",
+    "tags": ["docker", "copy", "chown", "layers", "image-size"]
+  },
+  {
+    "id": "docker-build-squash-experimental-flag",
+    "category": "docker",
+    "system_prompt": "You are a container packaging specialist.",
+    "user_prompt": "What are the trade-offs of using docker build --squash to combine intermediate layers into a single layer versus using proper multi-stage Dockerfiles?",
+    "tags": ["docker", "squash", "layers", "multistage"]
+  },
+  {
+    "id": "docker-build-here-documents-buildkit",
+    "category": "docker",
+    "system_prompt": "You are a modern Dockerfile developer.",
+    "user_prompt": "How do BuildKit Here-Documents (<<EOF syntax) allow creating multiline configuration files or inline shell scripts cleanly inside a Dockerfile?",
+    "tags": ["docker", "buildkit", "here-documents", "dockerfile"]
+  },
+  {
+    "id": "docker-build-sbom-provenance-attestation",
+    "category": "docker",
+    "system_prompt": "You are a supply chain security architect.",
+    "user_prompt": "How do you generate and attach Software Bill of Materials (SBOM) and SLSA build provenance attestations using Docker Buildx (--sbom=true, --provenance=true)?",
+    "tags": ["docker", "sbom", "supply-chain", "slsa", "security"]
+  },
+  {
+    "id": "docker-build-apt-cleanup-cache-optimization",
+    "category": "docker",
+    "system_prompt": "You are a Debian and container packaging engineer.",
+    "user_prompt": "What is the recommended single-RUN pattern for apt-get update, package installation, and cache cleanup (rm -rf /var/lib/apt/lists/*) in Ubuntu/Debian images?",
+    "tags": ["docker", "debian", "apt", "optimization", "layers"]
+  },
+  {
+    "id": "docker-build-target-stage-selective-builds",
+    "category": "docker",
+    "system_prompt": "You are a CI/CD build specialist.",
+    "user_prompt": "How do you use 'docker build --target stage_name' to run test stages in CI pipelines without compiling final production release stages?",
+    "tags": ["docker", "multistage", "target", "cicd", "testing"]
+  },
+  {
+    "id": "docker-build-bind-mount-context-optimization",
+    "category": "docker",
+    "system_prompt": "You are a BuildKit performance specialist.",
+    "user_prompt": "How do RUN --mount=type=bind mounts in BuildKit allow executing compilers and linters against source code without copying files into the container layer?",
+    "tags": ["docker", "buildkit", "bind-mounts", "performance"]
+  },
+  {
+    "id": "docker-build-reproducible-builds-timestamp",
+    "category": "docker",
+    "system_prompt": "You are a software supply chain engineer.",
+    "user_prompt": "How does SOURCE_DATE_EPOCH ensure bit-for-bit reproducible container image builds with deterministic layer timestamps and checksums?",
+    "tags": ["docker", "reproducible-builds", "timestamp", "supply-chain"]
+  },
+  {
+    "id": "docker-build-copy-from-external-image",
+    "category": "docker",
+    "system_prompt": "You are an expert Docker engineer.",
+    "user_prompt": "How do you use 'COPY --from=image:tag /path/binary /dest' to borrow pre-compiled binaries (e.g. composer, grpc_health_probe) directly into an application image?",
+    "tags": ["docker", "copy", "multistage", "binaries", "dockerfile"]
+  }
+]

@@ -1,0 +1,142 @@
+[
+  {
+    "id": "php-sec-argon2id-password-tuning",
+    "category": "php",
+    "system_prompt": "You are an application security and cryptography engineer.",
+    "user_prompt": "How do you tune memory_cost, time_cost, and threads parameters in password_hash(PASSWORD_ARGON2ID) in PHP for defense against GPU brute forcing?",
+    "tags": ["php", "security", "passwords", "argon2id", "cryptography"]
+  },
+  {
+    "id": "php-sec-csrf-token-double-submit",
+    "category": "php",
+    "system_prompt": "You are a web application security architect.",
+    "user_prompt": "Explain the double-submit cookie pattern and encrypted token verification for preventing CSRF attacks in PHP APIs.",
+    "tags": ["php", "security", "csrf", "cookies", "owasp"]
+  },
+  {
+    "id": "php-sec-ssrf-dns-rebinding-mitigation",
+    "category": "php",
+    "system_prompt": "You are a web security specialist.",
+    "user_prompt": "How do you defend against SSRF (Server-Side Request Forgery) in PHP when fetching remote webhooks, including private IP filtering and DNS rebinding mitigation?",
+    "tags": ["php", "security", "ssrf", "networking", "owasp"]
+  },
+  {
+    "id": "php-sec-timing-attack-hash-equals",
+    "category": "php",
+    "system_prompt": "You are an application security engineer.",
+    "user_prompt": "Why does comparing cryptographic signatures with == or === introduce side-channel timing attacks, and how does hash_equals() prevent it in PHP?",
+    "tags": ["php", "security", "cryptography", "timing-attack", "hash-equals"]
+  },
+  {
+    "id": "php-sec-session-fixation-regeneration",
+    "category": "php",
+    "system_prompt": "You are an identity and authentication architect.",
+    "user_prompt": "Why must session_regenerate_id(true) be called immediately upon user authentication in PHP to prevent session fixation attacks?",
+    "tags": ["php", "security", "sessions", "authentication", "owasp"]
+  },
+  {
+    "id": "php-sec-content-security-policy-nonces",
+    "category": "php",
+    "system_prompt": "You are a web application security specialist.",
+    "user_prompt": "How do you generate and inject cryptographic nonces into Content-Security-Policy (CSP) headers and HTML script tags in PHP to prevent XSS?",
+    "tags": ["php", "security", "csp", "xss", "headers"]
+  },
+  {
+    "id": "php-sec-file-upload-validation",
+    "category": "php",
+    "system_prompt": "You are an application security engineer.",
+    "user_prompt": "What is the secure pattern for validating file uploads in PHP: verifying mime-type via finfo_file, checking magic bytes, and avoiding executable storage directories?",
+    "tags": ["php", "security", "uploads", "mime-type", "file-validation"]
+  },
+  {
+    "id": "php-sec-path-traversal-basename-realpath",
+    "category": "php",
+    "system_prompt": "You are a security systems engineer.",
+    "user_prompt": "How do you prevent path traversal directory attacks (../) in PHP when serving dynamic files using realpath() and str_starts_with() root boundary checks?",
+    "tags": ["php", "security", "path-traversal", "filesystem"]
+  },
+  {
+    "id": "php-sec-samesite-cookies-httponly",
+    "category": "php",
+    "system_prompt": "You are a web security specialist.",
+    "user_prompt": "How do you configure session.cookie_secure, session.cookie_httponly, and session.cookie_samesite in PHP to protect session cookies from XSS and CSRF?",
+    "tags": ["php", "security", "cookies", "sessions", "http"]
+  },
+  {
+    "id": "php-sec-html-sanitization-vs-escaping",
+    "category": "php",
+    "system_prompt": "You are a frontend and backend security specialist.",
+    "user_prompt": "Explain the difference between context-aware HTML escaping (htmlspecialchars with ENT_QUOTES | ENT_SUBSTITUTE) and HTML sanitization in PHP.",
+    "tags": ["php", "security", "xss", "escaping", "sanitization"]
+  },
+  {
+    "id": "php-sec-rate-limiting-redis-token-bucket",
+    "category": "php",
+    "system_prompt": "You are a high-concurrency systems architect.",
+    "user_prompt": "How do you implement atomic sliding window rate limiting in PHP using Redis Lua scripts to protect login endpoints from brute-force credential stuffing?",
+    "tags": ["php", "security", "rate-limiting", "redis", "brute-force"]
+  },
+  {
+    "id": "php-sec-sodium-crypto-secretbox",
+    "category": "php",
+    "system_prompt": "You are a cryptography engineer.",
+    "user_prompt": "How do you use the native libsodium extension in PHP (sodium_crypto_secretbox) for authenticated encryption of sensitive user data at rest?",
+    "tags": ["php", "security", "cryptography", "libsodium", "encryption"]
+  },
+  {
+    "id": "php-sec-xml-external-entity-xxe",
+    "category": "php",
+    "system_prompt": "You are an application security specialist.",
+    "user_prompt": "How do you disable external entity loading (libxml_disable_entity_loader, LIBXML_NOENT) to protect PHP XML and SVG parsers from XXE injection?",
+    "tags": ["php", "security", "xml", "xxe", "owasp"]
+  },
+  {
+    "id": "php-sec-open-redirect-mitigation",
+    "category": "php",
+    "system_prompt": "You are a web application security engineer.",
+    "user_prompt": "How do you validate redirect destination URLs in PHP to prevent open redirect phishing vulnerabilities using strict domain allowlists and parse_url()?",
+    "tags": ["php", "security", "open-redirect", "validation"]
+  },
+  {
+    "id": "php-sec-secure-headers-hsts-clickjacking",
+    "category": "php",
+    "system_prompt": "You are a web security specialist.",
+    "user_prompt": "What security response headers should every PHP web application set (Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)?",
+    "tags": ["php", "security", "http-headers", "hsts", "clickjacking"]
+  },
+  {
+    "id": "php-sec-command-injection-escapeshellarg",
+    "category": "php",
+    "system_prompt": "You are a systems security engineer.",
+    "user_prompt": "Why is escapeshellcmd() often insufficient compared to escapeshellarg() when passing arguments to exec() or shell_exec(), and why are proc_open array arguments preferred in PHP 7.4+?",
+    "tags": ["php", "security", "command-injection", "shell"]
+  },
+  {
+    "id": "php-sec-ldap-injection-prevention",
+    "category": "php",
+    "system_prompt": "You are an enterprise identity security specialist.",
+    "user_prompt": "How do you prevent LDAP injection when querying Active Directory with PHP's ldap_escape() and parameterized search filters?",
+    "tags": ["php", "security", "ldap", "injection", "authentication"]
+  },
+  {
+    "id": "php-sec-api-hmac-signature-verification",
+    "category": "php",
+    "system_prompt": "You are a security systems architect.",
+    "user_prompt": "How do you implement and verify HMAC-SHA256 request signatures with timestamp validation in PHP for webhook authentication?",
+    "tags": ["php", "security", "hmac", "signatures", "webhooks"]
+  },
+  {
+    "id": "php-sec-jwt-algorithm-confusion-none",
+    "category": "php",
+    "system_prompt": "You are an authentication security expert.",
+    "user_prompt": "How does algorithm confusion (e.g. accepting 'none' or RS256 public key as an HS256 secret) occur in JWT validation libraries, and how is it prevented in PHP?",
+    "tags": ["php", "security", "jwt", "auth", "cryptography"]
+  },
+  {
+    "id": "php-sec-sensitive-data-redaction-logging",
+    "category": "php",
+    "system_prompt": "You are a compliance and security architect.",
+    "user_prompt": "How do you design an automated data redaction processor in Monolog or custom PHP loggers to scrub credit card numbers, passwords, and authorization tokens?",
+    "tags": ["php", "security", "logging", "compliance", "pii"]
+  }
+]

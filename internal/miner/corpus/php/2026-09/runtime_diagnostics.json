@@ -1,0 +1,142 @@
+[
+  {
+    "id": "php-diag-dynamic-property-deprecated",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How do you resolve 'Deprecated: Creation of dynamic property ClassName::$prop is deprecated' in PHP 8.2 using explicit property declarations or #[\\AllowDynamicProperties]?",
+    "tags": ["php", "php82", "deprecation", "properties"]
+  },
+  {
+    "id": "php-diag-utf8-bom-strict-types",
+    "category": "php",
+    "system_prompt": "You are a PHP runtime specialist.",
+    "user_prompt": "Why does a UTF-8 BOM byte sequence before <?php cause 'Fatal error: strict_types declaration must be the very first statement in the script' in PHP?",
+    "tags": ["php", "encoding", "bom", "strict-types"]
+  },
+  {
+    "id": "php-diag-case-insensitive-method-collision",
+    "category": "php",
+    "system_prompt": "You are an expert PHP architect.",
+    "user_prompt": "Explain why defining both rollBack() and rollback() in a PHP class causes 'Fatal error: Cannot redeclare ClassName::rollBack()' due to case-insensitivity.",
+    "tags": ["php", "case-sensitivity", "fatal-error", "methods"]
+  },
+  {
+    "id": "php-diag-typeerror-null-coercion",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How do you handle 'TypeError: Argument 1 must be of type string, null given' in PHP 8.1+ when passing nullable values to internal standard functions?",
+    "tags": ["php", "type-error", "null-safety", "php81"]
+  },
+  {
+    "id": "php-diag-unhandled-match-default",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do you troubleshoot 'Fatal error: Uncaught UnhandledMatchError' and ensure exhaustive pattern matching with default branches?",
+    "tags": ["php", "match-expression", "unhandled-match-error"]
+  },
+  {
+    "id": "php-diag-array-to-string-jsonb",
+    "category": "php",
+    "system_prompt": "You are a PHP backend engineer.",
+    "user_prompt": "How do you prevent 'Warning: Array to string conversion' when recursively sanitizing and flattening nested JSON or specification payloads?",
+    "tags": ["php", "arrays", "type-juggling", "warnings"]
+  },
+  {
+    "id": "php-diag-max-execution-time-cli",
+    "category": "php",
+    "system_prompt": "You are a DevOps and backend architecture expert.",
+    "user_prompt": "How do you resolve 'Fatal error: Maximum execution time of X seconds exceeded' in PHP and decouple long-running operations into detached CLI worker tasks?",
+    "tags": ["php", "timeout", "cli", "workers"]
+  },
+  {
+    "id": "php-diag-class-not-found-psr4",
+    "category": "php",
+    "system_prompt": "You are a PHP Composer package maintainer.",
+    "user_prompt": "How do you diagnose and fix 'Fatal error: Uncaught Error: Class not found' with Composer PSR-4 autoload mapping and dump-autoload --optimize?",
+    "tags": ["php", "composer", "autoload", "psr-4"]
+  },
+  {
+    "id": "php-diag-uninitialized-typed-property",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do you fix 'Error: Typed property ClassName::$prop must not be accessed before initialization' using isset() or property_exists()?",
+    "tags": ["php", "typed-properties", "oop", "errors"]
+  },
+  {
+    "id": "php-diag-undefined-array-key",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "What is the idiomatic way in PHP 8 to eliminate 'Warning: Undefined array key' using null coalescing (??) and array_key_exists?",
+    "tags": ["php", "arrays", "warnings", "null-coalescing"]
+  },
+  {
+    "id": "php-diag-division-by-zero-fdiv",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How does division by zero behavior differ between integers (DivisionByZeroError) and floating point values (fdiv() returning INF) in PHP 8?",
+    "tags": ["php", "math", "division-by-zero", "exceptions"]
+  },
+  {
+    "id": "php-diag-fatal-error-handler-shutdown",
+    "category": "php",
+    "system_prompt": "You are a backend resilience specialist.",
+    "user_prompt": "How do you register a register_shutdown_function handler with error_get_last() to capture and log uncatchable fatal errors in PHP?",
+    "tags": ["php", "shutdown-function", "error-handling", "logging"]
+  },
+  {
+    "id": "php-diag-strpos-false-vs-zero",
+    "category": "php",
+    "system_prompt": "You are a PHP developer.",
+    "user_prompt": "Explain why using strpos($haystack, $needle) == false is a common bug and why str_contains() or strict comparison (=== false) is required.",
+    "tags": ["php", "strings", "strpos", "type-juggling"]
+  },
+  {
+    "id": "php-diag-json-encode-utf8-malformed",
+    "category": "php",
+    "system_prompt": "You are a backend API specialist.",
+    "user_prompt": "How do you diagnose and fix 'Malformed UTF-8 characters, possibly incorrectly encoded' when calling json_encode() in PHP?",
+    "tags": ["php", "json", "utf-8", "encoding"]
+  },
+  {
+    "id": "php-diag-headers-already-sent",
+    "category": "php",
+    "system_prompt": "You are a web systems engineer.",
+    "user_prompt": "What causes 'Warning: Cannot modify header information - headers already sent' in PHP, and how does output buffering (ob_start) mitigate it?",
+    "tags": ["php", "http", "headers", "output-buffering"]
+  },
+  {
+    "id": "php-diag-curl-timeout-dns-resolve",
+    "category": "php",
+    "system_prompt": "You are a network systems specialist.",
+    "user_prompt": "How do you diagnose cURL error 28 (Operation timed out) in PHP and configure CURLOPT_CONNECTTIMEOUT and CURLOPT_TIMEOUT appropriately?",
+    "tags": ["php", "curl", "http", "networking", "timeouts"]
+  },
+  {
+    "id": "php-diag-serializable-deprecated",
+    "category": "php",
+    "system_prompt": "You are an expert PHP engineer.",
+    "user_prompt": "How do you migrate from the deprecated Serializable interface in PHP 8.1 to the __serialize() and __unserialize() magic methods?",
+    "tags": ["php", "serialization", "magic-methods", "php81"]
+  },
+  {
+    "id": "php-diag-unserialize-rce-prevention",
+    "category": "php",
+    "system_prompt": "You are a web application security engineer.",
+    "user_prompt": "Why is unserialize() on untrusted user input dangerous (PHP Object Injection), and how does ['allowed_classes' => false] protect applications?",
+    "tags": ["php", "security", "unserialize", "rce"]
+  },
+  {
+    "id": "php-diag-opcache-stale-bytecode",
+    "category": "php",
+    "system_prompt": "You are a DevOps and deployment engineer.",
+    "user_prompt": "How do you ensure zero-downtime deployment in PHP with opcache.validate_timestamps=0 without serving stale cached bytecode?",
+    "tags": ["php", "opcache", "deployments", "performance"]
+  },
+  {
+    "id": "php-diag-date-timezone-uninitialized",
+    "category": "php",
+    "system_prompt": "You are a modern PHP engineer.",
+    "user_prompt": "How do you configure date.timezone correctly in php.ini and why is relying on system timezone fallbacks dangerous for distributed services?",
+    "tags": ["php", "datetime", "timezone", "configuration"]
+  }
+]

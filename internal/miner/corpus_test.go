@@ -3,6 +3,7 @@ package miner_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/primaybr/liltok/internal/miner"
@@ -11,65 +12,39 @@ import (
 func TestGetCuratedPrompts(t *testing.T) {
 	miner.ResetCuratedCache()
 	all := miner.GetCuratedPrompts("all")
-	if len(all) != 64 {
-		t.Fatalf("expected exactly 64 curated prompts, got %d", len(all))
+	t.Logf("Total curated prompts loaded: %d", len(all))
+	if len(all) < 800 {
+		t.Fatalf("expected at least 800 curated prompts across expanded corpus, got %d", len(all))
 	}
 
-	errorsOnly := miner.GetCuratedPrompts("errors")
-	if len(errorsOnly) != 24 {
-		t.Errorf("expected 24 error prompts, got %d", len(errorsOnly))
-	}
-	for _, p := range errorsOnly {
-		if p.Category != "errors" {
-			t.Errorf("expected category errors, got %s", p.Category)
+	categories := []string{"php", "kubernetes", "docker", "flutter", "python", "go", "c", "ui_ux"}
+	for _, cat := range categories {
+		prompts := miner.GetCuratedPrompts(cat)
+		t.Logf("Category %s: %d prompts", cat, len(prompts))
+		if len(prompts) < 100 {
+			t.Errorf("expected at least 100 prompts for category %s, got %d", cat, len(prompts))
 		}
+	}
+
+	// Verify legacy query filters
+	errorsOnly := miner.GetCuratedPrompts("errors")
+	if len(errorsOnly) == 0 {
+		t.Errorf("expected error prompts, got 0")
 	}
 
 	codingOnly := miner.GetCuratedPrompts("coding")
-	if len(codingOnly) != 23 {
-		t.Errorf("expected 23 coding prompts, got %d", len(codingOnly))
-	}
-
-	devopsOnly := miner.GetCuratedPrompts("devops")
-	if len(devopsOnly) != 6 {
-		t.Errorf("expected 6 devops prompts, got %d", len(devopsOnly))
-	}
-
-	gitOnly := miner.GetCuratedPrompts("git")
-	if len(gitOnly) != 7 {
-		t.Errorf("expected 7 git prompts, got %d", len(gitOnly))
-	}
-
-	securityOnly := miner.GetCuratedPrompts("security")
-	if len(securityOnly) != 4 {
-		t.Errorf("expected 4 security prompts, got %d", len(securityOnly))
-	}
-	for _, p := range securityOnly {
-		if p.Category != "security" {
-			t.Errorf("expected category security, got %s", p.Category)
-		}
-	}
-
-	phpOnly := miner.GetCuratedPrompts("php")
-	if len(phpOnly) != 12 {
-		t.Errorf("expected 12 curated PHP prompts, got %d", len(phpOnly))
-	}
-	for _, p := range phpOnly {
-		if p.Category != "errors" {
-			t.Errorf("expected category errors for PHP diagnostics, got %s", p.Category)
-		}
+	if len(codingOnly) == 0 {
+		t.Errorf("expected coding prompts, got 0")
 	}
 }
 
 func TestGetCuratedPromptsByLanguage(t *testing.T) {
-	goPrompts := miner.GetCuratedPromptsByLanguage("go")
-	if len(goPrompts) == 0 {
-		t.Errorf("expected Go prompts, got 0")
-	}
-
-	phpPrompts := miner.GetCuratedPromptsByLanguage("php")
-	if len(phpPrompts) != 12 {
-		t.Errorf("expected 12 PHP prompts, got %d", len(phpPrompts))
+	languages := []string{"go", "php", "python", "flutter", "c"}
+	for _, lang := range languages {
+		prompts := miner.GetCuratedPromptsByLanguage(lang)
+		if len(prompts) < 100 {
+			t.Errorf("expected at least 100 prompts for language %s, got %d", lang, len(prompts))
+		}
 	}
 
 	jsPrompts := miner.GetCuratedPromptsByLanguage("javascript")
@@ -136,3 +111,27 @@ func TestScanWorkspaceGenerators(t *testing.T) {
 		t.Fatalf("expected at least 3 prompts for Go + Node workspace, got %d", len(bothItems))
 	}
 }
+
+func TestCorpusFileBudget(t *testing.T) {
+	err := filepath.WalkDir("corpus", func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || filepath.Ext(path) != ".json" {
+			return nil
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		lines := strings.Count(string(data), "\n") + 1
+		if lines > 250 {
+			t.Errorf("file %s exceeds 250 lines budget: %d lines", path, lines)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to walk corpus: %v", err)
+	}
+}
+

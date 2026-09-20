@@ -1,0 +1,142 @@
+[
+  {
+    "id": "k8s-storage-pv-pvc-binding-lifecycle",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes storage specialist.",
+    "user_prompt": "Explain the binding lifecycle between PersistentVolumes (PV) and PersistentVolumeClaims (PVC): volume modes, access modes, and claimRef reservation.",
+    "tags": ["kubernetes", "storage", "pv", "pvc"]
+  },
+  {
+    "id": "k8s-storage-storageclass-volume-binding-mode",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud infrastructure architect.",
+    "user_prompt": "Why should StorageClasses use volumeBindingMode: WaitForFirstConsumer instead of Immediate when running multi-zone clusters (EBS, Persistent Disk)?",
+    "tags": ["kubernetes", "storage", "storageclass", "multi-zone", "scheduling"]
+  },
+  {
+    "id": "k8s-storage-reclaim-policies-delete-retain",
+    "category": "kubernetes",
+    "system_prompt": "You are a database reliability engineer.",
+    "user_prompt": "Compare PersistentVolume persistentVolumeReclaimPolicy options (Retain vs Delete vs Recycle) and explain how to recover data from a Released PV.",
+    "tags": ["kubernetes", "storage", "reclaim-policy", "backup", "data-recovery"]
+  },
+  {
+    "id": "k8s-storage-csi-driver-architecture",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes storage systems engineer.",
+    "user_prompt": "Explain Container Storage Interface (CSI) architecture in Kubernetes: CSI Node, Controller, Attacher, Provisioner, and Resizer sidecars.",
+    "tags": ["kubernetes", "storage", "csi", "architecture"]
+  },
+  {
+    "id": "k8s-storage-volume-expansion-online",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operations engineer.",
+    "user_prompt": "How do you perform online filesystem expansion on a PVC using allowVolumeExpansion: true without restarting database pods?",
+    "tags": ["kubernetes", "storage", "volume-expansion", "pvc"]
+  },
+  {
+    "id": "k8s-storage-volume-snapshots-restore",
+    "category": "kubernetes",
+    "system_prompt": "You are a disaster recovery architect.",
+    "user_prompt": "How do VolumeSnapshotClass, VolumeSnapshot, and dataSource work together in Kubernetes to create point-in-time volume backups and restore new PVCs?",
+    "tags": ["kubernetes", "storage", "snapshots", "disaster-recovery", "backup"]
+  },
+  {
+    "id": "k8s-storage-rwo-vs-rwx-access-modes",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes platform engineer.",
+    "user_prompt": "What are the technical and operational differences between ReadWriteOnce (RWO), ReadOnlyMany (ROX), and ReadWriteMany (RWX) volume access modes?",
+    "tags": ["kubernetes", "storage", "access-modes", "nfs", "block-storage"]
+  },
+  {
+    "id": "k8s-storage-statefulset-volume-claim-templates",
+    "category": "kubernetes",
+    "system_prompt": "You are a database infrastructure architect.",
+    "user_prompt": "How do volumeClaimTemplates in a StatefulSet dynamically provision distinct PersistentVolumes per replica (e.g. data-db-0, data-db-1)?",
+    "tags": ["kubernetes", "statefulset", "storage", "volumeclaimtemplates"]
+  },
+  {
+    "id": "k8s-storage-local-persistent-volumes",
+    "category": "kubernetes",
+    "system_prompt": "You are a high-performance database specialist.",
+    "user_prompt": "How do Local Persistent Volumes bound to fast NVMe SSDs provide bare-metal IOPS for Cassandra, Kafka, and ClickHouse on Kubernetes?",
+    "tags": ["kubernetes", "storage", "nvme", "local-pv", "performance"]
+  },
+  {
+    "id": "k8s-storage-empty-dir-memory-tmpfs",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes application engineer.",
+    "user_prompt": "How do you configure emptyDir with medium: Memory for high-speed RAM-disk tmpfs caches and how do size limits count toward pod memory limits?",
+    "tags": ["kubernetes", "storage", "emptydir", "tmpfs", "memory"]
+  },
+  {
+    "id": "k8s-storage-ephemeral-inline-volumes",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud security specialist.",
+    "user_prompt": "How do CSI ephemeral inline volumes allow injecting secrets or certificates into pods on demand without creating permanent PVC objects?",
+    "tags": ["kubernetes", "storage", "csi", "ephemeral-volumes", "security"]
+  },
+  {
+    "id": "k8s-storage-multi-attach-error-ebs",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes troubleshooting specialist.",
+    "user_prompt": "How do you resolve 'Multi-Attach error for volume: Volume is already exclusively attached to one node' during rapid pod rescheduling on cloud providers?",
+    "tags": ["kubernetes", "storage", "ebs", "troubleshooting", "multi-attach"]
+  },
+  {
+    "id": "k8s-storage-fsgroup-permission-ownership",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes security engineer.",
+    "user_prompt": "How does pod securityContext.fsGroup change file permissions on mounted volumes, and why does fsGroupChangePolicy: 'OnRootMismatch' avoid slow pod startups?",
+    "tags": ["kubernetes", "storage", "permissions", "fsgroup", "security"]
+  },
+  {
+    "id": "k8s-storage-ceph-rook-storage-orchestration",
+    "category": "kubernetes",
+    "system_prompt": "You are an on-premise storage architect.",
+    "user_prompt": "How does the Rook Ceph operator orchestrate distributed block (RBD), shared file (CephFS), and S3 object storage natively inside Kubernetes clusters?",
+    "tags": ["kubernetes", "storage", "ceph", "rook", "bare-metal"]
+  },
+  {
+    "id": "k8s-storage-subpath-mounts-config",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes application developer.",
+    "user_prompt": "How does volumeMounts.subPath mount a single file from a ConfigMap or Secret without overwriting the destination directory's existing files?",
+    "tags": ["kubernetes", "storage", "subpath", "volumes", "configmaps"]
+  },
+  {
+    "id": "k8s-storage-raw-block-volumes",
+    "category": "kubernetes",
+    "system_prompt": "You are a database systems engineer.",
+    "user_prompt": "When should volumeMode: Block be used instead of volumeMode: Filesystem, and how do low-latency databases bypass filesystem overhead with raw block devices?",
+    "tags": ["kubernetes", "storage", "raw-block", "database", "performance"]
+  },
+  {
+    "id": "k8s-storage-openebs-mayastor-nvme-of",
+    "category": "kubernetes",
+    "system_prompt": "You are a high-performance cloud storage architect.",
+    "user_prompt": "How does OpenEBS Mayastor use NVMe-oF (NVMe over Fabrics) and SPDK in user-space to provide microsecond storage latency for Kubernetes stateful workloads?",
+    "tags": ["kubernetes", "storage", "openebs", "nvme", "performance"]
+  },
+  {
+    "id": "k8s-storage-volume-cloning",
+    "category": "kubernetes",
+    "system_prompt": "You are a DevOps and staging infrastructure engineer.",
+    "user_prompt": "How does Kubernetes PVC Volume Cloning allow instant provisioning of staging database replicas by copying an existing PVC without taking down production pods?",
+    "tags": ["kubernetes", "storage", "pvc", "cloning", "staging"]
+  },
+  {
+    "id": "k8s-storage-mount-options-tuning",
+    "category": "kubernetes",
+    "system_prompt": "You are a Linux and storage performance engineer.",
+    "user_prompt": "How do you specify StorageClass mountOptions (e.g. noatime, nodiratime, discard) to optimize ext4 and XFS filesystem performance on Kubernetes volumes?",
+    "tags": ["kubernetes", "storage", "mount-options", "filesystem", "performance"]
+  },
+  {
+    "id": "k8s-storage-stale-pvc-orphan-cleanup",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes FinOps specialist.",
+    "user_prompt": "How do you identify and automate the cleanup of orphaned PersistentVolumes and unattached cloud block disks to prevent cloud storage billing leaks?",
+    "tags": ["kubernetes", "storage", "finops", "cleanup", "cloud"]
+  }
+]

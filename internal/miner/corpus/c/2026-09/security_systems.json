@@ -1,0 +1,142 @@
+[
+  {
+    "id": "c-sec-format-string-vulnerability",
+    "category": "c",
+    "system_prompt": "You are a software security researcher.",
+    "user_prompt": "Why is passing user input directly as the first argument to printf(str) a severe vulnerability, and how does the '%n' specifier enable arbitrary memory writes?",
+    "tags": ["c", "security", "format-strings", "vulnerabilities", "printf"]
+  },
+  {
+    "id": "c-sec-integer-overflow-signed-vs-unsigned",
+    "category": "c",
+    "system_prompt": "You are a C language standards auditor.",
+    "user_prompt": "Explain why unsigned integer overflow is well-defined modulo wraparound in C, whereas signed integer overflow is undefined behavior exploited by optimizing compilers.",
+    "tags": ["c", "integer-overflow", "undefined-behavior", "standards", "security"]
+  },
+  {
+    "id": "c-sec-aslr-pie-binaries",
+    "category": "c",
+    "system_prompt": "You are a binary exploitation and mitigation specialist.",
+    "user_prompt": "How do Address Space Layout Randomization (ASLR) and Position Independent Executables (-fPIE -pie) protect against memory corruption attacks?",
+    "tags": ["c", "aslr", "pie", "mitigations", "binary-security"]
+  },
+  {
+    "id": "c-sec-stack-canaries-protector",
+    "category": "c",
+    "system_prompt": "You are a compiler security engineer.",
+    "user_prompt": "How does -fstack-protector-strong insert guard values before saved frame pointers, and what types of stack buffer layouts trigger protection?",
+    "tags": ["c", "stack-canary", "fstack-protector", "compilers", "security"]
+  },
+  {
+    "id": "c-sec-rop-return-oriented-programming",
+    "category": "c",
+    "system_prompt": "You are a cyber security researcher.",
+    "user_prompt": "How do Return-Oriented Programming (ROP) attacks bypass Non-Executable (NX/W^X) stack memory protections using chained existing code gadgets ending in 'ret'?",
+    "tags": ["c", "rop", "nx", "dep", "exploitation"]
+  },
+  {
+    "id": "c-sec-async-signal-safe-functions",
+    "category": "c",
+    "system_prompt": "You are a POSIX systems reliability specialist.",
+    "user_prompt": "Why is calling malloc() or printf() inside a signal handler unsafe, and what constitutes the POSIX list of async-signal-safe functions?",
+    "tags": ["c", "signals", "signal-handler", "async-signal-safe", "posix"]
+  },
+  {
+    "id": "c-sec-fd-cloexec-leak-prevention",
+    "category": "c",
+    "system_prompt": "You are a Unix daemon security engineer.",
+    "user_prompt": "Why should open() and socket() calls always include O_CLOEXEC or SOCK_CLOEXEC to prevent leaking sensitive file descriptors across fork/exec?",
+    "tags": ["c", "cloexec", "file-descriptors", "security", "fork-exec"]
+  },
+  {
+    "id": "c-sec-toctou-filesystem-race-conditions",
+    "category": "c",
+    "system_prompt": "You are a systems security architect.",
+    "user_prompt": "Explain Time-Of-Check to Time-Of-Use (TOCTOU) race conditions in C filesystem operations (access() then open()), and how openat() with O_NOFOLLOW avoids symlink hijacking.",
+    "tags": ["c", "toctou", "race-conditions", "openat", "symlinks"]
+  },
+  {
+    "id": "c-sec-privilege-dropping-linux-daemons",
+    "category": "c",
+    "system_prompt": "You are a Linux daemon security specialist.",
+    "user_prompt": "How do you securely drop root privileges in a C daemon using setgroups(0, NULL), setgid(), setuid(), and verify that privileges cannot be regained?",
+    "tags": ["c", "privilege-dropping", "setuid", "security", "daemons"]
+  },
+  {
+    "id": "c-sec-secure-memory-clearing-zeroing",
+    "category": "c",
+    "system_prompt": "You are a cryptography and secure systems engineer.",
+    "user_prompt": "Why does the compiler optimize away memset() on password buffers before free(), and how do explicit_bzero() or memset_s() prevent secret retention?",
+    "tags": ["c", "cryptography", "memset-s", "explicit-bzero", "dead-store-elimination"]
+  },
+  {
+    "id": "c-sec-constant-time-crypto-comparison",
+    "category": "c",
+    "system_prompt": "You are a cryptographic protocols developer.",
+    "user_prompt": "How do you write a constant-time memory comparison function in C to prevent timing side-channel attacks against HMAC and signature verification?",
+    "tags": ["c", "timing-attacks", "constant-time", "cryptography", "side-channels"]
+  },
+  {
+    "id": "c-sec-seccomp-bpf-syscall-filtering",
+    "category": "c",
+    "system_prompt": "You are a Linux sandbox architect.",
+    "user_prompt": "How do you use seccomp-bpf (via prctl and libseccomp) to restrict the allowed system calls of an untrusted C worker process to a strict allowlist?",
+    "tags": ["c", "seccomp", "bpf", "sandboxing", "linux-security"]
+  },
+  {
+    "id": "c-sec-getrandom-vs-dev-urandom",
+    "category": "c",
+    "system_prompt": "You are an entropy and cryptography specialist.",
+    "user_prompt": "Why is the getrandom() system call in Linux preferred over opening /dev/urandom directly regarding file descriptor exhaustion and early boot entropy?",
+    "tags": ["c", "getrandom", "entropy", "cryptography", "randomness"]
+  },
+  {
+    "id": "c-sec-path-traversal-realpath-canonicalization",
+    "category": "c",
+    "system_prompt": "You are a secure web and file server developer.",
+    "user_prompt": "How do you safely canonicalize and validate user-supplied file paths using realpath() to prevent directory traversal attacks (../)?",
+    "tags": ["c", "path-traversal", "realpath", "security", "filesystem"]
+  },
+  {
+    "id": "c-sec-command-injection-execve-vs-system",
+    "category": "c",
+    "system_prompt": "You are a defensive systems programmer.",
+    "user_prompt": "Why must system() and popen() never be passed untrusted strings, and how does fork() paired with execve() and explicit argument arrays eliminate command injection?",
+    "tags": ["c", "command-injection", "execve", "popen", "security"]
+  },
+  {
+    "id": "c-sec-disable-core-dumps-secrets",
+    "category": "c",
+    "system_prompt": "You are an infrastructure security engineer.",
+    "user_prompt": "How do you disable or restrict core dumps in sensitive C services using prctl(PR_SET_DUMPABLE, 0) and setrlimit(RLIMIT_CORE, ...) to prevent RAM key leakage?",
+    "tags": ["c", "core-dumps", "prctl", "setrlimit", "secrets"]
+  },
+  {
+    "id": "c-sec-mlock-prevent-swap-to-disk",
+    "category": "c",
+    "system_prompt": "You are a secure enclave and memory engineer.",
+    "user_prompt": "How do you use mlock() and mlockall(MCL_CURRENT | MCL_FUTURE) in C to pin cryptographic keys into RAM and prevent swapping to unencrypted swap disks?",
+    "tags": ["c", "mlock", "virtual-memory", "swap", "cryptography"]
+  },
+  {
+    "id": "c-sec-integer-truncation-casts",
+    "category": "c",
+    "system_prompt": "You are a vulnerability assessment specialist.",
+    "user_prompt": "How do silent integer truncation bugs occur when casting large 64-bit integer values (size_t) into 32-bit signed integers (int), and how do compiler flags flag them?",
+    "tags": ["c", "integer-truncation", "type-casting", "vulnerabilities", "type-safety"]
+  },
+  {
+    "id": "c-sec-linux-namespaces-sandboxing",
+    "category": "c",
+    "system_prompt": "You are a container runtime engineer.",
+    "user_prompt": "How do clone() flags (CLONE_NEWPID, CLONE_NEWNET, CLONE_NEWNS) allow a C process to create isolated lightweight container execution sandboxes?",
+    "tags": ["c", "namespaces", "containers", "clone", "sandboxing"]
+  },
+  {
+    "id": "c-sec-chroot-jail-escape-mitigations",
+    "category": "c",
+    "system_prompt": "You are an OS security researcher.",
+    "user_prompt": "Why is chroot() alone insufficient for root sandboxing (breaking out with fchdir and recursive chroot), and what additional steps are needed for security?",
+    "tags": ["c", "chroot", "sandboxing", "jail-escape", "linux"]
+  }
+]

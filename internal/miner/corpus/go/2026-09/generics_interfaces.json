@@ -1,0 +1,142 @@
+[
+  {
+    "id": "go-gen-type-parameters-syntax",
+    "category": "go",
+    "system_prompt": "You are a modern Go language specialist.",
+    "user_prompt": "Explain the syntax and semantics of Go type parameters on functions and structs, including type parameter lists and type argument instantiation.",
+    "tags": ["go", "generics", "type-parameters", "syntax", "language"]
+  },
+  {
+    "id": "go-gen-tilde-operator-underlying-types",
+    "category": "go",
+    "system_prompt": "You are a Go type system architect.",
+    "user_prompt": "What is the difference between constraint 'int | string' and '~int | ~string' with the tilde operator regarding defined/alias types?",
+    "tags": ["go", "generics", "constraints", "tilde-operator", "type-system"]
+  },
+  {
+    "id": "go-gen-comparable-vs-any",
+    "category": "go",
+    "system_prompt": "You are a Go generics specialist.",
+    "user_prompt": "When should you use the 'comparable' constraint instead of 'any', and why can comparable types still cause runtime panics on dynamic types?",
+    "tags": ["go", "generics", "comparable", "any", "type-constraints"]
+  },
+  {
+    "id": "go-gen-generic-lru-cache",
+    "category": "go",
+    "system_prompt": "You are a data structures and algorithms engineer.",
+    "user_prompt": "How do you implement a generic, thread-safe LRU Cache in Go using [K comparable, V any] with container/list and sync.Mutex?",
+    "tags": ["go", "generics", "lru-cache", "data-structures", "concurrency"]
+  },
+  {
+    "id": "go-gen-slices-maps-stdlib-go121",
+    "category": "go",
+    "system_prompt": "You are a modern Go developer.",
+    "user_prompt": "How do the standard library 'slices' and 'maps' packages in Go 1.21+ replace custom generic utility libraries?",
+    "tags": ["go", "slices", "maps", "stdlib", "go121"]
+  },
+  {
+    "id": "go-gen-functional-map-filter",
+    "category": "go",
+    "system_prompt": "You are a functional Go programming specialist.",
+    "user_prompt": "Provide generic implementations of Map, Filter, and Reduce functions in Go, and discuss their memory allocation characteristics.",
+    "tags": ["go", "generics", "functional", "map-filter", "performance"]
+  },
+  {
+    "id": "go-gen-method-type-params-limitation",
+    "category": "go",
+    "system_prompt": "You are a Go compiler design specialist.",
+    "user_prompt": "Why does Go disallow type parameters on struct methods, and what are the recommended workarounds using generic package functions?",
+    "tags": ["go", "generics", "methods", "limitations", "compiler"]
+  },
+  {
+    "id": "go-gen-nil-interface-comparison-trap",
+    "category": "go",
+    "system_prompt": "You are a Go language internals engineer.",
+    "user_prompt": "Why does an interface holding a typed nil pointer evaluate as 'if err != nil' being true, and how do you avoid this bug?",
+    "tags": ["go", "interfaces", "nil-comparison", "iface", "bugs"]
+  },
+  {
+    "id": "go-gen-pointer-vs-value-receivers-interface",
+    "category": "go",
+    "system_prompt": "You are a Go API architect.",
+    "user_prompt": "How do method sets determine whether a value type or pointer type satisfies an interface in Go?",
+    "tags": ["go", "interfaces", "method-sets", "pointer-receiver", "value-receiver"]
+  },
+  {
+    "id": "go-gen-type-switch-assertion",
+    "category": "go",
+    "system_prompt": "You are a Go systems programmer.",
+    "user_prompt": "How do type assertions (val, ok := x.(T)) and type switches (switch v := x.(type)) handle polymorphic dispatch safely without panic?",
+    "tags": ["go", "type-switch", "type-assertion", "interfaces", "polymorphism"]
+  },
+  {
+    "id": "go-gen-zero-value-instantiation",
+    "category": "go",
+    "system_prompt": "You are a Go generic patterns specialist.",
+    "user_prompt": "What is the idiomatic pattern to construct and return the zero value of a generic type parameter T in Go?",
+    "tags": ["go", "generics", "zero-value", "idiomatic-go", "patterns"]
+  },
+  {
+    "id": "go-gen-interface-composition-embedding",
+    "category": "go",
+    "system_prompt": "You are a Go software architect.",
+    "user_prompt": "How does interface composition (like io.ReadCloser embedding io.Reader and io.Closer) promote small, focused abstraction boundaries?",
+    "tags": ["go", "interfaces", "composition", "embedding", "clean-architecture"]
+  },
+  {
+    "id": "go-gen-struct-embedding-shadowing",
+    "category": "go",
+    "system_prompt": "You are an object-oriented Go specialist.",
+    "user_prompt": "How does struct embedding differ from classical inheritance, and how does Go resolve field and method shadowing?",
+    "tags": ["go", "structs", "embedding", "composition", "shadowing"]
+  },
+  {
+    "id": "go-gen-errors-is-as-custom-interface",
+    "category": "go",
+    "system_prompt": "You are an error handling architect.",
+    "user_prompt": "How do you implement custom Is(error) bool and As(any) bool methods to integrate custom domain error types with errors.Is and errors.As?",
+    "tags": ["go", "errors", "errors-is", "errors-as", "error-wrapping"]
+  },
+  {
+    "id": "go-gen-dependency-injection-interfaces",
+    "category": "go",
+    "system_prompt": "You are a backend testability engineer.",
+    "user_prompt": "Why is accepting interfaces and returning concrete structs the foundational dependency injection rule in Go?",
+    "tags": ["go", "interfaces", "dependency-injection", "testability", "design-principles"]
+  },
+  {
+    "id": "go-gen-reflect-vs-generics-performance",
+    "category": "go",
+    "system_prompt": "You are a Go performance engineer.",
+    "user_prompt": "Compare compile-time generics (GC-dict / monomorphization) with runtime reflection (reflect.ValueOf) in terms of CPU and memory overhead.",
+    "tags": ["go", "generics", "reflection", "performance", "monomorphization"]
+  },
+  {
+    "id": "go-gen-generic-ring-buffer",
+    "category": "go",
+    "system_prompt": "You are a low-latency systems developer.",
+    "user_prompt": "How do you write a generic fixed-capacity circular ring buffer in Go [T any] with push, pop, and overflow handling?",
+    "tags": ["go", "generics", "ring-buffer", "queue", "data-structures"]
+  },
+  {
+    "id": "go-gen-mockery-interface-testing",
+    "category": "go",
+    "system_prompt": "You are a Go testing infrastructure engineer.",
+    "user_prompt": "How do tools like mockery or mockgen generate type-safe mock implementations for interfaces to facilitate unit test isolation?",
+    "tags": ["go", "mockery", "mockgen", "testing", "interfaces"]
+  },
+  {
+    "id": "go-gen-constraint-unions-operations",
+    "category": "go",
+    "system_prompt": "You are a Go type system specialist.",
+    "user_prompt": "Why can you only perform arithmetic operations (e.g. +, -) on a generic type if all types in its constraint union support that operator?",
+    "tags": ["go", "generics", "operators", "constraints", "compiler"]
+  },
+  {
+    "id": "go-gen-empty-struct-set-generics",
+    "category": "go",
+    "system_prompt": "You are an idiomatic Go specialist.",
+    "user_prompt": "How do you implement a type-safe generic Set [T comparable] using map[T]struct{} with zero-memory values in Go?",
+    "tags": ["go", "generics", "set", "map", "empty-struct"]
+  }
+]

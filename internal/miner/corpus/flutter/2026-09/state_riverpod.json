@@ -1,0 +1,149 @@
+[
+  {
+    "id": "flutter-state-riverpod-notifier-provider",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter architecture and state management expert.",
+    "user_prompt": "Explain Riverpod 2.x NotifierProvider and AsyncNotifierProvider: class-based state declaration, build() lifecycle, and immutable state updates.",
+    "tags": ["flutter", "dart", "riverpod", "state-management"]
+  },
+  {
+    "id": "flutter-state-riverpod-testing-overridewith",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter testing specialist.",
+    "user_prompt": "How do you test Riverpod providers and mock repository dependencies in widget and unit tests using ProviderContainer and overrideWith?",
+    "tags": ["flutter", "dart", "riverpod", "testing", "mocks"]
+  },
+  {
+    "id": "flutter-state-riverpod-type-stability-future-vs-notifier",
+    "category": "flutter",
+    "system_prompt": "You are a senior Flutter architect.",
+    "user_prompt": "Why does changing a FutureProvider to an AsyncNotifierProvider break test overrides across widget tests, and how do you add caching without altering provider types?",
+    "tags": ["flutter", "dart", "riverpod", "architecture", "testing"]
+  },
+  {
+    "id": "flutter-state-riverpod-family-autodispose",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter performance engineer.",
+    "user_prompt": "How do .family and .autoDispose modifiers work in Riverpod, and how do keepAlive links prevent premature garbage collection of active state?",
+    "tags": ["flutter", "dart", "riverpod", "autodispose", "memory"]
+  },
+  {
+    "id": "flutter-state-riverpod-ref-watch-vs-read-vs-listen",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter developer.",
+    "user_prompt": "Explain the differences between ref.watch(), ref.read(), and ref.listen() in Riverpod and when each should be used in build() vs button callbacks.",
+    "tags": ["flutter", "dart", "riverpod", "widgets", "rebuilds"]
+  },
+  {
+    "id": "flutter-state-riverpod-select-rebuild-optimization",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter UI performance specialist.",
+    "user_prompt": "How does ref.watch(provider.select((s) => s.property)) filter widget rebuilds to only fire when specific state properties change?",
+    "tags": ["flutter", "dart", "riverpod", "performance", "rebuilds"]
+  },
+  {
+    "id": "flutter-state-riverpod-asyncvalue-when-pattern",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter engineer.",
+    "user_prompt": "How does AsyncValue pattern matching (when, map, maybeWhen) handle data, loading, and error states gracefully in Flutter UI?",
+    "tags": ["flutter", "dart", "riverpod", "asyncvalue", "ui"]
+  },
+  {
+    "id": "flutter-state-bloc-cubit-vs-riverpod",
+    "category": "flutter",
+    "system_prompt": "You are a mobile architecture specialist.",
+    "user_prompt": "Compare BLoC/Cubit and Riverpod: compile-time safety, boilerplate overhead, dependency injection mechanisms, and testing ergonomics.",
+    "tags": ["flutter", "dart", "bloc", "riverpod", "architecture"]
+  },
+  {
+    "id": "flutter-state-inheritedwidget-internals",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter framework internals specialist.",
+    "user_prompt": "How does InheritedWidget propagate state down the element tree, and how does updateShouldNotify() control dependent element rebuilds?",
+    "tags": ["flutter", "dart", "inheritedwidget", "internals", "widgets"]
+  },
+  {
+    "id": "flutter-state-valuenotifier-valuelistenablebuilder",
+    "category": "flutter",
+    "system_prompt": "You are a lightweight Flutter state specialist.",
+    "user_prompt": "When is ValueNotifier and ValueListenableBuilder appropriate for localized widget state management without heavy third-party state packages?",
+    "tags": ["flutter", "dart", "valuenotifier", "widgets", "state"]
+  },
+  {
+    "id": "flutter-state-riverpod-generator-codegen",
+    "category": "flutter",
+    "system_prompt": "You are a modern Flutter tooling expert.",
+    "user_prompt": "How does riverpod_generator with build_runner convert @riverpod annotated functions and classes into type-safe providers automatically?",
+    "tags": ["flutter", "dart", "riverpod", "codegen", "build-runner"]
+  },
+  {
+    "id": "flutter-state-debouncing-riverpod-search-query",
+    "category": "flutter",
+    "system_prompt": "You are an async Flutter engineer.",
+    "user_prompt": "How do you implement search query debouncing in a Riverpod FutureProvider using ref.onDispose and Timer or debounce streams?",
+    "tags": ["flutter", "dart", "riverpod", "debounce", "search", "async"]
+  },
+  {
+    "id": "flutter-state-riverpod-pagination-infinite-scroll",
+    "category": "flutter",
+    "system_prompt": "You are a mobile app developer.",
+    "user_prompt": "How do you design an infinite scrolling paginated list with Riverpod AsyncNotifier, tracking currentPage, hasMore, and appending new page items?",
+    "tags": ["flutter", "dart", "riverpod", "pagination", "infinite-scroll"]
+  },
+  {
+    "id": "flutter-state-global-key-vs-controller",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter architectural specialist.",
+    "user_prompt": "When should GlobalKey be used (e.g. FormState validation) and why is overusing GlobalKeys for widget communication an architectural anti-pattern?",
+    "tags": ["flutter", "dart", "globalkey", "forms", "architecture"]
+  },
+  {
+    "id": "flutter-state-riverpod-offline-persistence-hydration",
+    "category": "flutter",
+    "system_prompt": "You are an offline-first mobile app architect.",
+    "user_prompt": "How do you hydrate and persist Riverpod state into SharedPreferences or Hive on startup to deliver instant 0ms app rendering offline?",
+    "tags": ["flutter", "dart", "riverpod", "persistence", "offline-first"]
+  },
+  {
+    "id": "flutter-state-setstate-after-dispose-mounted-check",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter bug fixing specialist.",
+    "user_prompt": "How do you resolve 'setState() called after dispose()' in async State callbacks using the 'mounted' check or CancelableOperation?",
+    "tags": ["flutter", "dart", "setstate", "dispose", "lifecycle"]
+  },
+  {
+    "id": "flutter-state-riverpod-provider-observer-analytics",
+    "category": "flutter",
+    "system_prompt": "You are a mobile telemetry and observability engineer.",
+    "user_prompt": "How do you implement a ProviderObserver in Riverpod to log state transitions, calculate provider execution latencies, and report unhandled errors?",
+    "tags": ["flutter", "dart", "riverpod", "telemetry", "logging", "observability"]
+  },
+  {
+    "id": "flutter-state-optimistic-ui-updates-riverpod",
+    "category": "flutter",
+    "system_prompt": "You are a mobile UX and state specialist.",
+    "user_prompt": "How do you implement optimistic UI updates (e.g. toggling like button immediately before API confirmation) with rollback on error in Riverpod?",
+    "tags": ["flutter", "dart", "riverpod", "optimistic-ui", "ux"]
+  },
+  {
+    "id": "flutter-state-riverpod-provider-scoping-subtrees",
+    "category": "flutter",
+    "system_prompt": "You are an advanced Flutter architect.",
+    "user_prompt": "How does ProviderScope(overrides: [...]) create localized dependency subtrees for modal dialogs or isolated tab navigation flows in Riverpod?",
+    "tags": ["flutter", "dart", "riverpod", "providerscope", "scoping"]
+  },
+  {
+    "id": "flutter-state-immutability-freezed-copywith",
+    "category": "flutter",
+    "system_prompt": "You are a functional Dart and Flutter engineer.",
+    "user_prompt": "How do package:freezed and copyWith ensure structural equality and deep immutability for complex Riverpod state objects in Dart?",
+    "tags": ["flutter", "dart", "freezed", "immutability", "copywith"]
+  },
+  {
+    "id": "flutter-state-riverpod-refresh-vs-invalidate",
+    "category": "flutter",
+    "system_prompt": "You are a Flutter developer.",
+    "user_prompt": "What is the difference between ref.invalidate(provider) and ref.refresh(provider) in Riverpod when triggering user pull-to-refresh actions?",
+    "tags": ["flutter", "dart", "riverpod", "refresh", "invalidate"]
+  }
+]

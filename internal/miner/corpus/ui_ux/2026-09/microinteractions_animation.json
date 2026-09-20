@@ -1,0 +1,142 @@
+[
+  {
+    "id": "ui-motion-cubic-bezier-natural-easing",
+    "category": "ui_ux",
+    "system_prompt": "You are a motion design and animation specialist.",
+    "user_prompt": "Why should entering UI elements use deceleration easing (ease-out / cubic-bezier(0, 0, 0.2, 1)) and exiting elements use acceleration easing (ease-in)?",
+    "tags": ["ui_ux", "animation", "motion-design", "cubic-bezier", "easing"]
+  },
+  {
+    "id": "ui-motion-spring-physics-vs-durations",
+    "category": "ui_ux",
+    "system_prompt": "You are a physics-based UI interaction specialist.",
+    "user_prompt": "Why do spring physics animations (damping, stiffness, mass) feel more natural and responsive to interruptible user gestures than fixed-duration easing curves?",
+    "tags": ["ui_ux", "animation", "spring-physics", "gestures", "interaction-design"]
+  },
+  {
+    "id": "ui-motion-gpu-compositor-properties",
+    "category": "ui_ux",
+    "system_prompt": "You are a browser rendering performance engineer.",
+    "user_prompt": "Why should high-frequency UI animations strictly animate 'transform' and 'opacity' to stay on the GPU compositor thread and avoid layout reflows/paints?",
+    "tags": ["ui_ux", "animation", "gpu-acceleration", "performance", "compositor"]
+  },
+  {
+    "id": "ui-motion-flip-technique-explained",
+    "category": "ui_ux",
+    "system_prompt": "You are a front-end performance animator.",
+    "user_prompt": "How does the FLIP animation technique (First, Last, Invert, Play) allow animating expensive layout changes (like reordering lists) at 60 FPS?",
+    "tags": ["ui_ux", "flip-technique", "animation", "performance", "60fps"]
+  },
+  {
+    "id": "ui-motion-view-transitions-api",
+    "category": "ui_ux",
+    "system_prompt": "You are a modern web platform developer.",
+    "user_prompt": "How does the native View Transitions API (document.startViewTransition) simplify creating seamless cross-page and SPA shared-element animations?",
+    "tags": ["ui_ux", "view-transitions", "web-platform", "spa", "animation"]
+  },
+  {
+    "id": "ui-motion-microinteractions-anatomy",
+    "category": "ui_ux",
+    "system_prompt": "You are an interaction design theorist.",
+    "user_prompt": "Explain Dan Saffer's four-part anatomy of a microinteraction: Trigger, Rules, Feedback, and Loops/Modes, using a 'Like' button as an example.",
+    "tags": ["ui_ux", "microinteractions", "interaction-design", "dan-saffer", "feedback"]
+  },
+  {
+    "id": "ui-motion-button-morph-loading-success",
+    "category": "ui_ux",
+    "system_prompt": "You are a UI micro-animation developer.",
+    "user_prompt": "How do you design a submit button that morphs smoothly from text to a circular progress spinner, and then into an animated checkmark on completion?",
+    "tags": ["ui_ux", "buttons", "microinteractions", "loading-states", "animation"]
+  },
+  {
+    "id": "ui-motion-optimistic-ui-rollback",
+    "category": "ui_ux",
+    "system_prompt": "You are a perceived performance UX specialist.",
+    "user_prompt": "How do optimistic UI updates combined with instant feedback animations improve perceived speed, and how should failure rollbacks be communicated?",
+    "tags": ["ui_ux", "optimistic-ui", "perceived-performance", "feedback", "error-recovery"]
+  },
+  {
+    "id": "ui-motion-scroll-driven-animations-css",
+    "category": "ui_ux",
+    "system_prompt": "You are a modern CSS animation specialist.",
+    "user_prompt": "How do CSS scroll-driven animations using 'animation-timeline: scroll()' and 'view()' replace heavy JavaScript scroll listeners for progress bars and reveals?",
+    "tags": ["ui_ux", "scroll-driven", "css-animations", "modern-css", "performance"]
+  },
+  {
+    "id": "ui-motion-swipe-to-dismiss-gestures",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile touch interactions engineer.",
+    "user_prompt": "What are the key interaction design details of swipe-to-dismiss: velocity threshold, friction resistance curves, background action reveal, and snap-back?",
+    "tags": ["ui_ux", "gestures", "swipe-to-dismiss", "mobile-ux", "touch"]
+  },
+  {
+    "id": "ui-motion-pull-to-refresh-haptics",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile ergonomics engineer.",
+    "user_prompt": "How do you calibrate rubber-banding resistance, visual spinner detachment, and subtle haptic clicks to create a satisfying pull-to-refresh experience?",
+    "tags": ["ui_ux", "pull-to-refresh", "haptics", "mobile-ux", "ergonomics"]
+  },
+  {
+    "id": "ui-motion-skeleton-shimmer-performance",
+    "category": "ui_ux",
+    "system_prompt": "You are a CSS optimization specialist.",
+    "user_prompt": "How do you implement an ultra-smooth skeleton shimmer effect using pure CSS linear-gradient and transform translate without triggering layout repaints?",
+    "tags": ["ui_ux", "skeleton-screens", "shimmer", "css", "performance"]
+  },
+  {
+    "id": "ui-motion-drag-and-drop-affordances",
+    "category": "ui_ux",
+    "system_prompt": "You are an interactive systems architect.",
+    "user_prompt": "What visual affordances are essential during drag-and-drop interactions: card lift shadow, opacity change, drop placeholder shift, and invalid target cues?",
+    "tags": ["ui_ux", "drag-and-drop", "affordances", "visual-feedback", "interaction"]
+  },
+  {
+    "id": "ui-motion-toggle-switch-fluidity",
+    "category": "ui_ux",
+    "system_prompt": "You are a micro-interaction craftsman.",
+    "user_prompt": "What makes a toggle switch feel tactile: thumb knob slight stretching on drag, fluid color morphing, and immediate state commitment?",
+    "tags": ["ui_ux", "toggle-switch", "microinteractions", "tactile-ui", "components"]
+  },
+  {
+    "id": "ui-motion-delight-vs-distraction-restraint",
+    "category": "ui_ux",
+    "system_prompt": "You are a senior UX design lead.",
+    "user_prompt": "How do design teams balance delight (confetti, playful micro-animations) against functional restraint, avoiding user annoyance in productivity software?",
+    "tags": ["ui_ux", "delight", "animation-restraint", "ux-philosophy", "product-design"]
+  },
+  {
+    "id": "ui-motion-magnetic-cursor-effect",
+    "category": "ui_ux",
+    "system_prompt": "You are a creative front-end developer.",
+    "user_prompt": "How do you implement a magnetic cursor hover effect on call-to-action buttons using JavaScript mouse coordinate interpolation (lerp)?",
+    "tags": ["ui_ux", "cursor-effects", "lerp", "interactive", "creative-web"]
+  },
+  {
+    "id": "ui-motion-sound-design-microinteractions",
+    "category": "ui_ux",
+    "system_prompt": "You are an audio UX (Earcon) specialist.",
+    "user_prompt": "When does subtle auditory feedback enhance digital microinteractions (e.g. payment completion chime, trash swoosh), and why is user control mandatory?",
+    "tags": ["ui_ux", "sound-design", "earcons", "audio-ux", "feedback"]
+  },
+  {
+    "id": "ui-motion-choreography-staggered-lists",
+    "category": "ui_ux",
+    "system_prompt": "You are a motion choreography specialist.",
+    "user_prompt": "How do you choreograph staggered entrance animations for list items or grid cards so they feel connected without taking more than 300ms total?",
+    "tags": ["ui_ux", "choreography", "stagger", "animation", "timing"]
+  },
+  {
+    "id": "ui-motion-devtools-frame-rate-auditing",
+    "category": "ui_ux",
+    "system_prompt": "You are a browser performance profiler.",
+    "user_prompt": "How do you use the Chrome DevTools Performance panel and Rendering tab (Frame Rendering Stats, Paint Flashing) to detect animation frame drops (jank)?",
+    "tags": ["ui_ux", "devtools", "jank", "fps", "performance-profiling"]
+  },
+  {
+    "id": "ui-motion-duration-scale-guidelines",
+    "category": "ui_ux",
+    "system_prompt": "You are a design system motion guidelines lead.",
+    "user_prompt": "What is the industry-standard motion duration scale: micro (70-100ms), standard (150-250ms), and complex/full-screen transitions (300-400ms)?",
+    "tags": ["ui_ux", "animation-duration", "motion-tokens", "design-systems", "guidelines"]
+  }
+]

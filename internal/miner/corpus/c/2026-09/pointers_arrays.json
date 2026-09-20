@@ -1,0 +1,142 @@
+[
+  {
+    "id": "c-ptr-array-decay-to-pointer",
+    "category": "c",
+    "system_prompt": "You are a C language standards educator.",
+    "user_prompt": "Explain array decay in C: why does sizeof(arr) return the total array size in local scope but the pointer size when passed to a function?",
+    "tags": ["c", "pointers", "arrays", "sizeof", "array-decay"]
+  },
+  {
+    "id": "c-ptr-string-literal-vs-char-array",
+    "category": "c",
+    "system_prompt": "You are a C systems programmer.",
+    "user_prompt": "What is the memory difference between 'char str[] = \"hello\"' on the stack and 'char *str = \"hello\"' pointing to read-only .rodata segment?",
+    "tags": ["c", "strings", "rodata", "memory-segments", "pointers"]
+  },
+  {
+    "id": "c-ptr-function-pointers-dispatch-table",
+    "category": "c",
+    "system_prompt": "You are a C software architect.",
+    "user_prompt": "How do you declare, assign, and invoke function pointers in C, and how do you construct a jump/dispatch table using an array of function pointers?",
+    "tags": ["c", "function-pointers", "dispatch-table", "callbacks", "architecture"]
+  },
+  {
+    "id": "c-ptr-double-pointer-out-param",
+    "category": "c",
+    "system_prompt": "You are a C systems programmer.",
+    "user_prompt": "Why is a double pointer (e.g. void **out or char **ptr) necessary when writing a function that allocates and returns memory via an out-parameter?",
+    "tags": ["c", "pointers", "double-pointer", "memory-allocation", "out-parameters"]
+  },
+  {
+    "id": "c-ptr-const-qualifier-variations",
+    "category": "c",
+    "system_prompt": "You are a C language specialist.",
+    "user_prompt": "Explain the differences between 'const int *p', 'int * const p', and 'const int * const p', and what operations each restricts.",
+    "tags": ["c", "pointers", "const", "type-safety", "qualifiers"]
+  },
+  {
+    "id": "c-ptr-strict-aliasing-and-restrict",
+    "category": "c",
+    "system_prompt": "You are a C compiler optimization specialist.",
+    "user_prompt": "What is the C strict aliasing rule, how does undefined aliasing break optimizations, and how does the 'restrict' keyword help vectorization?",
+    "tags": ["c", "strict-aliasing", "restrict", "compilers", "optimizations"]
+  },
+  {
+    "id": "c-ptr-multidim-array-vs-pointer-array",
+    "category": "c",
+    "system_prompt": "You are a memory architecture engineer.",
+    "user_prompt": "Compare the contiguous memory layout of a 2D array 'int arr[3][4]' with an array of pointers 'int *arr[3]' in terms of cache locality.",
+    "tags": ["c", "arrays", "pointers", "cache-locality", "memory-layout"]
+  },
+  {
+    "id": "c-ptr-container-of-macro-linux",
+    "category": "c",
+    "system_prompt": "You are a Linux kernel developer.",
+    "user_prompt": "How does the Linux kernel 'container_of' macro work using offsetof and pointer arithmetic to cast from an embedded member back to the parent struct?",
+    "tags": ["c", "container-of", "linux-kernel", "offsetof", "macros"]
+  },
+  {
+    "id": "c-ptr-struct-padding-offsetof",
+    "category": "c",
+    "system_prompt": "You are a low-level systems programmer.",
+    "user_prompt": "How do you inspect struct member offsets using the offsetof() macro from stddef.h, and how does '#pragma pack(1)' affect performance and alignment?",
+    "tags": ["c", "structs", "padding", "offsetof", "pragma-pack"]
+  },
+  {
+    "id": "c-ptr-endianness-detection-byteswap",
+    "category": "c",
+    "system_prompt": "You are a network protocols engineer.",
+    "user_prompt": "How do you programmatically detect Little-Endian versus Big-Endian architecture using a union or pointer cast, and how do you swap bytes with bit shifts?",
+    "tags": ["c", "endianness", "byteswap", "networking", "bit-manipulation"]
+  },
+  {
+    "id": "c-ptr-volatile-qualifier-mmio",
+    "category": "c",
+    "system_prompt": "You are an embedded firmware developer.",
+    "user_prompt": "When is the 'volatile' keyword required in C (memory-mapped I/O, sig_atomic_t signal flags), and why does volatile NOT provide multithreading synchronization?",
+    "tags": ["c", "volatile", "embedded", "mmio", "signal-handling"]
+  },
+  {
+    "id": "c-ptr-pointer-arithmetic-ptrdiff-t",
+    "category": "c",
+    "system_prompt": "You are a C standards specialist.",
+    "user_prompt": "How does pointer arithmetic scale by sizeof(*ptr), and why is ptrdiff_t the standard signed integer type for pointer subtraction?",
+    "tags": ["c", "pointer-arithmetic", "ptrdiff-t", "standards", "pointers"]
+  },
+  {
+    "id": "c-ptr-void-pointer-generic-functions",
+    "category": "c",
+    "system_prompt": "You are a C API designer.",
+    "user_prompt": "How do standard library functions like memcpy and qsort use void* to implement polymorphic generic behavior, and why can void* not be dereferenced?",
+    "tags": ["c", "void-pointer", "generic", "memcpy", "qsort"]
+  },
+  {
+    "id": "c-ptr-qsort-comparator-signature",
+    "category": "c",
+    "system_prompt": "You are an algorithms and systems programmer.",
+    "user_prompt": "How do you write an idiomatic comparator function for qsort(void*, size_t, size_t, int (*)(const void*, const void*)) without integer overflow on subtraction?",
+    "tags": ["c", "qsort", "function-pointers", "comparators", "algorithms"]
+  },
+  {
+    "id": "c-ptr-type-punning-unions",
+    "category": "c",
+    "system_prompt": "You are a C language standards engineer.",
+    "user_prompt": "How does type punning via unions differ from pointer casting with regard to strict aliasing in C99/C11 standards?",
+    "tags": ["c", "type-punning", "unions", "strict-aliasing", "standards"]
+  },
+  {
+    "id": "c-ptr-bitfields-struct-portability",
+    "category": "c",
+    "system_prompt": "You are an embedded hardware communications specialist.",
+    "user_prompt": "What are the portability issues with C bitfields across compilers and CPU architectures regarding bit-endianness, sign extension, and packing?",
+    "tags": ["c", "bitfields", "structs", "portability", "embedded"]
+  },
+  {
+    "id": "c-ptr-pass-by-value-vs-const-pointer",
+    "category": "c",
+    "system_prompt": "You are a performance optimization engineer.",
+    "user_prompt": "When is passing a struct by value more efficient than passing by 'const struct *' (e.g. small structs fitting in CPU registers like Point { int x, y; })?",
+    "tags": ["c", "structs", "pass-by-value", "registers", "abi"]
+  },
+  {
+    "id": "c-ptr-dangling-pointer-lifecycle",
+    "category": "c",
+    "system_prompt": "You are a C reliability engineer.",
+    "user_prompt": "How do dangling pointers occur when returning addresses of local stack variables, and how do compiler warnings (-Wreturn-local-addr) flag them?",
+    "tags": ["c", "dangling-pointers", "stack", "compiler-warnings", "lifetimes"]
+  },
+  {
+    "id": "c-ptr-undefined-behavior-past-the-end",
+    "category": "c",
+    "system_prompt": "You are a C standards compliance auditor.",
+    "user_prompt": "What is the 'one-past-the-end' pointer rule in C arrays, and why does dereferencing or advancing beyond arr + N constitute undefined behavior?",
+    "tags": ["c", "undefined-behavior", "arrays", "pointers", "standards"]
+  },
+  {
+    "id": "c-ptr-intrusive-data-structures",
+    "category": "c",
+    "system_prompt": "You are an operating system kernel developer.",
+    "user_prompt": "Explain the advantages of intrusive linked lists (where list nodes are embedded inside user structs) over non-intrusive lists in low-memory systems.",
+    "tags": ["c", "intrusive-list", "data-structures", "kernel", "memory"]
+  }
+]

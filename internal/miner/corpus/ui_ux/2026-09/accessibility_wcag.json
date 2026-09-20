@@ -1,0 +1,142 @@
+[
+  {
+    "id": "ui-a11y-wcag-contrast-ratios",
+    "category": "ui_ux",
+    "system_prompt": "You are a web accessibility (a11y) auditor.",
+    "user_prompt": "Explain WCAG 2.2 Level AA contrast requirements: 4.5:1 for normal text, 3:1 for large text (18pt/24px or bold 14pt/18.5px), and 3:1 for UI components.",
+    "tags": ["ui_ux", "accessibility", "wcag", "contrast-ratio", "compliance"]
+  },
+  {
+    "id": "ui-a11y-focus-visible-keyboard-ring",
+    "category": "ui_ux",
+    "system_prompt": "You are an accessibility front-end engineer.",
+    "user_prompt": "How do you style clear, high-contrast keyboard focus indicators using :focus-visible and outline-offset without showing rings on mouse clicks?",
+    "tags": ["ui_ux", "accessibility", "focus-visible", "keyboard-navigation", "css"]
+  },
+  {
+    "id": "ui-a11y-modal-dialog-focus-trap",
+    "category": "ui_ux",
+    "system_prompt": "You are a WAI-ARIA interaction specialist.",
+    "user_prompt": "How do you implement an accessible modal dialog with keyboard focus trapping, Escape key dismissal, initial focus restoration, and aria-modal='true'?",
+    "tags": ["ui_ux", "accessibility", "aria", "modal", "focus-trap"]
+  },
+  {
+    "id": "ui-a11y-aria-live-regions",
+    "category": "ui_ux",
+    "system_prompt": "You are a screen reader compatibility engineer.",
+    "user_prompt": "When should dynamic UI updates use aria-live='polite' versus aria-live='assertive' (or role='alert') for live notifications and search counts?",
+    "tags": ["ui_ux", "accessibility", "aria-live", "screen-readers", "notifications"]
+  },
+  {
+    "id": "ui-a11y-aria-label-vs-labelledby",
+    "category": "ui_ux",
+    "system_prompt": "You are an accessibility standards specialist.",
+    "user_prompt": "What is the difference between aria-label, aria-labelledby, and aria-describedby for providing accessible names and descriptions to interactive controls?",
+    "tags": ["ui_ux", "accessibility", "aria-label", "aria-labelledby", "wai-aria"]
+  },
+  {
+    "id": "ui-a11y-form-validation-errors",
+    "category": "ui_ux",
+    "system_prompt": "You are an accessible forms architect.",
+    "user_prompt": "How do you wire form field validation errors accessibly using aria-invalid, aria-errormessage, and focus management upon failed submission?",
+    "tags": ["ui_ux", "accessibility", "forms", "validation", "aria-invalid"]
+  },
+  {
+    "id": "ui-a11y-touch-target-size-wcag",
+    "category": "ui_ux",
+    "system_prompt": "You are a mobile UX accessibility specialist.",
+    "user_prompt": "Explain WCAG 2.5.5 and 2.5.8 Target Size requirements (minimum 48x48px or 24x24px with spacing) and techniques to expand clickable hit areas with CSS padding.",
+    "tags": ["ui_ux", "accessibility", "touch-targets", "mobile-ux", "wcag"]
+  },
+  {
+    "id": "ui-a11y-prefers-reduced-motion",
+    "category": "ui_ux",
+    "system_prompt": "You are a vestibular and animation accessibility specialist.",
+    "user_prompt": "How do you write CSS and JavaScript animations that respect @media (prefers-reduced-motion: reduce) for users with vestibular and motion disorders?",
+    "tags": ["ui_ux", "accessibility", "reduced-motion", "animation", "css"]
+  },
+  {
+    "id": "ui-a11y-color-blindness-multimodal",
+    "category": "ui_ux",
+    "system_prompt": "You are a visual ergonomics and accessibility consultant.",
+    "user_prompt": "Why must status and errors never rely solely on color (e.g. green for success, red for failure), and how do you pair icons and text for color-blind users?",
+    "tags": ["ui_ux", "accessibility", "color-blindness", "visual-design", "ergonomics"]
+  },
+  {
+    "id": "ui-a11y-skip-navigation-links",
+    "category": "ui_ux",
+    "system_prompt": "You are a keyboard accessibility engineer.",
+    "user_prompt": "How do you implement an accessible 'Skip to Main Content' bypass block that stays off-screen until focused by keyboard Tab navigation?",
+    "tags": ["ui_ux", "accessibility", "skip-link", "keyboard-navigation", "landmarks"]
+  },
+  {
+    "id": "ui-a11y-image-alt-text-decision-tree",
+    "category": "ui_ux",
+    "system_prompt": "You are a content accessibility strategist.",
+    "user_prompt": "What is the decision framework for writing informative alt text versus providing empty alt='' (decorative images) versus aria-hidden='true' for SVGs?",
+    "tags": ["ui_ux", "accessibility", "alt-text", "images", "screen-readers"]
+  },
+  {
+    "id": "ui-a11y-accessible-combobox-pattern",
+    "category": "ui_ux",
+    "system_prompt": "You are an advanced WAI-ARIA interaction developer.",
+    "user_prompt": "How do you build an accessible combobox (autocomplete select) following the W3C ARIA 1.2 design pattern with role='combobox', 'listbox', and 'option'?",
+    "tags": ["ui_ux", "accessibility", "combobox", "aria", "components"]
+  },
+  {
+    "id": "ui-a11y-semantic-html-landmarks",
+    "category": "ui_ux",
+    "system_prompt": "You are a semantic web markup architect.",
+    "user_prompt": "Why do semantic landmark elements (<header>, <nav>, <main>, <aside>, <footer>) improve screen reader navigation compared to generic <div> wrappers?",
+    "tags": ["ui_ux", "accessibility", "semantic-html", "landmarks", "screen-readers"]
+  },
+  {
+    "id": "ui-a11y-heading-structure-hierarchy",
+    "category": "ui_ux",
+    "system_prompt": "You are an information architecture auditor.",
+    "user_prompt": "Why must document heading structure (h1 through h6) maintain a logical numerical hierarchy without skipping levels, and how do screen readers use it?",
+    "tags": ["ui_ux", "accessibility", "headings", "structure", "seo"]
+  },
+  {
+    "id": "ui-a11y-accessible-data-tables",
+    "category": "ui_ux",
+    "system_prompt": "You are an accessible data engineering specialist.",
+    "user_prompt": "How do you markup complex responsive data tables using <caption>, <th scope='col/row'>, and headers/id associations for blind users?",
+    "tags": ["ui_ux", "accessibility", "data-tables", "html", "screen-readers"]
+  },
+  {
+    "id": "ui-a11y-carousel-pause-controls",
+    "category": "ui_ux",
+    "system_prompt": "You are an interaction accessibility auditor.",
+    "user_prompt": "Why does WCAG 2.2.2 require pause, stop, or hide controls for auto-advancing carousels and tickers, and how do you implement them?",
+    "tags": ["ui_ux", "accessibility", "carousels", "wcag", "motion-control"]
+  },
+  {
+    "id": "ui-a11y-automated-testing-axe-ci",
+    "category": "ui_ux",
+    "system_prompt": "You are an accessibility test automation engineer.",
+    "user_prompt": "How do you integrate axe-core with Playwright or Cypress to automate accessibility regression testing during continuous integration builds?",
+    "tags": ["ui_ux", "accessibility", "axe-core", "playwright", "test-automation"]
+  },
+  {
+    "id": "ui-a11y-screen-reader-nvda-testing",
+    "category": "ui_ux",
+    "system_prompt": "You are a manual accessibility testing specialist.",
+    "user_prompt": "What is the standard manual testing workflow using NVDA on Windows or VoiceOver on macOS to audit tab stops, reading order, and form interactions?",
+    "tags": ["ui_ux", "accessibility", "nvda", "voiceover", "manual-testing"]
+  },
+  {
+    "id": "ui-a11y-closed-captions-video",
+    "category": "ui_ux",
+    "system_prompt": "You are a multimedia accessibility producer.",
+    "user_prompt": "What are the WCAG requirements for synchronized closed captions (WebVTT), transcripts, and audio descriptions for prerecorded and live video content?",
+    "tags": ["ui_ux", "accessibility", "video", "captions", "webvtt"]
+  },
+  {
+    "id": "ui-a11y-rtl-bidirectional-text-layout",
+    "category": "ui_ux",
+    "system_prompt": "You are an internationalization (i18n) and UX specialist.",
+    "user_prompt": "How do CSS logical properties (margin-inline-start, padding-inline-end) replace physical left/right properties to support Right-To-Left (RTL) languages?",
+    "tags": ["ui_ux", "accessibility", "i18n", "rtl", "css-logical-properties"]
+  }
+]

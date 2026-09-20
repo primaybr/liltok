@@ -1,0 +1,142 @@
+[
+  {
+    "id": "py-type-pydantic-v2-migration-changes",
+    "category": "python",
+    "system_prompt": "You are a Pydantic and data validation expert.",
+    "user_prompt": "What are the core differences between Pydantic v1 and v2: Rust core (pydantic-core), model_dump() vs dict(), field_validator vs validator?",
+    "tags": ["python", "pydantic", "validation", "pydantic-v2"]
+  },
+  {
+    "id": "py-type-generic-typevar-param-spec",
+    "category": "python",
+    "system_prompt": "You are a Python type system specialist.",
+    "user_prompt": "Explain typing.TypeVar, Generic[T], and ParamSpec in Python 3.10+ and demonstrate how to write a type-safe decorator that preserves function signatures.",
+    "tags": ["python", "typing", "generics", "paramspec", "decorators"]
+  },
+  {
+    "id": "py-type-protocols-structural-subtyping",
+    "category": "python",
+    "system_prompt": "You are a Python software architect.",
+    "user_prompt": "How does typing.Protocol implement structural subtyping (duck typing with static verification) in Python, and how does @runtime_checkable work?",
+    "tags": ["python", "typing", "protocol", "structural-typing", "oop"]
+  },
+  {
+    "id": "py-type-pep-695-type-parameter-syntax",
+    "category": "python",
+    "system_prompt": "You are a modern Python 3.12 syntax expert.",
+    "user_prompt": "Explain PEP 695 type parameter syntax introduced in Python 3.12 (e.g. 'type Point[T] = tuple[T, T]', 'def func[T](val: T) -> T').",
+    "tags": ["python", "python312", "pep695", "typing", "generics"]
+  },
+  {
+    "id": "py-type-literal-discriminated-unions",
+    "category": "python",
+    "system_prompt": "You are a Pydantic and schema validation expert.",
+    "user_prompt": "How do you model polymorphic API events using typing.Literal and Pydantic discriminated unions (Field(discriminator='type'))?",
+    "tags": ["python", "pydantic", "unions", "discriminated-unions", "typing"]
+  },
+  {
+    "id": "py-type-annotated-metadata-constraints",
+    "category": "python",
+    "system_prompt": "You are a modern Python typing engineer.",
+    "user_prompt": "How does typing.Annotated attach validation metadata (e.g. Annotated[int, Field(gt=0, le=100)]) without altering runtime type identity?",
+    "tags": ["python", "typing", "annotated", "pydantic", "validation"]
+  },
+  {
+    "id": "py-type-mypy-strict-mode-best-practices",
+    "category": "python",
+    "system_prompt": "You are a Python static analysis engineer.",
+    "user_prompt": "What flags constitute mypy strict mode (--disallow-untyped-defs, --no-implicit-optional) and how do you configure pyproject.toml for strict typing?",
+    "tags": ["python", "mypy", "static-analysis", "typing", "pyproject"]
+  },
+  {
+    "id": "py-type-typeddict-total-false",
+    "category": "python",
+    "system_prompt": "You are a Python typing specialist.",
+    "user_prompt": "How does typing.TypedDict type JSON dictionary structures, and how does total=False or NotRequired[T] handle optional dictionary keys?",
+    "tags": ["python", "typing", "typeddict", "json", "dictionaries"]
+  },
+  {
+    "id": "py-type-dataclasses-slots-frozen",
+    "category": "python",
+    "system_prompt": "You are a Python performance and data structures engineer.",
+    "user_prompt": "How do @dataclass(slots=True, frozen=True) parameters reduce memory footprint and enforce immutability compared to standard Python classes?",
+    "tags": ["python", "dataclasses", "slots", "immutability", "performance"]
+  },
+  {
+    "id": "py-type-self-type-fluent-chaining",
+    "category": "python",
+    "system_prompt": "You are an object-oriented Python specialist.",
+    "user_prompt": "How does typing.Self in Python 3.11 allow builder pattern classes and fluent method chaining to return the exact subclass type correctly?",
+    "tags": ["python", "typing", "self", "oop", "builder-pattern", "python311"]
+  },
+  {
+    "id": "py-type-typeguard-custom-narrowing",
+    "category": "python",
+    "system_prompt": "You are a static typing specialist.",
+    "user_prompt": "How do you implement custom type narrowing functions using typing.TypeGuard[T] to help Mypy and Pyright narrow complex types inside if-branches?",
+    "tags": ["python", "typing", "typeguard", "mypy", "type-narrowing"]
+  },
+  {
+    "id": "py-type-cast-vs-type-ignore",
+    "category": "python",
+    "system_prompt": "You are a code quality and static typing engineer.",
+    "user_prompt": "When should typing.cast() be used over '# type: ignore' annotations, and what are the runtime safety risks of casting?",
+    "tags": ["python", "typing", "cast", "mypy", "clean-code"]
+  },
+  {
+    "id": "py-type-final-classes-and-methods",
+    "category": "python",
+    "system_prompt": "You are a software architecture specialist.",
+    "user_prompt": "How does typing.final prevent subclassing or method overriding in Python, and how is it verified by static type checkers?",
+    "tags": ["python", "typing", "final", "oop", "architecture"]
+  },
+  {
+    "id": "py-type-overload-function-signatures",
+    "category": "python",
+    "system_prompt": "You are an API design and typing specialist.",
+    "user_prompt": "How do you use @typing.overload to declare polymorphic function signatures where return types depend strictly on argument types?",
+    "tags": ["python", "typing", "overload", "api-design", "functions"]
+  },
+  {
+    "id": "py-type-pydantic-custom-serializer",
+    "category": "python",
+    "system_prompt": "You are a Pydantic serialization expert.",
+    "user_prompt": "How do @field_serializer and @model_serializer customize JSON output formats (e.g. datetime to ISO timestamps, ObjectId to strings) in Pydantic v2?",
+    "tags": ["python", "pydantic", "serialization", "json", "pydantic-v2"]
+  },
+  {
+    "id": "py-type-typeis-narrowing-python-313",
+    "category": "python",
+    "system_prompt": "You are a modern Python 3.13 typing expert.",
+    "user_prompt": "How does typing.TypeIs in Python 3.13 improve upon TypeGuard by narrowing types symmetrically in both true and false branches of conditional statements?",
+    "tags": ["python", "python313", "typing", "typeis", "typeguard"]
+  },
+  {
+    "id": "py-type-enum-str-enum-int-flag",
+    "category": "python",
+    "system_prompt": "You are an object-oriented Python specialist.",
+    "user_prompt": "Compare enum.Enum, enum.StrEnum, and enum.IntFlag: string serialization, bitwise flag operations, and JSON compatibility.",
+    "tags": ["python", "enum", "strenum", "intflag", "data-structures"]
+  },
+  {
+    "id": "py-type-pydantic-settings-env-management",
+    "category": "python",
+    "system_prompt": "You are a backend configuration architect.",
+    "user_prompt": "How does pydantic-settings (BaseSettings) validate application environment variables, .env files, and nested JSON configuration with type safety?",
+    "tags": ["python", "pydantic", "configuration", "environment-variables"]
+  },
+  {
+    "id": "py-type-newtype-primitive-obsession",
+    "category": "python",
+    "system_prompt": "You are a domain-driven design in Python specialist.",
+    "user_prompt": "How does typing.NewType (e.g. UserId = NewType('UserId', int)) prevent primitive obsession bugs at zero runtime performance cost?",
+    "tags": ["python", "typing", "newtype", "ddd", "type-safety"]
+  },
+  {
+    "id": "py-type-pydantic-computed-field",
+    "category": "python",
+    "system_prompt": "You are a Pydantic v2 modeling specialist.",
+    "user_prompt": "How does the @computed_field decorator in Pydantic v2 include dynamically calculated properties into serialized JSON outputs and OpenAPI schemas?",
+    "tags": ["python", "pydantic", "computed-field", "serialization", "api"]
+  }
+]

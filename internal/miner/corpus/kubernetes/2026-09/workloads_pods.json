@@ -1,0 +1,149 @@
+[
+  {
+    "id": "k8s-workloads-deployment-rolling-update",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes architect.",
+    "user_prompt": "How do maxSurge and maxUnavailable configure zero-downtime rolling updates in a Kubernetes Deployment manifest?",
+    "tags": ["kubernetes", "deployments", "rolling-update", "devops"]
+  },
+  {
+    "id": "k8s-workloads-statefulset-headless-service",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes and distributed database specialist.",
+    "user_prompt": "Why do StatefulSets require a Headless Service (clusterIP: None) for stable network identities and predictable DNS ordinals?",
+    "tags": ["kubernetes", "statefulset", "headless-service", "networking"]
+  },
+  {
+    "id": "k8s-workloads-daemonset-node-selection",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes infrastructure engineer.",
+    "user_prompt": "How do DaemonSets schedule pods across all cluster nodes, and how do nodeSelector, tolerations, and nodeAffinity target specific nodes?",
+    "tags": ["kubernetes", "daemonset", "scheduling", "affinity"]
+  },
+  {
+    "id": "k8s-workloads-init-containers-dependency",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes platform engineer.",
+    "user_prompt": "How do initContainers handle database migration execution or service dependency waiting before application containers start?",
+    "tags": ["kubernetes", "pods", "init-containers", "lifecycle"]
+  },
+  {
+    "id": "k8s-workloads-sidecar-container-pattern",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes architect.",
+    "user_prompt": "Explain native sidecar containers (restartPolicy: Always in initContainers) introduced in Kubernetes 1.28 and how they solve pod termination order problems.",
+    "tags": ["kubernetes", "sidecars", "pods", "k8s-128"]
+  },
+  {
+    "id": "k8s-workloads-job-completion-parallelism",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud batch processing architect.",
+    "user_prompt": "How do completions, parallelism, and backoffLimit control batch job execution and retry behaviors in Kubernetes Jobs?",
+    "tags": ["kubernetes", "jobs", "batch", "parallelism"]
+  },
+  {
+    "id": "k8s-workloads-cronjob-concurrency-policy",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operations specialist.",
+    "user_prompt": "Explain the three concurrencyPolicy options (Allow, Forbid, Replace) in Kubernetes CronJobs and how to handle missed schedules (startingDeadlineSeconds).",
+    "tags": ["kubernetes", "cronjob", "scheduling", "concurrency"]
+  },
+  {
+    "id": "k8s-workloads-prestop-hook-graceful-drain",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes resilience architect.",
+    "user_prompt": "Why is a preStop exec hook (e.g. sleep 10) necessary alongside terminationGracePeriodSeconds to prevent dropped in-flight HTTP connections during pod termination?",
+    "tags": ["kubernetes", "pods", "prestop", "graceful-shutdown"]
+  },
+  {
+    "id": "k8s-workloads-liveness-readiness-startup-probes",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes reliability engineer.",
+    "user_prompt": "Compare liveness, readiness, and startup probes in Kubernetes: failure thresholds, execution mechanics, and avoiding cascading restart loops.",
+    "tags": ["kubernetes", "probes", "liveness", "readiness", "resilience"]
+  },
+  {
+    "id": "k8s-workloads-pod-disruption-budget",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes operations engineer.",
+    "user_prompt": "How does a PodDisruptionBudget (PDB) with minAvailable or maxUnavailable protect high-availability workloads during voluntary node drains and cluster upgrades?",
+    "tags": ["kubernetes", "pdb", "high-availability", "node-drain"]
+  },
+  {
+    "id": "k8s-workloads-topology-spread-constraints",
+    "category": "kubernetes",
+    "system_prompt": "You are a cloud infrastructure architect.",
+    "user_prompt": "How do topologySpreadConstraints distribute pods evenly across failure domains (zones, racks, nodes) with maxSkew and whenUnsatisfiable rules?",
+    "tags": ["kubernetes", "scheduling", "topology-spread", "multi-zone"]
+  },
+  {
+    "id": "k8s-workloads-pod-anti-affinity-hosts",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes infrastructure specialist.",
+    "user_prompt": "How do you configure podAntiAffinity with requiredDuringSchedulingIgnoredDuringExecution to guarantee two instances of a service never run on the same node?",
+    "tags": ["kubernetes", "affinity", "scheduling", "high-availability"]
+  },
+  {
+    "id": "k8s-workloads-resource-requests-vs-limits",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes platform engineer.",
+    "user_prompt": "What are the behavioral differences between CPU limits (CFS throttling) and memory limits (OOMKilled) in Kubernetes pods?",
+    "tags": ["kubernetes", "resources", "limits", "throttling", "oom"]
+  },
+  {
+    "id": "k8s-workloads-ephemeral-containers-debugging",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes debugging specialist.",
+    "user_prompt": "How do you use kubectl debug to inject an ephemeral container with diagnostic tools into a running, distroless application pod?",
+    "tags": ["kubernetes", "kubectl-debug", "ephemeral-containers", "troubleshooting"]
+  },
+  {
+    "id": "k8s-workloads-qos-classes-eviction",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes node operations engineer.",
+    "user_prompt": "Explain the three QoS classes (Guaranteed, Burstable, BestEffort) and how the kubelet calculates oom_score_adj for pod eviction priority during node memory pressure.",
+    "tags": ["kubernetes", "qos", "eviction", "kubelet", "memory"]
+  },
+  {
+    "id": "k8s-workloads-node-taints-and-tolerations",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes cluster administrator.",
+    "user_prompt": "How do taints with NoSchedule, PreferNoSchedule, and NoExecute effects work with pod tolerations to dedicate nodes to GPU or batch workloads?",
+    "tags": ["kubernetes", "taints", "tolerations", "scheduling"]
+  },
+  {
+    "id": "k8s-workloads-configmap-env-vs-volume",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes platform developer.",
+    "user_prompt": "Compare mounting ConfigMaps as environment variables vs volume projections: live reload capability, atomic updates, and memory usage.",
+    "tags": ["kubernetes", "configmaps", "volumes", "configuration"]
+  },
+  {
+    "id": "k8s-workloads-secrets-sealed-external",
+    "category": "kubernetes",
+    "system_prompt": "You are a DevSecOps engineer.",
+    "user_prompt": "Why are base64-encoded Kubernetes Secrets insecure for GitOps, and how do External Secrets Operator (ESO) or Sealed Secrets solve secret management?",
+    "tags": ["kubernetes", "secrets", "gitops", "security", "external-secrets"]
+  },
+  {
+    "id": "k8s-workloads-downward-api-metadata",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes application engineer.",
+    "user_prompt": "How do you expose pod metadata (pod name, namespace, IP, resource limits) to application containers using the Kubernetes Downward API?",
+    "tags": ["kubernetes", "downward-api", "metadata", "pods"]
+  },
+  {
+    "id": "k8s-workloads-hpa-custom-metrics-prometheus",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes auto-scaling architect.",
+    "user_prompt": "How do you configure the Horizontal Pod Autoscaler (HPA v2) to scale pods based on custom Prometheus metrics (e.g. queue depth, HTTP request rate)?",
+    "tags": ["kubernetes", "hpa", "autoscaling", "prometheus", "metrics"]
+  },
+  {
+    "id": "k8s-workloads-priorityclass-preemption",
+    "category": "kubernetes",
+    "system_prompt": "You are a Kubernetes cluster engineer.",
+    "user_prompt": "How do PriorityClass objects and pod preemption ensure mission-critical system services evict non-critical workloads during cluster resource starvation?",
+    "tags": ["kubernetes", "priorityclass", "preemption", "scheduling"]
+  }
+]
