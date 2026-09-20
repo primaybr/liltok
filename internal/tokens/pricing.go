@@ -31,12 +31,18 @@ type PricingRegistry struct {
 // DefaultPricingRules provides fallback pricing when database entries are unavailable.
 func DefaultPricingRules() []ModelPricing {
 	raw := []ModelPricing{
+		{ModelPattern: `^claude-fable-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-opus-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 15.00, CachedInputCostPerM: 1.50, OutputCostPerM: 75.00},
 		{ModelPattern: `^claude-sonnet-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
-		{ModelPattern: `^claude-haiku-5.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 0.80, CachedInputCostPerM: 0.08, OutputCostPerM: 4.00},
 		{ModelPattern: `^claude-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		{ModelPattern: `^claude-opus-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 15.00, CachedInputCostPerM: 1.50, OutputCostPerM: 75.00},
+		{ModelPattern: `^claude-sonnet-4-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		{ModelPattern: `^claude-sonnet-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		{ModelPattern: `^claude-haiku-4-5.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 1.00, CachedInputCostPerM: 0.10, OutputCostPerM: 5.00},
+		{ModelPattern: `^claude-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-5-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-7-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		{ModelPattern: `^claude-3-5-haiku.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 0.80, CachedInputCostPerM: 0.08, OutputCostPerM: 4.00},
 		{ModelPattern: `^gpt-4o$`, Provider: "openai", Tier: "premium", InputCostPerM: 2.50, CachedInputCostPerM: 1.25, OutputCostPerM: 10.00},
 		{ModelPattern: `^gpt-4o-mini.*`, Provider: "openai", Tier: "budget", InputCostPerM: 0.15, CachedInputCostPerM: 0.075, OutputCostPerM: 0.60},
 		{ModelPattern: `^deepseek-chat.*`, Provider: "deepseek", Tier: "budget", InputCostPerM: 0.27, CachedInputCostPerM: 0.07, OutputCostPerM: 1.10},

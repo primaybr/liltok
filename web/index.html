@@ -739,16 +739,10 @@
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-5-sonnet-20241022" checked /> claude-3-5-sonnet
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-4-5" checked /> claude-sonnet-4-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-5-haiku-20241022" checked /> claude-3-5-haiku
-              </label>
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-7-sonnet-20250219" checked /> claude-3-7-sonnet
-              </label>
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-opus-20240229" /> claude-3-opus
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-4-5" checked /> claude-haiku-4-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-5" checked /> claude-sonnet-5
@@ -757,7 +751,13 @@
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-5" checked /> claude-opus-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-5" checked /> claude-haiku-5
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-fable-5-1" /> claude-fable-5-1
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-4" /> claude-opus-4
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-4" /> claude-sonnet-4
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="gpt-4o" checked /> gpt-4o
@@ -4001,14 +4001,13 @@
 
     function setDefaultTargetModels() {
       const rec = new Set([
-        'claude-3-5-sonnet-20241022',
-        'claude-3-5-haiku-20241022',
-        'claude-3-7-sonnet-20250219',
+        'claude-sonnet-4-5',
+        'claude-haiku-4-5',
+        'claude-sonnet-5',
+        'claude-opus-5',
         'gpt-4o',
         'gpt-4o-mini',
-        'deepseek-chat',
-        'claude-sonnet-5',
-        'claude-opus-5'
+        'deepseek-chat'
       ]);
       document.querySelectorAll('.miner-target-model-checkbox').forEach(cb => {
         cb.checked = rec.has(cb.value);
@@ -4020,14 +4019,13 @@
       const targets = Array.from(checkboxes).map(cb => cb.value);
       if (targets.length === 0) {
         return [
-          'claude-3-5-sonnet-20241022',
-          'claude-3-5-haiku-20241022',
-          'claude-3-7-sonnet-20250219',
+          'claude-sonnet-4-5',
+          'claude-haiku-4-5',
+          'claude-sonnet-5',
+          'claude-opus-5',
           'gpt-4o',
           'gpt-4o-mini',
-          'deepseek-chat',
-          'claude-sonnet-5',
-          'claude-opus-5'
+          'deepseek-chat'
         ];
       }
       return targets;

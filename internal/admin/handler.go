@@ -1864,14 +1864,13 @@ func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) 
 	}
 	if len(req.TargetModels) == 0 {
 		req.TargetModels = []string{
-			"claude-3-5-sonnet-20241022",
-			"claude-3-5-haiku-20241022",
-			"claude-3-7-sonnet-20250219",
+			"claude-sonnet-4-5",
+			"claude-haiku-4-5",
+			"claude-sonnet-5",
+			"claude-opus-5",
 			"gpt-4o",
 			"gpt-4o-mini",
 			"deepseek-chat",
-			"claude-sonnet-5",
-			"claude-opus-5",
 		}
 	}
 

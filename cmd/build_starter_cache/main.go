@@ -36,7 +36,7 @@ func main() {
 	flag.Parse()
 
 	prompts := miner.GetCuratedPrompts("all")
-	models := []string{"claude-opus-5", "claude-sonnet-5", "claude-3-5-sonnet-20241022", "gpt-4o"}
+	models := []string{"claude-opus-5", "claude-sonnet-5", "claude-sonnet-4-5", "claude-haiku-4-5", "gpt-4o"}
 
 	var starterItems []StarterItem
 	normOpts := cache.NormalizationOptions{CacheNonzeroTemperature: true}

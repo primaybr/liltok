@@ -127,14 +127,13 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 	}
 	if len(cfg.TargetModels) == 0 {
 		cfg.TargetModels = []string{
-			"claude-3-5-sonnet-20241022",
-			"claude-3-5-haiku-20241022",
-			"claude-3-7-sonnet-20250219",
+			"claude-sonnet-4-5",
+			"claude-haiku-4-5",
+			"claude-sonnet-5",
+			"claude-opus-5",
 			"gpt-4o",
 			"gpt-4o-mini",
 			"deepseek-chat",
-			"claude-sonnet-5",
-			"claude-opus-5",
 		}
 	}
 
@@ -822,7 +821,15 @@ func AuditCorpusStatus(database *db.DB, category string) ([]PromptAuditItem, Cor
 		Categories:   make(map[string]int),
 	}
 
-	targetModels := []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
+	targetModels := []string{
+		"claude-sonnet-4-5",
+		"claude-haiku-4-5",
+		"claude-sonnet-5",
+		"claude-opus-5",
+		"gpt-4o",
+		"gpt-4o-mini",
+		"deepseek-chat",
+	}
 
 	type cacheMeta struct {
 		hitCount  int
