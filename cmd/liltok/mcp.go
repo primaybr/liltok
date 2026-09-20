@@ -163,7 +163,7 @@ func handleMCPRequest(req jsonRPCRequest, tools []mcpTool, gatewayURL string) {
 			},
 			"serverInfo": map[string]interface{}{
 				"name":    "liltok",
-				"version": "0.1.6-beta",
+				"version": "0.1.7-beta",
 			},
 		}
 		sendResult(req.ID, res)

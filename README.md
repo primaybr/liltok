@@ -19,14 +19,15 @@
 - **Sub-Millisecond Zero-Copy Proxying**: Written in pure Go (`CGO_ENABLED=0`) with zero runtime daemon dependencies and zero intermediate buffer allocations.
 - **Dual Ingress Architecture**: Native support for standard OpenAI SDKs (`/v1/chat/completions`) and native Anthropic Messages API (`/v1/messages`), enabling instant zero-config drop-in for **Claude Code in VS Code**, Cursor, Aider, and custom agents.
 - **Multi-Tier Caching Pipeline**:
-  - **Tier-0 Pre-Flight & Session Compactor**: RTK-inspired token compression stripping git index metadata, compacting context padding (> 3 lines), collapsing ASCII directory trees, stripping comment dividers, and in-flight historical tool result compaction preserving head and tail (up to 87.9% token savings on long agent sessions).
+  - **Tier-0 Pre-Flight & Semantic Safe Session Compactor**: RTK-inspired token compression stripping git index metadata, compacting context padding, and Option B Semantic Safe Session Compactor protecting code inspection tools (`View`, `read_file`, git diffs) while compacting high-volume historical terminal scrollback.
   - **Tier-1 Exact Match Cache**: SHA-256 canonical parameter normalizer with in-memory L1 LRU backed by persistent SQLite WAL.
   - **Tier-2 Prefix & Prompt Cache**: Automatic injection of Anthropic ephemeral cache control blocks on prompts >= 1,024 tokens for up to 90% prompt cost savings.
   - **Tier-3 Semantic Similarity Cache**: Pure-Go local cosine similarity matching (>= 0.95) with fast vector indexing and safety guardrails.
+- **Synthetic Cache Mining Studio & Modular 880+ Prompt Corpus**: Embedded pre-warming engine with modular JSON corpora (< 250 lines/file) across 8 development domains, client-side pagination, real-time progress logging, and multi-model synthesis for Claude 4/4.5 (`claude-sonnet-4-5`, `claude-haiku-4-5`), Claude 5 (`claude-sonnet-5`, `claude-opus-5`), OpenAI, and DeepSeek.
 - **Resilient Cross-Protocol Routing & Repetition Loop Breaker**: Translates Claude Code Anthropic tool-use requests to run on free high-speed and high-context models up to 1M tokens (OpenRouter, Kilo, Mistral, Cline, NVIDIA NIM, Groq, Ollama) for **$0.00 spend**, with native DeepSeek DSML markup parsing, real-time autonomous repetition loop breaking, and automated 3-state Circuit Breakers.
 - **Virtual Keys & Hard Monthly Spend Quotas**: Generate virtual client tokens (`lt-live-xxxx`), enforce Token Bucket rate limits (RPM/TPM), and set hard monthly dollar budgets. When spend is exceeded, paid upstreams are blocked with HTTP 429 (`insufficient_quota`) while free cache hits continue uninterrupted.
-- **Embedded Dark-Mode Dashboard**: Zero-CDN Single Page Application embedded statically into the Go binary (`/dashboard`) with real-time SSE request streaming, cache inspection, and key management.
-- **OpenMetrics / Prometheus Exporter**: Native `/metrics` endpoint exporting uptime, cache entries, request volume, token usage, and circuit breaker states.
+- **Embedded Dark-Mode Dashboard**: Zero-CDN Single Page Application embedded statically into the Go binary (`/dashboard`) with real-time SSE request streaming, cache inspection, mining studio, and key management.
+- **OpenMetrics / Prometheus Exporter**: Native `/metrics` endpoint exporting uptime, cache entries, request volume, token usage, compactor pruned bytes, and circuit breaker states.
 
 ---
 
@@ -297,6 +298,7 @@ Open `http://localhost:8080/dashboard` in any browser:
   - **`LOCAL EXACT`**: Instant 0ms cache hits served directly from Liltok's in-memory L1 LRU or local SQLite WAL. True $0.00 cost and zero network roundtrip.
   - **`MODEL KV-CACHE`**: Upstream provider prompt cache hits (e.g. Anthropic Prompt Caching or OpenAI Cached Tokens). Served by the upstream provider at discounted pricing, tracked distinctly in dashboard telemetry and savings calculations.
 - **Cache Explorer**: Browse cached prompts, view hit counts, inspect TTLs, and evict individual keys. Includes the one-click **"Merge & Pack to Starter"** pipeline.
+- **Cache Mining Studio**: Audit pre-warmed prompt coverage across 8 domains (880+ canonical prompts), trigger background synthesis with client-side pagination, and synthesize multi-model cache entries across Claude 4/4.5, Claude 5, OpenAI, and DeepSeek.
 - **Key Manager**: UI to create virtual keys, set budgets, and monitor monthly spend.
 - **Breaker Health Grid**: Live status cards for upstream providers (`CLOSED`, `HALF-OPEN`, `OPEN`).
 - **Moderator Studio (Maintainer Only)**: Hidden by default; unlocks when `maintainer.enabled: true` is configured in `liltok.yaml`. Drag-and-drop encrypted `.enc` packs, review candidates, and merge approved queries into your local SQLite store.

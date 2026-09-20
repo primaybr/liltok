@@ -5,6 +5,33 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7-beta] - 2026-09-20
+
+### Added
+- **Option B Semantic Safe Session Compactor:**
+  - Dedicated code inspection protection in `internal/cache/prune/session_compactor.go` safeguarding file reads (`View`, `read_file`, `cat`) and source code snippets from truncation.
+  - Added heuristic protection for git diff blocks (`diff --git`) and line-numbered listings even when tool names are omitted.
+  - Tamed high-volume historical terminal scrollback (`Bash`, `exec`, `terminal`) older than 10 turns exceeding 4,000 bytes (~1,000 tokens) while preserving 1,500 bytes head and tail.
+  - Automatic prompt caching bypass for direct Anthropic requests, preserving byte-for-byte KV prefix discounts.
+- **Modular Curated Prompt Corpus Architecture:**
+  - Migrated curated prompts from hardcoded Go structs to partitioned JSON files in `internal/miner/corpus/{language}/{year-month}/{category}.json`.
+  - Enforced strict file budget (< 250 lines per JSON file) for lightweight token consumption and agent inspectability.
+  - Traversal and loading via `//go:embed corpus` with hash-based deduplication and `sync.Once` memoization.
+- **Corpus Expansion to 880+ Canonical Prompts:**
+  - Expanded pre-warming corpus to 881 curated prompts across 8 development domains: PHP, Kubernetes, Docker, Flutter, Python, Go, C, and UI/UX.
+- **Cache Mining Studio Client-Side Pagination:**
+  - Interactive table pagination in `web/index.html` supporting 25, 50, 100, 250, and All records per page, eliminating DOM bloat on large corpora.
+- **Mining Studio Responsiveness & Observability:**
+  - Added client-side auto-polling fallback (2.5s interval) to prevent SSE connection stalls from Chrome 6-connection HTTP/1.1 limits.
+  - Real-time `MINING [id]: ...` console progress logging emitted immediately upon prompt synthesis start.
+- **Claude Model Standardization & Pricing Registry:**
+  - Standardized target models to official Generation 4/4.5 (`claude-sonnet-4-5`, `claude-haiku-4-5`, `claude-opus-4`, `claude-sonnet-4`) and Generation 5 (`claude-sonnet-5`, `claude-opus-5`, `claude-fable-5-1`).
+  - Retired deprecated Claude 3.x models from default UI and CLI options.
+  - Updated `internal/tokens/pricing.go` with official Anthropic pricing rates.
+  - Added quick-selection controls (All, Recommended, Clear) in Cache Mining Studio.
+
+---
+
 ## [0.1.6-beta] - 2026-09-20
 
 ### Added
