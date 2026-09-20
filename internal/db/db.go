@@ -79,6 +79,8 @@ func (d *DB) Migrate() error {
 	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN requested_model TEXT DEFAULT '';`)
 	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN prompt_cost_usd REAL NOT NULL DEFAULT 0.0;`)
 	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN completion_cost_usd REAL NOT NULL DEFAULT 0.0;`)
+	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN pruned_bytes INTEGER NOT NULL DEFAULT 0;`)
+	_, _ = d.Exec(`ALTER TABLE request_logs ADD COLUMN pruned_tokens INTEGER NOT NULL DEFAULT 0;`)
 
 	// Retroactive update: align historical routed logs so appointed model reflects reality
 	_, _ = d.Exec(`UPDATE request_logs SET requested_model = model, model = 'gemini-3.8-flash' WHERE provider = 'gemini' AND (requested_model IS NULL OR requested_model = '' OR requested_model = model) AND model LIKE 'claude%';`)

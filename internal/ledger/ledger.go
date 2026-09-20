@@ -29,6 +29,8 @@ type RequestLog struct {
 	PromptCostUSD    float64   `json:"prompt_cost_usd"`
 	CompletionCostUSD float64  `json:"completion_cost_usd"`
 	SavedUSD         float64   `json:"saved_usd"`
+	PrunedBytes      int       `json:"pruned_bytes,omitempty"`
+	PrunedTokens     int       `json:"pruned_tokens,omitempty"`
 	StatusCode       int       `json:"status_code"`
 	ErrorMessage     string    `json:"error_message,omitempty"`
 }
@@ -51,6 +53,8 @@ type OverviewStats struct {
 	TotalCompletionCostUSD float64          `json:"total_completion_cost_usd"`
 	GrossTokenSpendUSD     float64          `json:"gross_token_spend_usd"`
 	TotalSavedUSD          float64          `json:"total_saved_usd"`
+	TotalPrunedBytes       int64            `json:"total_pruned_bytes"`
+	TotalPrunedTokens      int64            `json:"total_pruned_tokens"`
 	AvgLatencyMs           float64          `json:"avg_latency_ms"`
 	ProviderCounts         map[string]int64 `json:"provider_counts"`
 }
@@ -127,12 +131,14 @@ func (l *Ledger) persistLog(item *RequestLog) {
 			request_id, timestamp, api_key_id, model, requested_model, provider,
 			cache_status, cache_tier, prompt_tokens, completion_tokens,
 			cached_tokens, latency_ms, cost_usd, prompt_cost_usd, completion_cost_usd, saved_usd,
+			pruned_bytes, pruned_tokens,
 			status_code, error_message
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.RequestedModel, item.Provider,
 		item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
 		item.CachedTokens, item.LatencyMs, item.CostUSD, item.PromptCostUSD, item.CompletionCostUSD, item.SavedUSD,
+		item.PrunedBytes, item.PrunedTokens,
 		item.StatusCode, item.ErrorMessage,
 	)
 
@@ -185,12 +191,15 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 			COALESCE(SUM(prompt_cost_usd), 0.0),
 			COALESCE(SUM(completion_cost_usd), 0.0),
 			COALESCE(SUM(saved_usd), 0.0),
-			COALESCE(AVG(latency_ms), 0.0)
+			COALESCE(AVG(latency_ms), 0.0),
+			COALESCE(SUM(pruned_bytes), 0),
+			COALESCE(SUM(pruned_tokens), 0)
 		FROM request_logs
 	`)
 
 	var t1Hits, t2Hits, t3Hits, misses, tokensIn, tokensOut sqlNullInt64
 	var totalCost, promptCost, completionCost, totalSaved, avgLatency sqlNullFloat64
+	var prunedBytes, prunedTokens sqlNullInt64
 
 	err := row.Scan(
 		&stats.TotalRequests,
@@ -205,6 +214,8 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 		&completionCost,
 		&totalSaved,
 		&avgLatency,
+		&prunedBytes,
+		&prunedTokens,
 	)
 	if err != nil {
 		return stats, fmt.Errorf("failed to compute overview stats: %w", err)
@@ -223,6 +234,8 @@ func (l *Ledger) GetOverviewStats(ctx context.Context) (OverviewStats, error) {
 	stats.TotalPromptCostUSD = promptCost.Float64
 	stats.TotalCompletionCostUSD = completionCost.Float64
 	stats.TotalSavedUSD = totalSaved.Float64
+	stats.TotalPrunedBytes = prunedBytes.Int64
+	stats.TotalPrunedTokens = prunedTokens.Int64
 	stats.GrossTokenSpendUSD = stats.TotalCostUSD + stats.TotalSavedUSD
 	stats.AvgLatencyMs = avgLatency.Float64
 

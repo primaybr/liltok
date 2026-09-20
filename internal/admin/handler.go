@@ -139,7 +139,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.1.5-beta",
+		"version":                   "0.1.6-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -158,6 +158,8 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 		"total_completion_cost_usd": overview.TotalCompletionCostUSD,
 		"gross_token_spend_usd":     overview.GrossTokenSpendUSD,
 		"total_saved_usd":           overview.TotalSavedUSD,
+		"total_pruned_bytes":        overview.TotalPrunedBytes,
+		"total_pruned_tokens":       overview.TotalPrunedTokens,
 		"avg_latency_ms":            overview.AvgLatencyMs,
 		"cache_entries":             totalEntries,
 		"active_listeners":          h.broadcaster.ClientCount(),
@@ -190,8 +192,9 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.database.QueryContext(r.Context(), `
 		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, COALESCE(requested_model, ''), provider,
 		       cache_status, cache_tier, prompt_tokens, completion_tokens,
-		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd, status_code,
-		       COALESCE(error_message, '')
+		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd,
+		       COALESCE(pruned_bytes, 0), COALESCE(pruned_tokens, 0),
+		       status_code, COALESCE(error_message, '')
 		FROM request_logs
 		ORDER BY timestamp DESC
 		LIMIT ? OFFSET ?
@@ -210,6 +213,7 @@ func (h *AdminHandler) HandleLogs(w http.ResponseWriter, r *http.Request) {
 			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.RequestedModel, &l.Provider,
 			&l.CacheStatus, &l.CacheTier, &l.PromptTokens, &l.CompletionTokens,
 			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.PromptCostUSD, &l.CompletionCostUSD, &l.SavedUSD,
+			&l.PrunedBytes, &l.PrunedTokens,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
 			if l.RequestedModel == "" {
@@ -670,8 +674,9 @@ func (h *AdminHandler) HandleQueryLogs(w http.ResponseWriter, r *http.Request) {
 	querySQL := fmt.Sprintf(`
 		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, COALESCE(requested_model, ''), provider,
 		       cache_status, cache_tier, prompt_tokens, completion_tokens,
-		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd, status_code,
-		       COALESCE(error_message, '')
+		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd,
+		       COALESCE(pruned_bytes, 0), COALESCE(pruned_tokens, 0),
+		       status_code, COALESCE(error_message, '')
 		FROM request_logs
 		WHERE %s
 		%s
@@ -694,6 +699,7 @@ func (h *AdminHandler) HandleQueryLogs(w http.ResponseWriter, r *http.Request) {
 			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.RequestedModel, &l.Provider,
 			&l.CacheStatus, &l.CacheTier, &l.PromptTokens, &l.CompletionTokens,
 			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.PromptCostUSD, &l.CompletionCostUSD, &l.SavedUSD,
+			&l.PrunedBytes, &l.PrunedTokens,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
 			if l.RequestedModel == "" {
@@ -738,8 +744,9 @@ func (h *AdminHandler) HandleExportLogs(w http.ResponseWriter, r *http.Request) 
 	querySQL := fmt.Sprintf(`
 		SELECT request_id, timestamp, COALESCE(api_key_id, ''), model, COALESCE(requested_model, ''), provider,
 		       cache_status, cache_tier, prompt_tokens, completion_tokens,
-		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd, status_code,
-		       COALESCE(error_message, '')
+		       cached_tokens, latency_ms, cost_usd, COALESCE(prompt_cost_usd, 0.0), COALESCE(completion_cost_usd, 0.0), saved_usd,
+		       COALESCE(pruned_bytes, 0), COALESCE(pruned_tokens, 0),
+		       status_code, COALESCE(error_message, '')
 		FROM request_logs
 		WHERE %s
 		ORDER BY timestamp DESC
@@ -761,6 +768,7 @@ func (h *AdminHandler) HandleExportLogs(w http.ResponseWriter, r *http.Request) 
 			&l.RequestID, &ts, &l.APIKeyID, &l.Model, &l.RequestedModel, &l.Provider,
 			&l.CacheStatus, &l.CacheTier, &l.PromptTokens, &l.CompletionTokens,
 			&l.CachedTokens, &l.LatencyMs, &l.CostUSD, &l.PromptCostUSD, &l.CompletionCostUSD, &l.SavedUSD,
+			&l.PrunedBytes, &l.PrunedTokens,
 			&l.StatusCode, &l.ErrorMessage,
 		); err == nil {
 			if l.RequestedModel == "" {

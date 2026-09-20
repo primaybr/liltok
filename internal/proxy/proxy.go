@@ -197,15 +197,31 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	}
 
 	// 0. Tier-0 Pre-Flight Token Pruner
+	var prunedBytesCount int
+	var prunedTokensCount int
 	bypassPrune := strings.EqualFold(r.Header.Get("X-Liltok-Prune"), "false")
 	if !bypassPrune && p.pruner != nil && len(bodyBytes) > 0 {
 		if prunedBytes, stats, err := p.pruner.PruneJSONPayload(bodyBytes); err == nil && stats.SavedBytes > 0 {
+			prunedBytesCount = stats.SavedBytes
+			prunedTokensCount = stats.SavedBytes / 4
+			if prunedTokensCount == 0 && stats.SavedBytes > 0 {
+				prunedTokensCount = 1
+			}
 			telemetry.Log.Debug().
 				Str("request_id", reqID).
 				Int("saved_bytes", stats.SavedBytes).
+				Int("pruned_tokens", prunedTokensCount).
 				Float64("reduction_ratio", stats.ReductionRatio).
 				Msg("Tier-0 Pre-flight Token Pruning applied")
 			bodyBytes = prunedBytes
+		}
+	}
+
+	recordLog := func(item *ledger.RequestLog) {
+		if item != nil {
+			item.PrunedBytes = prunedBytesCount
+			item.PrunedTokens = prunedTokensCount
+			p.recordLog(item)
 		}
 	}
 
@@ -242,7 +258,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
 					costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
-					p.recordLog(&ledger.RequestLog{
+					recordLog(&ledger.RequestLog{
 						RequestID:         reqID,
 						APIKeyID:          apiKeyID,
 						Model:             normReq.Model,
@@ -284,7 +300,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 								_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
 								costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
-								p.recordLog(&ledger.RequestLog{
+								recordLog(&ledger.RequestLog{
 									RequestID:         reqID,
 									APIKeyID:          apiKeyID,
 									Model:             normReq.Model,
@@ -341,7 +357,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					_, cTokens, _ := extractUsage(cachedEntry.ResponsePayload, normReq.Model)
 					costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER3_SEMANTIC")
 
-					p.recordLog(&ledger.RequestLog{
+					recordLog(&ledger.RequestLog{
 						RequestID:         reqID,
 						APIKeyID:          apiKeyID,
 						Model:             normReq.Model,
@@ -453,7 +469,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					appointedModel = modelName
 				}
 
-				p.recordLog(&ledger.RequestLog{
+				recordLog(&ledger.RequestLog{
 					RequestID:         reqID,
 					APIKeyID:          apiKeyID,
 					Model:             appointedModel,
@@ -638,7 +654,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					}
 					costBD := p.pricingReg.CalculateDetailedForRouting(unifiedReq.Model, winningProvider, fbResp.Usage.PromptTokens, fbResp.Usage.CompletionTokens, 0, "MISS", "NONE")
 
-					p.recordLog(&ledger.RequestLog{
+					recordLog(&ledger.RequestLog{
 						RequestID:         reqID,
 						APIKeyID:          apiKeyID,
 						Model:             appointedModel,
@@ -748,7 +764,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			}
 			costBD := p.pricingReg.CalculateDetailedForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
-			p.recordLog(&ledger.RequestLog{
+			recordLog(&ledger.RequestLog{
 				RequestID:         reqID,
 				APIKeyID:          apiKeyID,
 				Model:             modelName,
@@ -805,7 +821,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			}
 			costBD := p.pricingReg.CalculateDetailedForRouting(modelName, targetProvider, pTokens, cTokens, cachedTokens, "MISS", tier)
 
-			p.recordLog(&ledger.RequestLog{
+			recordLog(&ledger.RequestLog{
 				RequestID:         reqID,
 				APIKeyID:          apiKeyID,
 				Model:             modelName,

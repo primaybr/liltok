@@ -135,6 +135,18 @@ func (pe *PrometheusExporter) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 			costRows.Close()
 		}
 		b.WriteString("\n")
+
+		// Compactor pruned bytes and tokens total
+		var totalPrunedBytes, totalPrunedTokens int64
+		_ = pe.database.QueryRowContext(ctx, "SELECT COALESCE(SUM(pruned_bytes), 0), COALESCE(SUM(pruned_tokens), 0) FROM request_logs").Scan(&totalPrunedBytes, &totalPrunedTokens)
+
+		b.WriteString("# HELP liltok_compactor_pruned_bytes_total Total bytes pruned by the token pruner and session compactor.\n")
+		b.WriteString("# TYPE liltok_compactor_pruned_bytes_total counter\n")
+		b.WriteString(fmt.Sprintf("liltok_compactor_pruned_bytes_total %d\n\n", totalPrunedBytes))
+
+		b.WriteString("# HELP liltok_compactor_pruned_tokens_total Estimated tokens pruned by the token pruner and session compactor.\n")
+		b.WriteString("# TYPE liltok_compactor_pruned_tokens_total counter\n")
+		b.WriteString(fmt.Sprintf("liltok_compactor_pruned_tokens_total %d\n\n", totalPrunedTokens))
 	}
 
 	// Circuit breaker status

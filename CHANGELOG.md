@@ -5,6 +5,22 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6-beta] - 2026-09-20
+
+### Added
+- **Session Compactor Telemetry & Accounting Pipeline:**
+  - Persisted `pruned_bytes` and `pruned_tokens` columns in SQLite `request_logs` schema with automatic schema migrations in `internal/db/db.go` and `001_init_schema.sql`.
+  - Integrated compaction delta tracking into the core accounting pipeline (`internal/ledger/ledger.go`, `internal/proxy/proxy.go`), capturing exact byte and token savings per upstream dispatch.
+  - Added Prometheus counters `liltok_compactor_pruned_bytes_total` and `liltok_compactor_pruned_tokens_total` in `internal/metrics/prometheus.go`.
+  - Exposed compaction analytics in `GET /api/v1/overview` and `GET /api/v1/logs` admin endpoints.
+- **Live Compactor Visualizer Dashboard:**
+  - Added real-time Compactor KPI card in `web/index.html` showing aggregate context pruned and total token savings.
+  - Injected visual compaction badges and pills (`✂ -Xk tok`) in the live request stream and inspection modals with percentage context reduction metrics.
+- **Starter Pack Expansion:**
+  - Merged and sanitized active local SQLite cache entries into `internal/db/starter_cache.json.gz`, expanding pre-warmed canonical responses to over 2.02 MB of seed patterns.
+
+---
+
 ## [0.1.5-beta] - 2026-09-19
 
 ### Added

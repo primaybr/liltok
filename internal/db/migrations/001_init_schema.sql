@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS request_logs (
     prompt_cost_usd REAL NOT NULL DEFAULT 0.0,
     completion_cost_usd REAL NOT NULL DEFAULT 0.0,
     saved_usd REAL NOT NULL DEFAULT 0.0,
+    pruned_bytes INTEGER NOT NULL DEFAULT 0,
+    pruned_tokens INTEGER NOT NULL DEFAULT 0,
     status_code INTEGER NOT NULL DEFAULT 200,
     error_message TEXT
 );
