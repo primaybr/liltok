@@ -14,6 +14,8 @@ type PruneOptions struct {
 	RecentTurnsToKeep      int
 	CompactorHeadBytes     int
 	CompactorTailBytes     int
+	CompactorMinSizeBytes  int
+	ProtectCodeFiles       bool
 }
 
 // DefaultOptions returns the recommended default pruning configuration.
@@ -23,9 +25,11 @@ func DefaultOptions() PruneOptions {
 		EnableTree:             true,
 		EnableWhitespace:       true,
 		EnableSessionCompactor: true,
-		RecentTurnsToKeep:      5,
-		CompactorHeadBytes:     250,
-		CompactorTailBytes:     250,
+		RecentTurnsToKeep:      10,
+		CompactorHeadBytes:     1500,
+		CompactorTailBytes:     1500,
+		CompactorMinSizeBytes:  4000,
+		ProtectCodeFiles:       true,
 	}
 }
 
@@ -47,21 +51,31 @@ func NewPruner(opts PruneOptions) *Pruner {
 	return &Pruner{opts: opts}
 }
 
+// Options returns current default pruning options configured on this pruner.
+func (p *Pruner) Options() PruneOptions {
+	return p.opts
+}
+
 // PruneText transforms a text string applying enabled compaction filters.
 func (p *Pruner) PruneText(text string) (string, int) {
+	return p.PruneTextWithOptions(text, p.opts)
+}
+
+// PruneTextWithOptions transforms a text string applying the specified options.
+func (p *Pruner) PruneTextWithOptions(text string, opts PruneOptions) (string, int) {
 	origLen := len(text)
 	if origLen == 0 {
 		return text, 0
 	}
 
 	curr := text
-	if p.opts.EnableDiff {
+	if opts.EnableDiff {
 		curr = CompactDiff(curr)
 	}
-	if p.opts.EnableTree {
+	if opts.EnableTree {
 		curr = CompactTree(curr)
 	}
-	if p.opts.EnableWhitespace {
+	if opts.EnableWhitespace {
 		curr = StripWhitespaceAndDividers(curr)
 	}
 
@@ -73,8 +87,14 @@ func (p *Pruner) PruneText(text string) (string, int) {
 }
 
 // PruneJSONPayload intercepts chat completion or messages JSON payloads,
-// pruning prompt contents in-place.
+// pruning prompt contents in-place using default options.
 func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
+	return p.PruneJSONPayloadWithOptions(raw, p.opts)
+}
+
+// PruneJSONPayloadWithOptions intercepts chat completion or messages JSON payloads,
+// pruning prompt contents in-place using the specified options.
+func (p *Pruner) PruneJSONPayloadWithOptions(raw []byte, opts PruneOptions) ([]byte, PruneStats, error) {
 	stats := PruneStats{
 		OriginalBytes: len(raw),
 	}
@@ -85,12 +105,14 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 
 	currentBytes := raw
 	sessionCompacted := false
-	if p.opts.EnableSessionCompactor {
+	if opts.EnableSessionCompactor {
 		sessionOpts := SessionCompactorOptions{
 			Enabled:           true,
-			RecentTurnsToKeep: p.opts.RecentTurnsToKeep,
-			HeadBytes:         p.opts.CompactorHeadBytes,
-			TailBytes:         p.opts.CompactorTailBytes,
+			RecentTurnsToKeep: opts.RecentTurnsToKeep,
+			HeadBytes:         opts.CompactorHeadBytes,
+			TailBytes:         opts.CompactorTailBytes,
+			MinSizeBytes:      opts.CompactorMinSizeBytes,
+			ProtectCodeFiles:  opts.ProtectCodeFiles,
 		}
 		compacted, saved, err := CompactSessionPayload(currentBytes, sessionOpts)
 		if err == nil && saved > 0 {
@@ -118,7 +140,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 	if sys, ok := root["system"]; ok {
 		switch v := sys.(type) {
 		case string:
-			pruned, saved := p.PruneText(v)
+			pruned, saved := p.PruneTextWithOptions(v, opts)
 			if saved > 0 {
 				root["system"] = pruned
 				modified = true
@@ -128,7 +150,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 				if bMap, ok := block.(map[string]interface{}); ok {
 					if bMap["type"] == "text" {
 						if textStr, ok := bMap["text"].(string); ok {
-							pruned, saved := p.PruneText(textStr)
+							pruned, saved := p.PruneTextWithOptions(textStr, opts)
 							if saved > 0 {
 								bMap["text"] = pruned
 								v[i] = bMap
@@ -156,7 +178,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 
 			switch c := content.(type) {
 			case string:
-				pruned, saved := p.PruneText(c)
+				pruned, saved := p.PruneTextWithOptions(c, opts)
 				if saved > 0 {
 					msgMap["content"] = pruned
 					msgs[i] = msgMap
@@ -168,7 +190,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 						pType, _ := partMap["type"].(string)
 						if pType == "text" {
 							if textStr, ok := partMap["text"].(string); ok {
-								pruned, saved := p.PruneText(textStr)
+								pruned, saved := p.PruneTextWithOptions(textStr, opts)
 								if saved > 0 {
 									partMap["text"] = pruned
 									c[j] = partMap
@@ -177,7 +199,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 							}
 						} else if pType == "tool_result" {
 							if resStr, ok := partMap["content"].(string); ok {
-								pruned, saved := p.PruneText(resStr)
+								pruned, saved := p.PruneTextWithOptions(resStr, opts)
 								if saved > 0 {
 									partMap["content"] = pruned
 									c[j] = partMap
@@ -188,7 +210,7 @@ func (p *Pruner) PruneJSONPayload(raw []byte) ([]byte, PruneStats, error) {
 									if rPartMap, ok := rPart.(map[string]interface{}); ok {
 										if rPartMap["type"] == "text" {
 											if rText, ok := rPartMap["text"].(string); ok {
-												pruned, saved := p.PruneText(rText)
+												pruned, saved := p.PruneTextWithOptions(rText, opts)
 												if saved > 0 {
 													rPartMap["text"] = pruned
 													resParts[k] = rPartMap

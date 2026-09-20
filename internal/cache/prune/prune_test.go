@@ -195,6 +195,7 @@ func TestPruneJSONPayload_SessionCompactorEndToEnd(t *testing.T) {
 	opts.RecentTurnsToKeep = 2
 	opts.CompactorHeadBytes = 30
 	opts.CompactorTailBytes = 30
+	opts.CompactorMinSizeBytes = 100
 	p := prune.NewPruner(opts)
 
 	hugeOldLog := strings.Repeat("HISTORICAL_LOG_ENTRY_WITH_LONG_DETAILS\n", 40) + "DONE_EXIT_0"
@@ -226,7 +227,7 @@ func TestPruneJSONPayload_SessionCompactorEndToEnd(t *testing.T) {
 	if stats.SavedBytes <= 0 {
 		t.Fatalf("expected positive saved bytes, got %d", stats.SavedBytes)
 	}
-	if !strings.Contains(string(prunedJSON), "Session Compactor: pruned") {
+	if !strings.Contains(string(prunedJSON), "output truncated:") {
 		t.Errorf("expected session compactor indicator in output: %s", string(prunedJSON))
 	}
 	if !strings.Contains(string(prunedJSON), "HISTORICAL_LOG_ENTRY") || !strings.Contains(string(prunedJSON), "DONE_EXIT_0") {

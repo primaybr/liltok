@@ -36,6 +36,8 @@ type CacheConfig struct {
 	RecentTurnsToKeep       int     `yaml:"recent_turns_to_keep"`
 	CompactorHeadBytes      int     `yaml:"compactor_head_bytes"`
 	CompactorTailBytes      int     `yaml:"compactor_tail_bytes"`
+	CompactorMinSizeBytes   int     `yaml:"compactor_min_size_bytes"`
+	ProtectCodeFiles        bool    `yaml:"protect_code_files"`
 	AutoSync                bool    `yaml:"auto_sync"`
 	SyncURL                 string  `yaml:"sync_url"`
 	SyncIntervalHours       int     `yaml:"sync_interval_hours"`
@@ -208,6 +210,14 @@ func applyEnvOverrides(cfg *Config) {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.Cache.CompactorTailBytes = n
 		}
+	}
+	if v := os.Getenv("LILTOK_COMPACTOR_MIN_SIZE_BYTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Cache.CompactorMinSizeBytes = n
+		}
+	}
+	if v := os.Getenv("LILTOK_PROTECT_CODE_FILES"); v != "" {
+		cfg.Cache.ProtectCodeFiles = strings.ToLower(v) == "true" || v == "1"
 	}
 	if v := os.Getenv("LILTOK_MAINTAINER_MODE"); v != "" {
 		cfg.Maintainer.Enabled = strings.ToLower(v) == "true" || v == "1"

@@ -57,6 +57,10 @@ func NewProxy(cfg *config.Config, cacheStore cache.Store, semCache *semantic.Sem
 	if cfg.Cache.CompactorTailBytes > 0 {
 		pruneOpts.CompactorTailBytes = cfg.Cache.CompactorTailBytes
 	}
+	if cfg.Cache.CompactorMinSizeBytes > 0 {
+		pruneOpts.CompactorMinSizeBytes = cfg.Cache.CompactorMinSizeBytes
+	}
+	pruneOpts.ProtectCodeFiles = cfg.Cache.ProtectCodeFiles
 
 	return &Proxy{
 		cfg:             cfg,
@@ -201,7 +205,14 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	var prunedTokensCount int
 	bypassPrune := strings.EqualFold(r.Header.Get("X-Liltok-Prune"), "false")
 	if !bypassPrune && p.pruner != nil && len(bodyBytes) > 0 {
-		if prunedBytes, stats, err := p.pruner.PruneJSONPayload(bodyBytes); err == nil && stats.SavedBytes > 0 {
+		reqPruneOpts := p.pruner.Options()
+		// If directly targeting native Anthropic, bypass session compactor to preserve prompt cache prefix,
+		// unless explicitly forced via header X-Liltok-Session-Compactor: true.
+		forceCompactor := strings.EqualFold(r.Header.Get("X-Liltok-Session-Compactor"), "true")
+		if targetProvider == "anthropic" && !forceCompactor {
+			reqPruneOpts.EnableSessionCompactor = false
+		}
+		if prunedBytes, stats, err := p.pruner.PruneJSONPayloadWithOptions(bodyBytes, reqPruneOpts); err == nil && stats.SavedBytes > 0 {
 			prunedBytesCount = stats.SavedBytes
 			prunedTokensCount = stats.SavedBytes / 4
 			if prunedTokensCount == 0 && stats.SavedBytes > 0 {
