@@ -688,12 +688,19 @@
             <div class="form-group" style="margin-bottom: 0;">
               <label class="form-label">Corpus Category</label>
               <select id="miner-category" class="form-input" onchange="onMinerCategoryChange(this.value)">
-                <option value="all" selected>All Categories</option>
-                <option value="php">PHP Syntax &amp; Runtime Errors</option>
+                <option value="all" selected>All Categories (880+ Prompts)</option>
+                <option value="php">PHP (Modern OOP, PDO, Diagnostics)</option>
+                <option value="kubernetes">Kubernetes (Pods, Ingress, RBAC, Scaling)</option>
+                <option value="docker">Docker (Builds, Compose, Volumes, Ports)</option>
+                <option value="flutter">Flutter / Dart (Riverpod, Layout, Routing)</option>
+                <option value="python">Python (AsyncIO, Pydantic, Performance)</option>
+                <option value="go">Go (Concurrency, Memory, HTTP, Testing)</option>
+                <option value="c">C (Pointers, Memory, POSIX Threads, Security)</option>
+                <option value="ui_ux">UI/UX (Design Systems, WCAG, Layouts, Motion)</option>
                 <option value="coding">Coding Idioms &amp; Algorithms</option>
                 <option value="errors">Compiler &amp; Runtime Errors</option>
                 <option value="security">Security &amp; Hardening</option>
-                <option value="devops">DevOps, Docker &amp; K8s</option>
+                <option value="devops">DevOps &amp; Deployments</option>
                 <option value="git">Git Workflows</option>
               </select>
             </div>
@@ -833,6 +840,28 @@
               <tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">Loading prompt corpus...</td></tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Miner Pagination Controls -->
+        <div class="pagination-container" id="miner-pagination" style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>Page Size:</span>
+            <select id="miner-page-size" class="filter-select" onchange="changeMinerPageSize(this.value)" style="padding: 3px 8px; font-size: 11px;">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="250">250</option>
+              <option value="all">All</option>
+            </select>
+            <span id="miner-page-info">Page 1 of 1 (0 prompts)</span>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button id="miner-btn-first" class="page-btn" onclick="changeMinerPage(1)">&laquo; First</button>
+            <button id="miner-btn-prev" class="page-btn" onclick="changeMinerPage(_minerCurrentPage - 1)">&lsaquo; Prev</button>
+            <span id="miner-current-page-num" style="padding: 5px 10px; font-family: var(--mono); font-weight: 600;">1</span>
+            <button id="miner-btn-next" class="page-btn" onclick="changeMinerPage(_minerCurrentPage + 1)">Next &rsaquo;</button>
+            <button id="miner-btn-last" class="page-btn" onclick="changeMinerPage(_minerTotalPages)">Last &raquo;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3501,6 +3530,10 @@
     let _minerActiveStatus = 'idle';
     let _minerElapsedSeconds = 0;
     let _minerTimerInterval = null;
+    let _minerCurrentPage = 1;
+    let _minerPageSize = 25;
+    let _minerTotalPages = 1;
+    let _minerFilteredPrompts = [];
 
     async function loadMinerStatus() {
       try {
@@ -3660,13 +3693,16 @@
       el.textContent = 'Elapsed: ' + String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
     }
 
-    function filterMinerPromptsTable() {
+    function filterMinerPromptsTable(resetPage = true) {
+      if (resetPage) {
+        _minerCurrentPage = 1;
+      }
       const searchInput = document.getElementById('miner-table-search');
       const statusSelect = document.getElementById('miner-filter-status');
       const q = searchInput ? searchInput.value.trim().toLowerCase() : '';
       const filterStatus = statusSelect ? statusSelect.value : 'all';
 
-      const filtered = _allMinerPrompts.filter(item => {
+      _minerFilteredPrompts = _allMinerPrompts.filter(item => {
         const isCached = item.IsCached || item.is_cached;
         if (filterStatus === 'missing' && isCached) return false;
         if (filterStatus === 'cached' && !isCached) return false;
@@ -3680,19 +3716,45 @@
         return true;
       });
 
-      renderMinerPromptsTable(filtered);
+      renderMinerPromptsTable();
     }
 
-    function renderMinerPromptsTable(prompts) {
+    function renderMinerPromptsTable() {
       const tbody = document.getElementById('miner-prompts-tbody');
       if (!tbody) return;
 
-      if (!prompts || prompts.length === 0) {
+      const totalItems = _minerFilteredPrompts.length;
+      if (_minerPageSize <= 0) {
+        _minerTotalPages = 1;
+        _minerCurrentPage = 1;
+      } else {
+        _minerTotalPages = Math.max(1, Math.ceil(totalItems / _minerPageSize));
+      }
+
+      if (_minerCurrentPage > _minerTotalPages) _minerCurrentPage = _minerTotalPages;
+      if (_minerCurrentPage < 1) _minerCurrentPage = 1;
+
+      if (totalItems === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 24px;">No prompts match the current filter.</td></tr>';
+        updateMinerPaginationUI(0, 0, 0);
+        const checkAll = document.getElementById('miner-check-all');
+        if (checkAll) checkAll.checked = false;
         return;
       }
 
-      tbody.innerHTML = prompts.map(item => {
+      let pagePrompts;
+      let startIndex = 0;
+      let endIndex = totalItems;
+
+      if (_minerPageSize > 0) {
+        startIndex = (_minerCurrentPage - 1) * _minerPageSize;
+        endIndex = Math.min(startIndex + _minerPageSize, totalItems);
+        pagePrompts = _minerFilteredPrompts.slice(startIndex, endIndex);
+      } else {
+        pagePrompts = _minerFilteredPrompts;
+      }
+
+      tbody.innerHTML = pagePrompts.map(item => {
         const pid = item.ID || item.id;
         const isChecked = _selectedPromptIds.has(pid);
         const category = item.Category || item.category || 'general';
@@ -3741,6 +3803,54 @@
           </tr>
         `;
       }).join('');
+
+      updateMinerPaginationUI(startIndex + 1, endIndex, totalItems);
+
+      const checkAll = document.getElementById('miner-check-all');
+      if (checkAll) {
+        checkAll.checked = pagePrompts.length > 0 && pagePrompts.every(p => _selectedPromptIds.has(p.ID || p.id));
+      }
+    }
+
+    function updateMinerPaginationUI(start, end, total) {
+      const pageInfo = document.getElementById('miner-page-info');
+      if (pageInfo) {
+        if (total === 0) {
+          pageInfo.textContent = 'Page 1 of 1 (0 prompts)';
+        } else if (_minerPageSize <= 0) {
+          pageInfo.textContent = `All ${total} prompts`;
+        } else {
+          pageInfo.textContent = `Page ${_minerCurrentPage} of ${_minerTotalPages} (Showing ${start}-${end} of ${total} prompts)`;
+        }
+      }
+      const pageNum = document.getElementById('miner-current-page-num');
+      if (pageNum) pageNum.textContent = _minerCurrentPage;
+
+      const btnFirst = document.getElementById('miner-btn-first');
+      if (btnFirst) btnFirst.disabled = _minerCurrentPage <= 1 || _minerPageSize <= 0;
+      const btnPrev = document.getElementById('miner-btn-prev');
+      if (btnPrev) btnPrev.disabled = _minerCurrentPage <= 1 || _minerPageSize <= 0;
+      const btnNext = document.getElementById('miner-btn-next');
+      if (btnNext) btnNext.disabled = _minerCurrentPage >= _minerTotalPages || _minerPageSize <= 0;
+      const btnLast = document.getElementById('miner-btn-last');
+      if (btnLast) btnLast.disabled = _minerCurrentPage >= _minerTotalPages || _minerPageSize <= 0;
+    }
+
+    function changeMinerPage(page) {
+      if (page < 1 || page > _minerTotalPages || page === _minerCurrentPage) return;
+      _minerCurrentPage = page;
+      renderMinerPromptsTable();
+    }
+
+    function changeMinerPageSize(size) {
+      if (size === 'all') {
+        _minerPageSize = 0;
+      } else {
+        const parsed = parseInt(size, 10);
+        _minerPageSize = isNaN(parsed) || parsed <= 0 ? 25 : parsed;
+      }
+      _minerCurrentPage = 1;
+      renderMinerPromptsTable();
     }
 
     function toggleSelectMinerPrompt(id, checked) {
@@ -3749,11 +3859,32 @@
       } else {
         _selectedPromptIds.delete(id);
       }
+      const checkAll = document.getElementById('miner-check-all');
+      if (checkAll) {
+        let pagePrompts;
+        if (_minerPageSize > 0) {
+          const startIndex = (_minerCurrentPage - 1) * _minerPageSize;
+          const endIndex = Math.min(startIndex + _minerPageSize, _minerFilteredPrompts.length);
+          pagePrompts = _minerFilteredPrompts.slice(startIndex, endIndex);
+        } else {
+          pagePrompts = _minerFilteredPrompts;
+        }
+        checkAll.checked = pagePrompts.length > 0 && pagePrompts.every(p => _selectedPromptIds.has(p.ID || p.id));
+      }
       updateMinerSelectedButton();
     }
 
     function toggleSelectAllMinerPrompts(checked) {
-      _allMinerPrompts.forEach(p => {
+      let pagePrompts;
+      if (_minerPageSize > 0) {
+        const startIndex = (_minerCurrentPage - 1) * _minerPageSize;
+        const endIndex = Math.min(startIndex + _minerPageSize, _minerFilteredPrompts.length);
+        pagePrompts = _minerFilteredPrompts.slice(startIndex, endIndex);
+      } else {
+        pagePrompts = _minerFilteredPrompts;
+      }
+
+      pagePrompts.forEach(p => {
         const pid = p.ID || p.id;
         if (checked) {
           _selectedPromptIds.add(pid);
@@ -3761,19 +3892,19 @@
           _selectedPromptIds.delete(pid);
         }
       });
-      filterMinerPromptsTable();
+      renderMinerPromptsTable();
       updateMinerSelectedButton();
     }
 
     function selectMissingMinerPrompts() {
       _selectedPromptIds.clear();
-      _allMinerPrompts.forEach(p => {
+      _minerFilteredPrompts.forEach(p => {
         const isCached = p.IsCached || p.is_cached;
         if (!isCached) {
           _selectedPromptIds.add(p.ID || p.id);
         }
       });
-      filterMinerPromptsTable();
+      renderMinerPromptsTable();
       updateMinerSelectedButton();
     }
 
@@ -3781,7 +3912,7 @@
       _selectedPromptIds.clear();
       const checkAll = document.getElementById('miner-check-all');
       if (checkAll) checkAll.checked = false;
-      filterMinerPromptsTable();
+      renderMinerPromptsTable();
       updateMinerSelectedButton();
     }
 
