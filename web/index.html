@@ -3530,6 +3530,7 @@
     let _minerActiveStatus = 'idle';
     let _minerElapsedSeconds = 0;
     let _minerTimerInterval = null;
+    let _minerPollInterval = null;
     let _minerCurrentPage = 1;
     let _minerPageSize = 25;
     let _minerTotalPages = 1;
@@ -3675,12 +3676,25 @@
         _minerTimerInterval = null;
       }
 
-      // Sync recent logs if console is empty
+      // Auto-poll status as fallback if SSE is delayed or reconnecting
+      if (isRunning && !_minerPollInterval) {
+        _minerPollInterval = setInterval(loadMinerStatus, 2500);
+      } else if (!isRunning && _minerPollInterval) {
+        clearInterval(_minerPollInterval);
+        _minerPollInterval = null;
+      }
+
+      // Sync recent logs incrementally
       if (data.recent_logs && data.recent_logs.length > 0) {
         const consoleEl = document.getElementById('miner-console');
-        if (consoleEl && consoleEl.textContent.includes('Ready to synthesize')) {
-          consoleEl.textContent = data.recent_logs.join('\n');
-          consoleEl.scrollTop = consoleEl.scrollHeight;
+        if (consoleEl) {
+          const currentText = consoleEl.textContent;
+          for (const line of data.recent_logs) {
+            if (!currentText.includes(line)) {
+              consoleEl.textContent += `\n${line}`;
+              consoleEl.scrollTop = consoleEl.scrollHeight;
+            }
+          }
         }
       }
     }

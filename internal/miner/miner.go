@@ -979,6 +979,7 @@ func (mm *MiningManager) Start(cfg MinerConfig, category string, prompts []Promp
 				mm.mu.Lock()
 				mm.currentPrompt = &item
 				mm.mu.Unlock()
+				mm.addLog(fmt.Sprintf("MINING [%s]: %s", item.ID, item.UserPrompt))
 				mm.emitEvent("miner_progress", fmt.Sprintf("Mining prompt [%s]: %s", item.ID, item.UserPrompt))
 			},
 			func(item PromptItem, err error, newEntries int, tokens int) {
