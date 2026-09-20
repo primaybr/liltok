@@ -139,7 +139,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.1.7-beta",
+		"version":                   "0.1.8-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -1123,7 +1123,8 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"mistral/codestral-latest",
 				"mistral/ministral-8b-latest",
-				"cline/deepseek/deepseek-v4-flash-0731:free",
+				"cline/nvidia/nemotron-3.5-lightning:free",
+				"cline/google/gemma-4-31b-it:free",
 				"cline/qwen/qwen3.8-27b:free",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -1152,7 +1153,8 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"mistral/codestral-latest",
 				"mistral/ministral-8b-latest",
-				"cline/deepseek/deepseek-v4-flash-0731:free",
+				"cline/nvidia/nemotron-3.5-lightning:free",
+				"cline/google/gemma-4-31b-it:free",
 				"cline/qwen/qwen3.8-27b:free",
 				"nvidianim/meta/llama-3.2-11b-vision-instruct",
 				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",

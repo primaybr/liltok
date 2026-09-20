@@ -55,6 +55,7 @@ func TestCacheMiner_MockExecution(t *testing.T) {
 		t.Fatalf("failed to open memory db: %v", err)
 	}
 	defer database.Close()
+	_, _ = database.Exec("DELETE FROM cache_entries")
 
 	cfg := miner.MinerConfig{
 		Provider:     "groq",
@@ -125,6 +126,7 @@ func TestCacheMiner_MockExecution(t *testing.T) {
 		t.Fatalf("failed to open second memory db: %v", err)
 	}
 	defer cleanDB.Close()
+	_, _ = cleanDB.Exec("DELETE FROM cache_entries")
 
 	importedCount, err := miner.ImportCacheFromGz(cleanDB, bytes.NewReader(buf.Bytes()))
 	if err != nil {

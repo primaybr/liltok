@@ -5,6 +5,19 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8-beta] - 2026-09-21
+
+### Added
+- **Massive Embedded Starter Pack Expansion (12,613 Canonical Entries / 19.7 MB):**
+  - Merged 3,781 sanitized local database entries into the embedded starter pack (`internal/db/starter_cache.json.gz`), scaling pre-seeded entries to 12,613 total canonical responses (19,719.2 KB compressed gzip archive / ~19.26 MB).
+  - Bundles zero-cold-start 0ms responses across Claude 4/4.5 (Sonnet 4.5, Haiku 4.5), Claude 5 (Sonnet 5, Opus 5), GPT-4o, DeepSeek, and open-weights models out of the box.
+- **Cline & NVIDIA NIM Free-Tier Model Modernization:**
+  - Decommissioned failing `deepseek-v4` target on Cline; defaulted to `nvidia/nemotron-3.5-lightning:free` (1,000,000 token context window) and `google/gemma-4-31b-it:free`.
+  - Added automatic remapping for deprecated models (`deepseek-v4`, `deepseek-r1`, `meta-llama-3.3-70b-instruct`) in `internal/router/router.go`.
+  - Resolved NVIDIA NIM EOL 410 error on `meta/llama-3.3-70b-instruct` by switching default miner generator to `deepseek-ai/deepseek-v4-flash-0731` and remapping to `nvidia/nemotron-3.5-lightning-30b-a3b`.
+
+---
+
 ## [0.1.7-beta] - 2026-09-20
 
 ### Added

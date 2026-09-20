@@ -2,7 +2,7 @@ BINARY_NAME=liltok
 BUILD_DIR=bin
 CMD_DIR=./cmd/liltok
 
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.7-beta")
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "0.1.8-beta")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")
 

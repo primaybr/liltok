@@ -267,7 +267,7 @@ liltok maintainer keygen --out ~/.liltok/maintainer.key
 Liltok eliminates cold-start latency and enables zero-cost distributed caching without requiring hosted servers or cloud database subscriptions:
 
 ### Embedded Zero-Cold-Start Starter Pack
-Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On initial startup or when running `liltok cache seed`, Liltok automatically unpacks hundreds of pre-mined canonical responses for standard programming idioms, common syntax errors, and framework patterns. Developers experience instant 0ms responses from the very first query.
+Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On initial startup or when running `liltok cache seed`, Liltok automatically unpacks 12,613 pre-mined canonical responses (19.7 MB compressed archive) for standard programming idioms, common syntax errors, and framework patterns across Claude 4/4.5, Claude 5, GPT-4o, DeepSeek, and open-weights models. Developers experience instant 0ms responses from the very first query.
 
 ### Over-The-Air (OTA) Updates via GitHub Releases CDN
 Run `liltok cache update` to pull the latest community-verified cache pack:
@@ -298,7 +298,7 @@ Open `http://localhost:8080/dashboard` in any browser:
   - **`LOCAL EXACT`**: Instant 0ms cache hits served directly from Liltok's in-memory L1 LRU or local SQLite WAL. True $0.00 cost and zero network roundtrip.
   - **`MODEL KV-CACHE`**: Upstream provider prompt cache hits (e.g. Anthropic Prompt Caching or OpenAI Cached Tokens). Served by the upstream provider at discounted pricing, tracked distinctly in dashboard telemetry and savings calculations.
 - **Cache Explorer**: Browse cached prompts, view hit counts, inspect TTLs, and evict individual keys. Includes the one-click **"Merge & Pack to Starter"** pipeline.
-- **Cache Mining Studio**: Audit pre-warmed prompt coverage across 8 domains (880+ canonical prompts), trigger background synthesis with client-side pagination, and synthesize multi-model cache entries across Claude 4/4.5, Claude 5, OpenAI, and DeepSeek.
+- **Cache Mining Studio**: Audit pre-warmed prompt coverage across 8 domains (880+ canonical prompts), trigger background synthesis with client-side pagination, and synthesize multi-model cache entries across Claude 4/4.5, Claude 5, OpenAI, and DeepSeek, expanding the embedded 12,600+ starter pack.
 - **Key Manager**: UI to create virtual keys, set budgets, and monitor monthly spend.
 - **Breaker Health Grid**: Live status cards for upstream providers (`CLOSED`, `HALF-OPEN`, `OPEN`).
 - **Moderator Studio (Maintainer Only)**: Hidden by default; unlocks when `maintainer.enabled: true` is configured in `liltok.yaml`. Drag-and-drop encrypted `.enc` packs, review candidates, and merge approved queries into your local SQLite store.

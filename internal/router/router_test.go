@@ -886,11 +886,12 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"cline/deepseek-r1:free", "deepseek/deepseek-v4-flash-0731:free"},
-		{"deepseek-r1:free", "deepseek/deepseek-v4-flash-0731:free"},
+		{"cline/deepseek-r1:free", "nvidia/nemotron-3.5-lightning:free"},
+		{"deepseek-r1:free", "nvidia/nemotron-3.5-lightning:free"},
 		{"meta-llama/llama-3.3-70b-instruct:free", "nvidia/nemotron-3.5-lightning:free"},
 		{"qwen/qwen-2.5-72b-instruct:free", "qwen/qwen3.8-27b:free"},
-		{"deepseek/deepseek-v4-flash-0731:free", "deepseek/deepseek-v4-flash-0731:free"},
+		{"deepseek/deepseek-v4-flash-0731:free", "nvidia/nemotron-3.5-lightning:free"},
+		{"deepseek-v4:free", "nvidia/nemotron-3.5-lightning:free"},
 	}
 
 	for _, tc := range tests {
@@ -900,7 +901,7 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 		}
 	}
 
-	// 2. Test ResolveTargets with cline prefix
+	// 2. Test ResolveTargets with cline prefix and remapping
 	targets := r.ResolveTargets("cline/deepseek/deepseek-v4-flash-0731:free", "")
 	if len(targets) == 0 {
 		t.Fatalf("expected at least 1 target for cline/deepseek/deepseek-v4-flash-0731:free")
@@ -908,8 +909,8 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	if targets[0].ProviderName != "cline" {
 		t.Errorf("expected primary provider cline, got %s", targets[0].ProviderName)
 	}
-	if targets[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
-		t.Errorf("expected model deepseek/deepseek-v4-flash-0731:free, got %s", targets[0].UpstreamModel)
+	if targets[0].UpstreamModel != "nvidia/nemotron-3.5-lightning:free" {
+		t.Errorf("expected model nvidia/nemotron-3.5-lightning:free, got %s", targets[0].UpstreamModel)
 	}
 
 	aliasTargets := r.ResolveTargets("cline/deepseek-r1:free", "")
@@ -919,29 +920,35 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	if aliasTargets[0].ProviderName != "cline" {
 		t.Errorf("expected primary provider cline, got %s", aliasTargets[0].ProviderName)
 	}
-	if aliasTargets[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
-		t.Errorf("expected remapped model deepseek/deepseek-v4-flash-0731:free, got %s", aliasTargets[0].UpstreamModel)
+	if aliasTargets[0].UpstreamModel != "nvidia/nemotron-3.5-lightning:free" {
+		t.Errorf("expected remapped model nvidia/nemotron-3.5-lightning:free, got %s", aliasTargets[0].UpstreamModel)
 	}
 
 	// 3. Test IsActiveModel
-	if !r.IsActiveModel("cline", "deepseek/deepseek-v4-flash-0731:free") {
-		t.Errorf("expected deepseek/deepseek-v4-flash-0731:free to be active on cline")
+	if !r.IsActiveModel("cline", "nvidia/nemotron-3.5-lightning:free") {
+		t.Errorf("expected nvidia/nemotron-3.5-lightning:free to be active on cline")
+	}
+	if !r.IsActiveModel("cline", "google/gemma-4-31b-it:free") {
+		t.Errorf("expected google/gemma-4-31b-it:free to be active on cline")
 	}
 	if !r.IsActiveModel("cline", "qwen/qwen3.8-27b:free") {
 		t.Errorf("expected qwen/qwen3.8-27b:free to be active on cline")
+	}
+	if r.IsActiveModel("cline", "deepseek/deepseek-v4-flash-0731:free") {
+		t.Errorf("expected deepseek/deepseek-v4-flash-0731:free to be inactive on cline")
 	}
 
 	// 4. Test GetAllActiveModels contains Cline models
 	allModels := r.GetAllActiveModels(context.Background())
 	foundCline := false
 	for _, m := range allModels {
-		if m.Provider == "cline" && m.ID == "deepseek/deepseek-v4-flash-0731:free" {
+		if m.Provider == "cline" && m.ID == "nvidia/nemotron-3.5-lightning:free" {
 			foundCline = true
 			break
 		}
 	}
 	if !foundCline {
-		t.Errorf("expected cline/deepseek/deepseek-v4-flash-0731:free in GetAllActiveModels")
+		t.Errorf("expected cline/nvidia/nemotron-3.5-lightning:free in GetAllActiveModels")
 	}
 
 	// 5. Test DispatchChat auto-remaps alias model
@@ -950,7 +957,7 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 		fail: false,
 		response: &provider.UnifiedChatResponse{
 			ID:      "mock-cline-id",
-			Model:   "deepseek/deepseek-v4-flash-0731:free",
+			Model:   "nvidia/nemotron-3.5-lightning:free",
 			Content: "cline free response",
 		},
 	}
@@ -972,8 +979,8 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	if resp.Content != "cline free response" {
 		t.Errorf("expected content 'cline free response', got %s", resp.Content)
 	}
-	if mockCline.lastModel != "deepseek/deepseek-v4-flash-0731:free" {
-		t.Errorf("expected provider to receive remapped model deepseek/deepseek-v4-flash-0731:free, got %s", mockCline.lastModel)
+	if mockCline.lastModel != "nvidia/nemotron-3.5-lightning:free" {
+		t.Errorf("expected provider to receive remapped model nvidia/nemotron-3.5-lightning:free, got %s", mockCline.lastModel)
 	}
 }
 
@@ -997,7 +1004,7 @@ func TestRouterGetModelContextWindow(t *testing.T) {
 		{"kilo", "deepseek/deepseek-v4-flash-0731:free", 1048576},
 		{"mistral", "codestral-latest", 256000},
 		{"mistral", "ministral-8b-latest", 262144},
-		{"cline", "deepseek/deepseek-v4-flash-0731:free", 1048576},
+		{"cline", "nvidia/nemotron-3.5-lightning:free", 1000000},
 		{"groq", "openai/gpt-oss-120b", 131072},
 		{"groq", "qwen/qwen3.8-27b", 131042},
 		{"anthropic", "claude-sonnet-5", 200000},

@@ -177,7 +177,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 			cfg.BaseURL = "https://api.cline.bot/api/v1"
 		}
 		if cfg.Model == "" {
-			cfg.Model = "deepseek/deepseek-v4-flash-0731:free"
+			cfg.Model = "nvidia/nemotron-3.5-lightning:free"
 		} else if repl, ok := router.RemapClineModel(cfg.Model); ok {
 			cfg.Model = repl
 		}

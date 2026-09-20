@@ -347,10 +347,9 @@ func isDeprecatedMistral(model string) bool {
 
 // defaultClineActiveModels provides the verified baseline active free reasoning and chat models from api.cline.bot/api/v1/models
 var defaultClineActiveModels = []provider.ModelInfo{
-	{ID: "deepseek/deepseek-v4-flash-0731:free", Provider: "cline", Active: true, ContextWindow: 1048576, OwnedBy: "deepseek"},
+	{ID: "nvidia/nemotron-3.5-lightning:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
 	{ID: "google/gemma-4-31b-it:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "google"},
 	{ID: "qwen/qwen3.8-27b:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "qwen"},
-	{ID: "nvidia/nemotron-3.5-lightning:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
 	{ID: "nvidia/nemotron-3-super-120b-a12b:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "nvidia"},
 	{ID: "nvidia/nemotron-3-ultra-550b-a55b:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
 	{ID: "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", Provider: "cline", Active: true, ContextWindow: 256000, OwnedBy: "nvidia"},
@@ -368,16 +367,27 @@ var defaultClineActiveModels = []provider.ModelInfo{
 	{ID: "inclusionai/ling-3.0-flash-fin:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "inclusionai"},
 	{ID: "google/gemma-4-26b-a4b-it:free", Provider: "cline", Active: true, ContextWindow: 262144, OwnedBy: "google"},
 	{ID: "z-ai/glm-5.2:free", Provider: "cline", Active: true, ContextWindow: 32768, OwnedBy: "z-ai"},
+	{ID: "deepseek/deepseek-v4-flash-0731:free", Provider: "cline", Active: false, ContextWindow: 1048576, OwnedBy: "deepseek"},
 }
 
 // clineDeprecatedModelReplacements maps decommissioned or alias Cline models to active free replacements.
 var clineDeprecatedModelReplacements = map[string]string{
-	"deepseek/deepseek-r1:free":              "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-r1:free":                       "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-r1":                   "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-r1":                            "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-chat:free":            "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-chat:free":                     "deepseek/deepseek-v4-flash-0731:free",
+	"deepseek/deepseek-v4-flash-0731:free":   "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4-flash-0731:free":          "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4-flash-0731":       "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4-flash-0731":                "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4:free":             "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4:free":                      "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4":                  "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4":                           "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-r1:free":             "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-r1:free":                      "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-r1":                  "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-r1":                           "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-chat:free":           "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-chat:free":                    "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-chat":                "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-chat":                         "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.1-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.1-8b-instruct:free":  "qwen/qwen3.8-27b:free",
