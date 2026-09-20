@@ -729,19 +729,50 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Target Models to Synthesize Cache For</label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="form-label" style="margin-bottom: 0;">Target Models to Synthesize Cache For</label>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="setAllTargetModels(true)">All</button>
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="setDefaultTargetModels()">Recommended</button>
+                <button type="button" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="setAllTargetModels(false)">Clear</button>
+              </div>
+            </div>
             <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px;">
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" id="miner-target-claude-sonnet-5" value="claude-sonnet-5" checked /> claude-sonnet-5
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-5-sonnet-20241022" checked /> claude-3-5-sonnet
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" id="miner-target-claude-opus-5" value="claude-opus-5" checked /> claude-opus-5
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-5-haiku-20241022" checked /> claude-3-5-haiku
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" id="miner-target-gpt-4o" value="gpt-4o" checked /> gpt-4o
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-7-sonnet-20250219" checked /> claude-3-7-sonnet
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" id="miner-target-claude-35-sonnet" value="claude-3-5-sonnet-20241022" checked /> claude-3-5-sonnet-20241022
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-3-opus-20240229" /> claude-3-opus
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-5" checked /> claude-sonnet-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-5" checked /> claude-opus-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-5" checked /> claude-haiku-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="gpt-4o" checked /> gpt-4o
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="gpt-4o-mini" checked /> gpt-4o-mini
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="o3-mini" /> o3-mini
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="deepseek-chat" checked /> deepseek-chat
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="deepseek-reasoner" /> deepseek-reasoner
               </label>
             </div>
           </div>
@@ -3962,20 +3993,42 @@
       loadMinerPrompts(cat);
     }
 
+    function setAllTargetModels(checked) {
+      document.querySelectorAll('.miner-target-model-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+    }
+
+    function setDefaultTargetModels() {
+      const rec = new Set([
+        'claude-3-5-sonnet-20241022',
+        'claude-3-5-haiku-20241022',
+        'claude-3-7-sonnet-20250219',
+        'gpt-4o',
+        'gpt-4o-mini',
+        'deepseek-chat',
+        'claude-sonnet-5',
+        'claude-opus-5'
+      ]);
+      document.querySelectorAll('.miner-target-model-checkbox').forEach(cb => {
+        cb.checked = rec.has(cb.value);
+      });
+    }
+
     function getTargetModelsSelection() {
-      const targets = [];
-      const sonnet5 = document.getElementById('miner-target-claude-sonnet-5');
-      const opus5 = document.getElementById('miner-target-claude-opus-5');
-      const gpt4o = document.getElementById('miner-target-gpt-4o');
-      const sonnet35 = document.getElementById('miner-target-claude-35-sonnet');
-
-      if (sonnet5 && sonnet5.checked) targets.push(sonnet5.value);
-      if (opus5 && opus5.checked) targets.push(opus5.value);
-      if (gpt4o && gpt4o.checked) targets.push(gpt4o.value);
-      if (sonnet35 && sonnet35.checked) targets.push(sonnet35.value);
-
+      const checkboxes = document.querySelectorAll('.miner-target-model-checkbox:checked');
+      const targets = Array.from(checkboxes).map(cb => cb.value);
       if (targets.length === 0) {
-        targets.push('claude-sonnet-5', 'claude-opus-5', 'gpt-4o', 'claude-3-5-sonnet-20241022');
+        return [
+          'claude-3-5-sonnet-20241022',
+          'claude-3-5-haiku-20241022',
+          'claude-3-7-sonnet-20250219',
+          'gpt-4o',
+          'gpt-4o-mini',
+          'deepseek-chat',
+          'claude-sonnet-5',
+          'claude-opus-5'
+        ];
       }
       return targets;
     }

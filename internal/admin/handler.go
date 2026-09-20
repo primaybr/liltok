@@ -1863,7 +1863,16 @@ func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) 
 		req.RateLimitRPM = 30
 	}
 	if len(req.TargetModels) == 0 {
-		req.TargetModels = []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
+		req.TargetModels = []string{
+			"claude-3-5-sonnet-20241022",
+			"claude-3-5-haiku-20241022",
+			"claude-3-7-sonnet-20250219",
+			"gpt-4o",
+			"gpt-4o-mini",
+			"deepseek-chat",
+			"claude-sonnet-5",
+			"claude-opus-5",
+		}
 	}
 
 	// Filter prompts

@@ -128,7 +128,16 @@ compiler/runtime errors, algorithms, and workspace-specific libraries at $0.00 c
 				}
 			}
 			if len(targetModels) == 0 {
-				targetModels = []string{"claude-opus-5", "claude-sonnet-5", "gpt-4o", "claude-3-5-sonnet-20241022"}
+				targetModels = []string{
+					"claude-3-5-sonnet-20241022",
+					"claude-3-5-haiku-20241022",
+					"claude-3-7-sonnet-20250219",
+					"gpt-4o",
+					"gpt-4o-mini",
+					"deepseek-chat",
+					"claude-sonnet-5",
+					"claude-opus-5",
+				}
 			}
 
 			minerCfg := miner.MinerConfig{
