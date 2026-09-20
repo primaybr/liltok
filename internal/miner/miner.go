@@ -19,6 +19,7 @@ import (
 	"github.com/primaybr/liltok/internal/cache"
 	"github.com/primaybr/liltok/internal/cache/semantic"
 	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/router"
 	"github.com/primaybr/liltok/internal/telemetry"
 )
 
@@ -137,7 +138,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 	}
 
-	// Resolve provider defaults
+	// Resolve provider defaults and apply remapping for deprecated models
 	switch strings.ToLower(cfg.Provider) {
 	case "openrouter":
 		if cfg.BaseURL == "" {
@@ -145,13 +146,17 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "openrouter/free"
+		} else if repl, ok := router.RemapOpenRouterModel(cfg.Model); ok {
+			cfg.Model = repl
 		}
 	case "nvidianim":
 		if cfg.BaseURL == "" {
 			cfg.BaseURL = "https://integrate.api.nvidia.com/v1"
 		}
 		if cfg.Model == "" {
-			cfg.Model = "meta/llama-3.3-70b-instruct"
+			cfg.Model = "deepseek-ai/deepseek-v4-flash-0731"
+		} else if repl, ok := router.RemapNVIDIANIMModel(cfg.Model); ok {
+			cfg.Model = repl
 		}
 	case "kilo":
 		if cfg.BaseURL == "" {
@@ -173,6 +178,8 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "deepseek/deepseek-v4-flash-0731:free"
+		} else if repl, ok := router.RemapClineModel(cfg.Model); ok {
+			cfg.Model = repl
 		}
 	case "ollama":
 		if cfg.BaseURL == "" {
@@ -188,6 +195,8 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "qwen/qwen3.8-27b"
+		} else if repl, ok := router.RemapGroqModel(cfg.Model); ok {
+			cfg.Model = repl
 		}
 	}
 

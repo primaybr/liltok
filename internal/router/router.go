@@ -113,6 +113,8 @@ var defaultNVIDIANIMActiveModels = []provider.ModelInfo{
 
 // nvidianimDeprecatedModelReplacements maps decommissioned or alias NVIDIA NIM models to active reasoning/chat replacements.
 var nvidianimDeprecatedModelReplacements = map[string]string{
+	"meta/llama-3.3-70b-instruct":             "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"llama-3.3-70b-instruct":                  "nvidia/nemotron-3.5-lightning-30b-a3b",
 	"meta/llama-3.1-70b-instruct":             "nvidia/nemotron-3.5-lightning-30b-a3b",
 	"llama-3.1-70b-instruct":                  "nvidia/nemotron-3.5-lightning-30b-a3b",
 	"meta/llama-3.1-8b-instruct":              "meta/llama-3.2-11b-vision-instruct",

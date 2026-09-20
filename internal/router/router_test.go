@@ -483,6 +483,14 @@ func TestRouterNVIDIANIMActiveModelResolutionAndRemapping(t *testing.T) {
 	r := NewRouter(cfg)
 
 	// 1. Test deprecated model remapping in ResolveTargets
+	targetsLlama33 := r.ResolveTargets("meta/llama-3.3-70b-instruct", "")
+	if len(targetsLlama33) == 0 {
+		t.Fatalf("expected targets for deprecated meta/llama-3.3-70b-instruct")
+	}
+	if targetsLlama33[0].ProviderName != "nvidianim" || targetsLlama33[0].UpstreamModel != "nvidia/nemotron-3.5-lightning-30b-a3b" {
+		t.Errorf("expected meta/llama-3.3-70b-instruct to remap to nvidia/nemotron-3.5-lightning-30b-a3b, got %v", targetsLlama33[0])
+	}
+
 	targets70b := r.ResolveTargets("meta/llama-3.1-70b-instruct", "")
 	if len(targets70b) == 0 {
 		t.Fatalf("expected targets for deprecated meta/llama-3.1-70b-instruct")
@@ -517,6 +525,9 @@ func TestRouterNVIDIANIMActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 	if r.IsActiveModel("nvidianim", "meta/llama-3.1-70b-instruct") {
 		t.Errorf("expected decommissioned meta/llama-3.1-70b-instruct to NOT be active on nvidianim")
+	}
+	if r.IsActiveModel("nvidianim", "meta/llama-3.3-70b-instruct") {
+		t.Errorf("expected decommissioned meta/llama-3.3-70b-instruct to NOT be active on nvidianim")
 	}
 
 	// 4. Test GetAllActiveModels contains both Groq and NVIDIA NIM models
