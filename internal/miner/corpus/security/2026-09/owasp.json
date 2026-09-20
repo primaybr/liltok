@@ -1,0 +1,30 @@
+[
+  {
+    "id": "code-sec-jwt-refresh-rotation",
+    "category": "security",
+    "system_prompt": "You are an application security and authentication architect.",
+    "user_prompt": "Explain JWT authentication architecture with short-lived access tokens, sliding refresh token rotation, and family-based revocation on reuse.",
+    "tags": ["security", "auth", "jwt", "refresh-tokens"]
+  },
+  {
+    "id": "code-sec-sql-injection",
+    "category": "security",
+    "system_prompt": "You are an application security specialist.",
+    "user_prompt": "How does SQL injection occur, why is input escaping insufficient compared to parameterized prepared statements, and how do ORMs mitigate it?",
+    "tags": ["security", "sql-injection", "owasp"]
+  },
+  {
+    "id": "code-sec-password-hashing",
+    "category": "security",
+    "system_prompt": "You are a cryptography and security engineer.",
+    "user_prompt": "What are the modern recommendations for secure password hashing (Argon2id vs bcrypt vs PBKDF2), and how should memory/time cost parameters be tuned?",
+    "tags": ["security", "cryptography", "passwords", "argon2id"]
+  },
+  {
+    "id": "code-sec-cors-csrf",
+    "category": "security",
+    "system_prompt": "You are a web application security engineer.",
+    "user_prompt": "What are the fundamental differences between CORS and CSRF vulnerabilities, and how do SameSite cookies and custom request headers mitigate CSRF?",
+    "tags": ["security", "csrf", "cors", "web-security"]
+  }
+]

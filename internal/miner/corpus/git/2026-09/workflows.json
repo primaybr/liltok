@@ -1,0 +1,51 @@
+[
+  {
+    "id": "git-undo-last-commit",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "How do I undo the most recent Git commit, both keeping and discarding local changes (soft vs hard reset)?",
+    "tags": ["git", "reset", "commit"]
+  },
+  {
+    "id": "git-resolve-merge-conflicts",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "What is the step-by-step workflow for resolving Git merge conflicts during a rebase?",
+    "tags": ["git", "rebase", "conflicts"]
+  },
+  {
+    "id": "git-discard-untracked-changes",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "How do I discard all untracked files and unstaged changes in Git cleanly (git clean, git restore)?",
+    "tags": ["git", "clean", "restore"]
+  },
+  {
+    "id": "git-squash-commits",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "How do I squash multiple commits into a single commit using interactive rebase before creating a PR?",
+    "tags": ["git", "rebase", "squash"]
+  },
+  {
+    "id": "git-interactive-rebase-squash",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "Provide a complete interactive rebase workflow for squashing multiple feature commits into a single clean commit with git rebase -i.",
+    "tags": ["git", "rebase", "squash", "workflow"]
+  },
+  {
+    "id": "git-resolve-merge-conflict",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "Provide a step-by-step guide to identifying and resolving Git merge conflicts during a merge or rebase.",
+    "tags": ["git", "merge", "conflicts", "diff"]
+  },
+  {
+    "id": "git-stash-workflow",
+    "category": "git",
+    "system_prompt": "You are a Git version control expert. Provide clean, safe terminal commands.",
+    "user_prompt": "Explain advanced Git stash workflows: saving with messages, stashing untracked files (-u), listing, inspecting, popping, and stashing to a new branch.",
+    "tags": ["git", "stash", "workflow"]
+  }
+]

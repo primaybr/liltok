@@ -9,14 +9,15 @@ import (
 )
 
 func TestGetCuratedPrompts(t *testing.T) {
+	miner.ResetCuratedCache()
 	all := miner.GetCuratedPrompts("all")
-	if len(all) < 15 {
-		t.Fatalf("expected at least 15 curated prompts, got %d", len(all))
+	if len(all) != 64 {
+		t.Fatalf("expected exactly 64 curated prompts, got %d", len(all))
 	}
 
 	errorsOnly := miner.GetCuratedPrompts("errors")
-	if len(errorsOnly) == 0 {
-		t.Errorf("expected non-empty errors category")
+	if len(errorsOnly) != 24 {
+		t.Errorf("expected 24 error prompts, got %d", len(errorsOnly))
 	}
 	for _, p := range errorsOnly {
 		if p.Category != "errors" {
@@ -25,23 +26,23 @@ func TestGetCuratedPrompts(t *testing.T) {
 	}
 
 	codingOnly := miner.GetCuratedPrompts("coding")
-	if len(codingOnly) == 0 {
-		t.Errorf("expected non-empty coding category")
+	if len(codingOnly) != 23 {
+		t.Errorf("expected 23 coding prompts, got %d", len(codingOnly))
 	}
 
 	devopsOnly := miner.GetCuratedPrompts("devops")
-	if len(devopsOnly) == 0 {
-		t.Errorf("expected non-empty devops category")
+	if len(devopsOnly) != 6 {
+		t.Errorf("expected 6 devops prompts, got %d", len(devopsOnly))
 	}
 
 	gitOnly := miner.GetCuratedPrompts("git")
-	if len(gitOnly) == 0 {
-		t.Errorf("expected non-empty git category")
+	if len(gitOnly) != 7 {
+		t.Errorf("expected 7 git prompts, got %d", len(gitOnly))
 	}
 
 	securityOnly := miner.GetCuratedPrompts("security")
-	if len(securityOnly) == 0 {
-		t.Errorf("expected non-empty security category")
+	if len(securityOnly) != 4 {
+		t.Errorf("expected 4 security prompts, got %d", len(securityOnly))
 	}
 	for _, p := range securityOnly {
 		if p.Category != "security" {
@@ -57,6 +58,23 @@ func TestGetCuratedPrompts(t *testing.T) {
 		if p.Category != "errors" {
 			t.Errorf("expected category errors for PHP diagnostics, got %s", p.Category)
 		}
+	}
+}
+
+func TestGetCuratedPromptsByLanguage(t *testing.T) {
+	goPrompts := miner.GetCuratedPromptsByLanguage("go")
+	if len(goPrompts) == 0 {
+		t.Errorf("expected Go prompts, got 0")
+	}
+
+	phpPrompts := miner.GetCuratedPromptsByLanguage("php")
+	if len(phpPrompts) != 12 {
+		t.Errorf("expected 12 PHP prompts, got %d", len(phpPrompts))
+	}
+
+	jsPrompts := miner.GetCuratedPromptsByLanguage("javascript")
+	if len(jsPrompts) == 0 {
+		t.Errorf("expected JavaScript prompts, got 0")
 	}
 }
 

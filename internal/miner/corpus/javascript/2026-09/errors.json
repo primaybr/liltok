@@ -1,0 +1,23 @@
+[
+  {
+    "id": "err-js-cannot-read-properties-of-undefined",
+    "category": "errors",
+    "system_prompt": "You are a senior full-stack JavaScript/TypeScript engineer. Give clear explanations and modern code snippets.",
+    "user_prompt": "How do I fix 'TypeError: Cannot read properties of undefined (reading 'map')' in JavaScript / React?",
+    "tags": ["javascript", "react", "type-error"]
+  },
+  {
+    "id": "err-js-cors-missing-allow-origin",
+    "category": "errors",
+    "system_prompt": "You are a web security and API expert. Explain HTTP headers clearly.",
+    "user_prompt": "Explain the CORS error: 'Access to fetch at from origin has been blocked by CORS policy: No Access-Control-Allow-Origin header is present on the requested resource.' How do I solve it?",
+    "tags": ["web", "http", "cors", "security"]
+  },
+  {
+    "id": "err-ts-type-not-assignable",
+    "category": "errors",
+    "system_prompt": "You are a TypeScript expert. Explain type narrowing and interfaces.",
+    "user_prompt": "How do I resolve TypeScript error 'Type X is not assignable to type Y' when handling API responses?",
+    "tags": ["typescript", "typing", "generics"]
+  }
+]

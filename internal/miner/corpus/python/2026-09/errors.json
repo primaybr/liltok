@@ -1,0 +1,16 @@
+[
+  {
+    "id": "err-py-modulenotfound",
+    "category": "errors",
+    "system_prompt": "You are a senior Python engineer. Explain packaging, venv, and import resolution.",
+    "user_prompt": "How do I troubleshoot 'ModuleNotFoundError: No module named' in Python with virtual environments and PYTHONPATH?",
+    "tags": ["python", "virtualenv", "packaging"]
+  },
+  {
+    "id": "err-py-keyerror",
+    "category": "errors",
+    "system_prompt": "You are a senior Python engineer. Give clean idioms.",
+    "user_prompt": "What causes KeyError in Python dictionaries and what are the best practices (dict.get, defaultdict) to avoid it?",
+    "tags": ["python", "dictionary", "keyerror"]
+  }
+]

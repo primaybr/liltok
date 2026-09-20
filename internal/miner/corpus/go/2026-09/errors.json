@@ -1,0 +1,23 @@
+[
+  {
+    "id": "err-go-nil-pointer",
+    "category": "errors",
+    "system_prompt": "You are an expert systems programmer. Provide concise, direct diagnostic steps and code fixes for the given error.",
+    "user_prompt": "How do I debug and fix 'panic: runtime error: invalid memory address or nil pointer dereference' in Go?",
+    "tags": ["go", "runtime-error", "nil-pointer"]
+  },
+  {
+    "id": "err-go-concurrent-map-writes",
+    "category": "errors",
+    "system_prompt": "You are an expert systems programmer. Provide concise, direct diagnostic steps and code fixes for the given error.",
+    "user_prompt": "Explain 'fatal error: concurrent map writes' in Go and show how to fix it with sync.RWMutex or sync.Map.",
+    "tags": ["go", "concurrency", "mutex"]
+  },
+  {
+    "id": "err-go-slice-bounds-out-of-range",
+    "category": "errors",
+    "system_prompt": "You are an expert systems programmer. Provide concise, direct diagnostic steps and code fixes for the given error.",
+    "user_prompt": "What causes 'panic: runtime error: index out of range' or 'slice bounds out of range' in Go, and how can it be prevented defensively?",
+    "tags": ["go", "slices", "bounds-check"]
+  }
+]

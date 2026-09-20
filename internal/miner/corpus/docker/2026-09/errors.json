@@ -1,0 +1,16 @@
+[
+  {
+    "id": "err-docker-oom-137",
+    "category": "errors",
+    "system_prompt": "You are a DevOps and container specialist.",
+    "user_prompt": "Why does my Docker container exit with code 137 (OOMKilled) and how do I inspect and increase memory limits?",
+    "tags": ["docker", "containers", "oom", "linux"]
+  },
+  {
+    "id": "err-docker-port-already-allocated",
+    "category": "errors",
+    "system_prompt": "You are a DevOps and container specialist.",
+    "user_prompt": "How do I fix 'Bind for 0.0.0.0:8080 failed: port is already allocated' in Docker?",
+    "tags": ["docker", "networking", "ports"]
+  }
+]

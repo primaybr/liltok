@@ -1,0 +1,16 @@
+[
+  {
+    "id": "err-flutter-renderflex-overflowed",
+    "category": "errors",
+    "system_prompt": "You are a Flutter and mobile architecture specialist.",
+    "user_prompt": "How do I fix 'A RenderFlex overflowed by X pixels on the bottom/right' in Flutter?",
+    "tags": ["flutter", "dart", "layout", "renderflex"]
+  },
+  {
+    "id": "err-flutter-setstate-during-build",
+    "category": "errors",
+    "system_prompt": "You are a Flutter and mobile architecture specialist.",
+    "user_prompt": "How do I fix 'setState() or markNeedsBuild() called during build' in Flutter?",
+    "tags": ["flutter", "dart", "state-management"]
+  }
+]

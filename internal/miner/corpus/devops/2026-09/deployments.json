@@ -1,0 +1,44 @@
+[
+  {
+    "id": "devops-docker-multistage-go",
+    "category": "devops",
+    "system_prompt": "You are a DevOps and containerization specialist focusing on minimal image sizes and secure builds.",
+    "user_prompt": "Provide an optimized multi-stage Dockerfile for a Go application using Alpine or Scratch with non-root user.",
+    "tags": ["docker", "go", "multistage"]
+  },
+  {
+    "id": "devops-docker-multistage-node",
+    "category": "devops",
+    "system_prompt": "You are a DevOps and containerization specialist focusing on minimal image sizes and secure builds.",
+    "user_prompt": "Provide a secure multi-stage Dockerfile for a Node.js / Next.js production build with standalone output.",
+    "tags": ["docker", "nodejs", "nextjs"]
+  },
+  {
+    "id": "devops-nginx-reverse-proxy",
+    "category": "devops",
+    "system_prompt": "You are a network systems and web infrastructure engineer.",
+    "user_prompt": "Provide a production-ready Nginx reverse proxy configuration with WebSocket support, gzip compression, and SSL termination.",
+    "tags": ["nginx", "reverse-proxy", "ssl"]
+  },
+  {
+    "id": "devops-gh-actions-ci",
+    "category": "devops",
+    "system_prompt": "You are a CI/CD specialist.",
+    "user_prompt": "Write a complete GitHub Actions workflow for linting, testing with coverage, and compiling cross-platform binaries.",
+    "tags": ["github-actions", "cicd"]
+  },
+  {
+    "id": "devops-docker-scratch-go",
+    "category": "devops",
+    "system_prompt": "You are a DevOps and containerization specialist focusing on minimal image sizes and secure builds.",
+    "user_prompt": "Provide an optimized multi-stage Dockerfile compiling Go into a minimal scratch image with CA certificates and non-root user.",
+    "tags": ["docker", "go", "scratch", "security"]
+  },
+  {
+    "id": "devops-k8s-probes",
+    "category": "devops",
+    "system_prompt": "You are a Kubernetes and cloud infrastructure architect.",
+    "user_prompt": "Explain how to configure Kubernetes liveness, readiness, and startup probes with HTTP handlers, initialDelaySeconds, and periodSeconds.",
+    "tags": ["kubernetes", "probes", "devops", "cloud"]
+  }
+]

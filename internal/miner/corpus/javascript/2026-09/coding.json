@@ -1,0 +1,30 @@
+[
+  {
+    "id": "code-debounce-throttle",
+    "category": "coding",
+    "system_prompt": "You are a senior frontend engineer.",
+    "user_prompt": "What is the difference between debounce and throttle in JavaScript/TypeScript? Provide clean implementations of both.",
+    "tags": ["javascript", "typescript", "debounce", "throttle"]
+  },
+  {
+    "id": "code-ts-discriminated-unions",
+    "category": "coding",
+    "system_prompt": "You are a TypeScript architect.",
+    "user_prompt": "Explain TypeScript discriminated unions and how to implement exhaustive pattern matching using the 'never' type in switch statements.",
+    "tags": ["typescript", "types", "discriminated-unions"]
+  },
+  {
+    "id": "code-react-useeffect-cleanup",
+    "category": "coding",
+    "system_prompt": "You are a senior React and frontend performance expert.",
+    "user_prompt": "How do I properly cancel async operations and prevent race conditions or memory leaks in React useEffect using AbortController and cleanup functions?",
+    "tags": ["react", "hooks", "useeffect", "abortcontroller"]
+  },
+  {
+    "id": "code-nextjs-rsc-vs-client",
+    "category": "coding",
+    "system_prompt": "You are a Next.js and full-stack web architect.",
+    "user_prompt": "Explain the boundary and serialization rules between React Server Components (RSC) and Client Components ('use client') in Next.js App Router.",
+    "tags": ["react", "nextjs", "rsc", "server-components"]
+  }
+]

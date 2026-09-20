@@ -1,0 +1,58 @@
+[
+  {
+    "id": "code-binary-search",
+    "category": "coding",
+    "system_prompt": "You are a software engineer specializing in clean, robust algorithms with time and space complexity analysis.",
+    "user_prompt": "Write an idiomatic binary search implementation with boundary checks and discuss time/space complexity.",
+    "tags": ["algorithms", "binary-search"]
+  },
+  {
+    "id": "code-lru-cache",
+    "category": "coding",
+    "system_prompt": "You are a software engineer specializing in clean, robust algorithms with time and space complexity analysis.",
+    "user_prompt": "Design and implement an in-memory LRU (Least Recently Used) cache with O(1) Get and Put operations using a doubly linked list and hash map.",
+    "tags": ["data-structures", "lru", "cache"]
+  },
+  {
+    "id": "code-rate-limiter-token-bucket",
+    "category": "coding",
+    "system_prompt": "You are a distributed systems architect.",
+    "user_prompt": "Explain the Token Bucket rate limiting algorithm and provide an idiomatic thread-safe implementation.",
+    "tags": ["algorithms", "rate-limiting", "token-bucket"]
+  },
+  {
+    "id": "code-regex-email-uuid",
+    "category": "coding",
+    "system_prompt": "You are a senior software engineer.",
+    "user_prompt": "Provide production-ready regular expressions for validating standard email addresses and RFC 4122 UUID v4 strings.",
+    "tags": ["regex", "validation"]
+  },
+  {
+    "id": "code-arch-circuit-breaker",
+    "category": "coding",
+    "system_prompt": "You are a distributed systems architect.",
+    "user_prompt": "Explain the Circuit Breaker pattern with its three states (Closed, Open, Half-Open), failure thresholds, and recovery timeouts.",
+    "tags": ["distributed-systems", "circuit-breaker", "resilience"]
+  },
+  {
+    "id": "code-arch-exponential-backoff",
+    "category": "coding",
+    "system_prompt": "You are a distributed systems and networking engineer.",
+    "user_prompt": "Explain exponential backoff with Full Jitter and show why jitter prevents the thundering herd problem in distributed API retries.",
+    "tags": ["distributed-systems", "retry", "jitter", "backoff"]
+  },
+  {
+    "id": "code-arch-idempotency-keys",
+    "category": "coding",
+    "system_prompt": "You are a backend architect specializing in payment and financial API reliability.",
+    "user_prompt": "How should an API implement Idempotency-Key header processing, request payload fingerprinting, and atomic lock/replay states with TTL?",
+    "tags": ["api", "idempotency", "architecture"]
+  },
+  {
+    "id": "code-arch-rate-limiter-comparison",
+    "category": "coding",
+    "system_prompt": "You are a high-concurrency systems architect.",
+    "user_prompt": "Compare Token Bucket, Leaky Bucket, and Sliding Window Counter rate limiting algorithms with their memory, precision, and burst handling trade-offs.",
+    "tags": ["rate-limiting", "architecture", "algorithms"]
+  }
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "code-go-worker-pool",
+    "category": "coding",
+    "system_prompt": "You are a Go concurrency expert.",
+    "user_prompt": "How do I write an idiomatic Go worker pool pattern with channels, sync.WaitGroup, and context cancellation?",
+    "tags": ["go", "concurrency", "worker-pool"]
+  },
+  {
+    "id": "code-go-errgroup-context",
+    "category": "coding",
+    "system_prompt": "You are a Go concurrency and systems programming expert.",
+    "user_prompt": "How do I use golang.org/x/sync/errgroup with context cancellation to manage concurrent worker tasks and short-circuit on first error?",
+    "tags": ["go", "concurrency", "errgroup", "context"]
+  },
+  {
+    "id": "code-go-graceful-shutdown",
+    "category": "coding",
+    "system_prompt": "You are a Go systems engineer.",
+    "user_prompt": "How do I implement graceful HTTP server shutdown in Go using signal.Notify for SIGINT/SIGTERM and context with timeout?",
+    "tags": ["go", "http", "graceful-shutdown", "concurrency"]
+  },
+  {
+    "id": "code-go-strings-builder",
+    "category": "coding",
+    "system_prompt": "You are a Go performance optimization engineer.",
+    "user_prompt": "How do I use strings.Builder with Grow() for zero-allocation string concatenation in Go, and why is it faster than bytes.Buffer or string concatenation (+)?",
+    "tags": ["go", "performance", "memory-allocation"]
+  },
+  {
+    "id": "code-go-fan-out-fan-in",
+    "category": "coding",
+    "system_prompt": "You are a Go concurrency expert.",
+    "user_prompt": "Explain and implement the Fan-Out / Fan-In concurrency pattern in Go using channels, goroutines, and sync.WaitGroup.",
+    "tags": ["go", "concurrency", "fan-out-fan-in", "channels"]
+  }
+]

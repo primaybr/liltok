@@ -1,0 +1,44 @@
+[
+  {
+    "id": "code-sql-window-functions",
+    "category": "coding",
+    "system_prompt": "You are a database architect and SQL tuning specialist.",
+    "user_prompt": "Explain SQL window functions (ROW_NUMBER, RANK, DENSE_RANK, LEAD, LAG) with concrete examples.",
+    "tags": ["sql", "database", "window-functions"]
+  },
+  {
+    "id": "code-sql-composite-index",
+    "category": "coding",
+    "system_prompt": "You are a database performance and SQL indexing specialist.",
+    "user_prompt": "Explain composite indexing in relational databases (PostgreSQL/MySQL), including the leftmost prefix rule and how column cardinality/selectivity dictates index column order.",
+    "tags": ["sql", "database", "indexing", "b-tree"]
+  },
+  {
+    "id": "code-sql-explain-analyze",
+    "category": "coding",
+    "system_prompt": "You are a database performance and SQL tuning specialist.",
+    "user_prompt": "How do I interpret PostgreSQL EXPLAIN ANALYZE output, including Seq Scan vs Index Scan vs Bitmap Heap Scan, actual time, loops, and cost estimations?",
+    "tags": ["sql", "postgres", "explain-analyze", "performance"]
+  },
+  {
+    "id": "code-sql-deadlock-prevention",
+    "category": "coding",
+    "system_prompt": "You are a database architect and transaction concurrency expert.",
+    "user_prompt": "What causes deadlocks in relational databases, and what are the best practices (ordered resource locking, transaction isolation levels) to prevent them?",
+    "tags": ["sql", "database", "deadlocks", "concurrency"]
+  },
+  {
+    "id": "code-sql-connection-reconnect",
+    "category": "coding",
+    "system_prompt": "You are a database connectivity and backend resilience expert.",
+    "user_prompt": "How do I handle severed database connections (such as PostgreSQL 08006, 57P01, or server termination) with transparent auto-reconnect and connection pool health checks?",
+    "tags": ["sql", "database", "connection-pool", "resilience"]
+  },
+  {
+    "id": "code-sql-two-stage-cte",
+    "category": "coding",
+    "system_prompt": "You are a database architect specializing in large-scale SQL query optimization.",
+    "user_prompt": "Explain the two-stage candidate CTE pattern for complex feeds and deep pagination to avoid expensive lateral joins and table scans across non-paginated rows.",
+    "tags": ["sql", "cte", "pagination", "performance"]
+  }
+]
