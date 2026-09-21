@@ -130,3 +130,33 @@ func TestReplayAnthropicSSE_ToolUse(t *testing.T) {
 	}
 }
 
+func TestReplayAnthropicSSE_Thinking(t *testing.T) {
+	rec := &mockFlusherRecorder{ResponseRecorder: httptest.NewRecorder()}
+	payload := []byte(`{"id":"msg-think-1","stop_reason":"end_turn","content":[{"type":"thinking","thinking":"Analyzing script requirements..."},{"type":"text","text":"Ready to proceed."}]}`)
+	entry := &CacheEntry{
+		Hash:             "test-hash-think",
+		Model:            "claude-sonnet-5",
+		ResponsePayload:  payload,
+		CompletionTokens: 35,
+	}
+
+	err := ReplayCacheHit(rec, entry, true, true, 1400)
+	if err != nil {
+		t.Fatalf("replay failed: %v", err)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "event: content_block_start") || !strings.Contains(body, "thinking") {
+		t.Errorf("expected thinking content_block_start in body: %s", body)
+	}
+	if !strings.Contains(body, "thinking_delta") || !strings.Contains(body, "Analyzing script requirements...") {
+		t.Errorf("expected thinking_delta in body: %s", body)
+	}
+	if !strings.Contains(body, "text_delta") || !strings.Contains(body, "Ready to proceed.") {
+		t.Errorf("expected text_delta in body: %s", body)
+	}
+	if !strings.Contains(body, "event: message_stop") {
+		t.Errorf("expected message_stop event: %s", body)
+	}
+}
+

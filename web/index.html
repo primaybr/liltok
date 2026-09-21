@@ -23,10 +23,50 @@
     .logo-badge { background: #047857; color: #a7f3d0; font-size: 11px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
     .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
     .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
-    .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-    .tab-btn { background: none; border: none; color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
-    .tab-btn.active { background: var(--card); color: var(--text); }
-    .tab-btn:hover:not(.active) { color: var(--text); }
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-bottom: 20px;
+      padding: 3px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: nowrap;
+      flex-wrap: nowrap;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 5px 11px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .tab-btn svg { width: 14px; height: 14px; stroke: currentColor; opacity: 0.75; flex-shrink: 0; }
+    .tab-btn.active {
+      background: var(--card);
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      font-weight: 600;
+    }
+    .tab-btn.active svg { opacity: 1; stroke: var(--accent); }
+    .tab-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
     .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
     .card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 8px; }
@@ -99,7 +139,7 @@
       <div class="logo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
         <span>liltok</span>
-        <span class="logo-badge">v0.1.8-beta</span>
+        <span class="logo-badge">v0.1.9-beta</span>
         <span style="font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); letter-spacing: 0;">Little Token, Big Savings.</span>
       </div>
       <div class="header-right">
@@ -123,16 +163,47 @@
     </header>
 
     <div class="nav-tabs">
-      <button id="tab-btn-overview" class="tab-btn active" onclick="switchTab('overview')">Overview &amp; Live Feed</button>
-      <button id="tab-btn-analytics" class="tab-btn" onclick="switchTab('analytics')">Deep Analytics</button>
-      <button id="tab-btn-logs" class="tab-btn" onclick="switchTab('logs')">Historical Logs</button>
-      <button id="tab-btn-cache" class="tab-btn" onclick="switchTab('cache')">Cache Explorer</button>
-      <button id="tab-btn-miner" class="tab-btn" onclick="switchTab('miner')">Cache Mining Studio</button>
-      <button id="tab-btn-keys" class="tab-btn" onclick="switchTab('keys')">Virtual API Keys</button>
-      <button id="tab-btn-routes" class="tab-btn" onclick="switchTab('routes')">Routes &amp; Priority</button>
-      <button id="tab-btn-providers" class="tab-btn" onclick="switchTab('providers')">Providers &amp; Settings</button>
-      <button id="tab-btn-system" class="tab-btn" onclick="switchTab('system')">System Diagnostics</button>
-      <button id="tab-btn-moderate" class="tab-btn" style="display: none; border: 1px dashed #f59e0b; color: #fbbf24;" onclick="switchTab('moderate')">Moderator Studio <span id="moderate-badge" class="badge" style="background: rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 10px; margin-left: 4px;">0</span></button>
+      <button id="tab-btn-overview" class="tab-btn active" onclick="switchTab('overview')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Overview</span>
+      </button>
+      <button id="tab-btn-analytics" class="tab-btn" onclick="switchTab('analytics')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/></svg>
+        <span>Analytics</span>
+      </button>
+      <button id="tab-btn-logs" class="tab-btn" onclick="switchTab('logs')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+        <span>Logs</span>
+      </button>
+      <button id="tab-btn-cache" class="tab-btn" onclick="switchTab('cache')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        <span>Cache</span>
+      </button>
+      <button id="tab-btn-miner" class="tab-btn" onclick="switchTab('miner')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+        <span>Mining</span>
+      </button>
+      <button id="tab-btn-keys" class="tab-btn" onclick="switchTab('keys')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-1.5 1.5L14 9l-1.5-1.5L11 9l-1.5-1.5L8 9l-1.5-1.5L2 12l2 2 1.5-1.5L7 14l1.5-1.5L10 14l1.5-1.5L13 14l4.5-4.5"/><circle cx="17.5" cy="6.5" r="2.5"/></svg>
+        <span>API Keys</span>
+      </button>
+      <button id="tab-btn-routes" class="tab-btn" onclick="switchTab('routes')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6"/><path d="M9 6h9"/></svg>
+        <span>Routes</span>
+      </button>
+      <button id="tab-btn-providers" class="tab-btn" onclick="switchTab('providers')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
+        <span>Providers</span>
+      </button>
+      <button id="tab-btn-system" class="tab-btn" onclick="switchTab('system')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+        <span>System</span>
+      </button>
+      <button id="tab-btn-moderate" class="tab-btn" style="display: none; border: 1px dashed #f59e0b; color: #fbbf24;" onclick="switchTab('moderate')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+        <span>Moderator</span>
+        <span id="moderate-badge" class="badge" style="background: rgba(245, 158, 11, 0.3); color: #fbbf24; font-size: 10px; margin-left: 2px;">0</span>
+      </button>
     </div>
 
     <!-- OVERVIEW TAB -->
@@ -577,26 +648,84 @@
               <span class="badge badge-hit-exact" style="background: rgba(16, 185, 129, 0.2);">Zero-Cold-Start Active</span>
               <span style="font-size: 13px; font-weight: 600; color: #a7f3d0;">Pre-Bundled Starter Pack Embedded</span>
             </div>
-            <p style="font-size: 13px; color: var(--muted);">12,600+ canonical coding idioms, compiler error diagnostics, and framework patterns pre-seeded (19.7 MB) for instant day-one 0ms cache hits.</p>
+            <p style="font-size: 13px; color: var(--muted);">12,600+ canonical coding idioms, compiler error diagnostics, and framework patterns pre-seeded for instant day-one 0ms cache hits.</p>
           </div>
-          <div style="font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
-            <span style="color: var(--muted);">$</span> <span style="color: var(--accent);">liltok mine</span> <span style="color: #93c5fd;">--provider groq --category all</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-family: var(--mono); font-size: 12px; background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border);">
+              <span style="color: var(--muted);">$</span> <span style="color: var(--accent);">liltok mine</span> <span style="color: #93c5fd;">--provider groq --category all</span>
+            </div>
+            <button class="btn" style="background: var(--accent); color: #000; font-weight: 600;" onclick="openPackModal()">Pack Starter</button>
           </div>
         </div>
       </div>
+
+      <!-- CACHE KPI METRICS STRIP -->
+      <div class="grid-stats" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 20px;">
+        <div class="card">
+          <div class="card-title">Stored Cache Entries</div>
+          <div class="card-value" id="cache-stat-total" style="color: #60a5fa;">0</div>
+          <div class="card-sub" id="cache-stat-breakdown">Exact: 0 | Semantic: 0</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tokens in Cache</div>
+          <div class="card-value" id="cache-stat-tokens" style="color: #c084fc;">0</div>
+          <div class="card-sub" id="cache-stat-tokens-sub">Prompt + Completion Tokens</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cumulative Hits</div>
+          <div class="card-value" id="cache-stat-hits" style="color: #34d399;">0</div>
+          <div class="card-sub" id="cache-stat-hits-sub">100% 0ms Cache Hits</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Realized Value <span class="badge-est">EST.</span></div>
+          <div class="card-value" id="cache-stat-saved" style="color: #34d399;">$0.0000</div>
+          <div class="card-sub">Gross spend avoided</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Tier-1 RAM Capacity</div>
+          <div class="card-value" id="cache-stat-lru" style="color: #38bdf8;">10,000</div>
+          <div class="card-sub">In-Memory LRU Cache Limit</div>
+        </div>
+      </div>
+
+      <!-- FILTER & SEARCH TOOLBAR -->
       <div class="card" style="margin-bottom: 16px;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <h3 style="font-size: 16px; font-weight: 600;">Active Cache Entries</h3>
-            <p style="font-size: 13px; color: var(--muted);">Local L1/L2 Cache Store (~/.liltok/liltok.db). Upstream Model KV-Cache is maintained on provider GPU clusters.</p>
-          </div>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn" style="background: var(--accent); color: #000; font-weight: 600;" onclick="openPackModal()">Merge &amp; Pack to Starter</button>
-            <button class="btn btn-secondary" onclick="loadCacheEntries()">Refresh</button>
-            <button class="btn btn-danger" onclick="purgeAllCache()">Flush Entire Cache</button>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <input id="cache-flt-search" type="text" class="filter-input" placeholder="Search prompt text, hash..." style="flex: 2; min-width: 220px;" onkeydown="if(event.key==='Enter') queryCache(1);" />
+
+          <select id="cache-flt-model" class="filter-select" onchange="queryCache(1)" style="min-width: 140px;">
+            <option value="all">All Models</option>
+          </select>
+
+          <select id="cache-flt-type" class="filter-select" onchange="queryCache(1)">
+            <option value="all">All Types</option>
+            <option value="exact">Tier-1 Exact</option>
+            <option value="semantic">Tier-3 Semantic</option>
+            <option value="pinned">Pinned Only</option>
+          </select>
+
+          <select id="cache-flt-sort" class="filter-select" onchange="queryCache(1)">
+            <option value="accessed" selected>Recently Accessed</option>
+            <option value="hits">Most Hits</option>
+            <option value="created">Newest Created</option>
+            <option value="tokens">Largest Tokens</option>
+          </select>
+
+          <button class="btn" style="padding: 6px 14px; font-size: 12px; font-weight: 600;" onclick="queryCache(1)">Filter</button>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="resetCacheFilter()">Reset</button>
+
+          <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="queryCache(currentCachePage)">Refresh</button>
+            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="purgeAllCache()">Flush Cache</button>
           </div>
         </div>
+
+        <div id="cache-query-summary" style="font-size: 12px; color: var(--muted); font-family: var(--mono); padding: 4px 0; margin-top: 8px;">
+          Showing 0 matching cache entries
+        </div>
       </div>
+
+      <!-- DATA TABLE -->
       <div class="card">
         <div class="table-container">
           <table>
@@ -604,17 +733,39 @@
               <tr>
                 <th>Hash</th>
                 <th>Model</th>
-                <th>Prompt Preview</th>
                 <th>Type</th>
+                <th>Prompt Preview</th>
+                <th>Tokens</th>
                 <th>Hits</th>
+                <th>Est. Saved <span class="badge-est">EST.</span></th>
                 <th>Last Accessed</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="cache-tbody">
-              <tr><td colspan="7" style="text-align: center; color: var(--muted);">Loading cache...</td></tr>
+              <tr><td colspan="9" style="text-align: center; color: var(--muted); padding: 24px;">Loading cache entries...</td></tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- PAGINATION CONTROLS -->
+        <div class="pagination-container">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>Page Size:</span>
+            <select id="cache-page-size" class="filter-select" onchange="queryCache(1)" style="padding: 3px 8px; font-size: 11px;">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+            <span id="cache-page-info">Page 1 of 1 (0 total)</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button id="cache-btn-first" class="page-btn" onclick="queryCache(1)">&laquo; First</button>
+            <button id="cache-btn-prev" class="page-btn" onclick="queryCache(currentCachePage - 1)">&lsaquo; Prev</button>
+            <span id="cache-current-page-num" style="padding: 5px 10px; font-family: var(--mono); font-weight: 600;">1</span>
+            <button id="cache-btn-next" class="page-btn" onclick="queryCache(currentCachePage + 1)">Next &rsaquo;</button>
+            <button id="cache-btn-last" class="page-btn" onclick="queryCache(currentCacheTotalPages)">Last &raquo;</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1343,6 +1494,102 @@
       <div id="insp-error-container" class="card" style="display: none; background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3); padding: 14px;">
         <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: #f87171; margin-bottom: 8px;">Error Diagnostic Payload</div>
         <pre id="insp-error-text" style="font-family: var(--mono); font-size: 12px; color: #fca5a5; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- CACHE INSPECTOR DRAWER -->
+  <div id="cache-drawer-backdrop" class="drawer-backdrop" onclick="closeCacheDrawer(event)">
+    <div class="drawer" onclick="event.stopPropagation()">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 14px;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span id="cinsp-type-badge" class="badge badge-hit-exact">TIER-1 EXACT</span>
+          <span id="cinsp-pinned-badge" class="badge" style="display: none; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4);">PINNED</span>
+          <span id="cinsp-model-badge" class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">model</span>
+        </div>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px;" onclick="closeCacheDrawer()">Close</button>
+      </div>
+
+      <!-- Hash and 1-Click Copy -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Cache Hash (SHA-256)</span>
+          <button id="cinsp-copy-hash-btn" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="copyCacheHash()">Copy Hash</button>
+        </div>
+        <div id="cinsp-hash" style="font-family: var(--mono); font-size: 12px; color: #a7f3d0; word-break: break-all;">-</div>
+      </div>
+
+      <!-- Metrics and Ledger Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 8px;">Cache Metrics &amp; Realized Value</div>
+        <div class="diag-item">
+          <span class="diag-label">Served Cache Hits</span>
+          <span class="diag-value" id="cinsp-hits" style="color: #34d399;">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Prompt Tokens</span>
+          <span class="diag-value" id="cinsp-prompt-tokens" style="color: #60a5fa;">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Completion Tokens</span>
+          <span class="diag-value" id="cinsp-comp-tokens" style="color: #a78bfa;">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Total Stored Tokens</span>
+          <span class="diag-value" id="cinsp-total-tokens">0</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Est. Realized Dollar Savings <span class="badge-est">EST.</span></span>
+          <span class="diag-value" id="cinsp-saved-usd" style="color: #34d399; font-size: 14px;">$0.0000</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Created Timestamp</span>
+          <span class="diag-value" id="cinsp-created-at">-</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">Last Accessed Timestamp</span>
+          <span class="diag-value" id="cinsp-last-accessed">-</span>
+        </div>
+        <div class="diag-item">
+          <span class="diag-label">TTL Duration</span>
+          <span class="diag-value" id="cinsp-ttl">-</span>
+        </div>
+      </div>
+
+      <!-- Normalized Prompt Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Normalized Prompt</span>
+            <span id="cinsp-prompt-len" style="font-size: 11px; color: var(--muted); margin-left: 6px;"></span>
+          </div>
+          <button id="cinsp-copy-prompt-btn" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="copyCachePrompt()">Copy Prompt</button>
+        </div>
+        <pre id="cinsp-prompt" style="font-family: var(--mono); font-size: 12px; line-height: 1.45; color: var(--text); background: rgba(0,0,0,0.4); padding: 12px; border-radius: 6px; border: 1px solid var(--border); max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;"></pre>
+      </div>
+
+      <!-- Response Payload Section -->
+      <div class="card" style="background: var(--bg); padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--muted);">Response Payload</span>
+            <div class="btn-group">
+              <button id="cinsp-mode-text" class="btn-group-item active" onclick="setCachePayloadMode('text')">Text</button>
+              <button id="cinsp-mode-json" class="btn-group-item" onclick="setCachePayloadMode('json')">Raw JSON</button>
+            </div>
+          </div>
+          <button id="cinsp-copy-resp-btn" class="btn btn-secondary" style="padding: 2px 8px; font-size: 11px;" onclick="copyCachePayload()">Copy Payload</button>
+        </div>
+        <pre id="cinsp-response" style="font-family: var(--mono); font-size: 12px; line-height: 1.45; color: var(--text); background: rgba(0,0,0,0.4); padding: 12px; border-radius: 6px; border: 1px solid var(--border); max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;"></pre>
+      </div>
+
+      <!-- Action Footer -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border);">
+        <div style="display: flex; gap: 8px;">
+          <button id="cinsp-pin-btn" class="btn btn-secondary" onclick="togglePinFromDrawer()">Pin Entry</button>
+          <button class="btn btn-danger" onclick="purgeEntryFromDrawer()">Purge Entry</button>
+        </div>
+        <button class="btn btn-secondary" onclick="closeCacheDrawer()">Close</button>
       </div>
     </div>
   </div>
@@ -2713,41 +2960,384 @@
       renderCharts();
     }
 
-    async function loadCacheEntries() {
+    let currentCachePage = 1;
+    let currentCacheTotalPages = 1;
+    let currentCacheItemDetail = null;
+    let currentPayloadMode = 'text';
+
+    function formatTimeAgo(ts) {
+      if (!ts) return '-';
+      const date = new Date(ts);
+      if (isNaN(date.getTime())) return ts;
+      const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+      if (sec < 60) return sec <= 5 ? 'just now' : sec + 's ago';
+      const min = Math.floor(sec / 60);
+      if (min < 60) return min + 'm ago';
+      const hr = Math.floor(min / 60);
+      if (hr < 24) return hr + 'h ago';
+      const days = Math.floor(hr / 24);
+      return days + 'd ago';
+    }
+
+    async function queryCache(page) {
+      if (page < 1) page = 1;
+      currentCachePage = page;
+
+      const q = (document.getElementById('cache-flt-search')?.value || '').trim();
+      const model = document.getElementById('cache-flt-model')?.value || 'all';
+      const type = document.getElementById('cache-flt-type')?.value || 'all';
+      const sort = document.getElementById('cache-flt-sort')?.value || 'accessed';
+      const limit = parseInt(document.getElementById('cache-page-size')?.value) || 25;
+      const offset = (page - 1) * limit;
+
+      const params = new URLSearchParams({
+        paginate: 'true',
+        limit: limit.toString(),
+        offset: offset.toString(),
+        sort: sort
+      });
+      if (q) params.set('q', q);
+      if (model && model !== 'all') params.set('model', model);
+      if (type && type !== 'all') params.set('type', type);
+
+      const tbody = document.getElementById('cache-tbody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted); padding: 24px;">Searching and indexing cache...</td></tr>';
+      }
+
       try {
-        const res = await fetch('/api/v1/cache');
-        if (!res.ok) return;
-        const items = await res.json();
-        const tbody = document.getElementById('cache-tbody');
-        if (items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted);">Cache is empty</td></tr>';
+        const res = await fetch('/api/v1/cache?' + params.toString());
+        if (!res.ok) {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #f87171;">Failed to load cache entries</td></tr>';
           return;
         }
-        tbody.innerHTML = items.map(i => `
-          <tr>
-            <td>${i.hash.slice(0, 12)}...</td>
-            <td style="font-weight: 600;">${i.model}</td>
-            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${i.prompt_preview}</td>
-            <td>${i.is_semantic ? '<span class="badge badge-hit-sem">SEMANTIC</span>' : '<span class="badge badge-hit-exact">EXACT</span>'}</td>
-            <td>${i.hit_count}</td>
-            <td style="color: var(--muted);">${new Date(i.last_accessed_at).toLocaleTimeString()}</td>
-            <td><button class="btn btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="deleteCacheEntry('${i.hash}')">Purge</button></td>
-          </tr>
-        `).join('');
-      } catch (e) {}
+
+        const data = await res.json();
+        const items = data.items || [];
+        const total = data.total || 0;
+        const stats = data.stats || {};
+        const models = data.models || [];
+
+        // Update KPI Strip
+        if (stats) {
+          const elTotal = document.getElementById('cache-stat-total');
+          if (elTotal) elTotal.innerText = (stats.total_entries || 0).toLocaleString();
+          const elBreak = document.getElementById('cache-stat-breakdown');
+          if (elBreak) elBreak.innerText = `Exact: ${(stats.exact_entries || 0).toLocaleString()} | Semantic: ${(stats.semantic_entries || 0).toLocaleString()}`;
+          const elTokens = document.getElementById('cache-stat-tokens');
+          if (elTokens) elTokens.innerText = (stats.total_tokens || 0) >= 1000000 ? ((stats.total_tokens || 0)/1000000).toFixed(2) + 'M' : (stats.total_tokens || 0).toLocaleString();
+          const elHits = document.getElementById('cache-stat-hits');
+          if (elHits) elHits.innerText = (stats.total_hits || 0).toLocaleString();
+          const elSaved = document.getElementById('cache-stat-saved');
+          if (elSaved) elSaved.innerText = formatCurrency(stats.total_saved_usd || 0);
+        }
+
+        // Update Model Filter options if needed
+        const modelSelect = document.getElementById('cache-flt-model');
+        if (modelSelect && models.length > 0 && modelSelect.options.length <= 1) {
+          const currentVal = modelSelect.value;
+          modelSelect.innerHTML = '<option value="all">All Models</option>' + models.map(m => `<option value="${escapeHTML(m)}">${escapeHTML(m)}</option>`).join('');
+          modelSelect.value = currentVal;
+        }
+
+        // Update summary text
+        const summary = document.getElementById('cache-query-summary');
+        if (summary) {
+          const start = total === 0 ? 0 : offset + 1;
+          const end = Math.min(offset + limit, total);
+          summary.innerText = `Showing ${start}-${end} of ${total.toLocaleString()} matching cache entries`;
+        }
+
+        // Update Pagination controls
+        currentCacheTotalPages = Math.max(1, Math.ceil(total / limit));
+        const pageInfo = document.getElementById('cache-page-info');
+        if (pageInfo) pageInfo.innerText = `Page ${page} of ${currentCacheTotalPages} (${total.toLocaleString()} total)`;
+        const pageNum = document.getElementById('cache-current-page-num');
+        if (pageNum) pageNum.innerText = page.toString();
+
+        const btnFirst = document.getElementById('cache-btn-first');
+        const btnPrev = document.getElementById('cache-btn-prev');
+        const btnNext = document.getElementById('cache-btn-next');
+        const btnLast = document.getElementById('cache-btn-last');
+        if (btnFirst) btnFirst.disabled = page <= 1;
+        if (btnPrev) btnPrev.disabled = page <= 1;
+        if (btnNext) btnNext.disabled = page >= currentCacheTotalPages;
+        if (btnLast) btnLast.disabled = page >= currentCacheTotalPages;
+
+        if (items.length === 0) {
+          if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--muted); padding: 24px;">No cache entries match the filter criteria</td></tr>';
+          return;
+        }
+
+        if (tbody) {
+          tbody.innerHTML = items.map(item => {
+            const shortHash = item.hash ? item.hash.slice(0, 12) : '';
+            const typeBadge = item.is_semantic
+              ? '<span class="badge badge-hit-sem">SEMANTIC</span>'
+              : '<span class="badge badge-hit-exact">EXACT</span>';
+            const pinBadge = item.is_pinned
+              ? '<span class="badge" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); margin-left: 4px;" title="Pinned Entry">PIN</span>'
+              : '';
+            const promptText = escapeHTML(item.prompt_preview || '');
+            const savedStr = formatCurrency(item.saved_usd_est || 0);
+            const timeAgo = formatTimeAgo(item.last_accessed_at);
+            const totalTok = (item.prompt_tokens || 0) + (item.completion_tokens || 0);
+
+            return `
+              <tr>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-family: var(--mono); color: #a7f3d0; font-weight: 600;">${shortHash}</span>
+                    <button class="btn btn-secondary" style="padding: 1px 5px; font-size: 10px;" onclick="copyTextToClipboard('${item.hash}', this)" title="Copy SHA-256 Hash">Copy</button>
+                  </div>
+                </td>
+                <td style="font-weight: 600; font-family: var(--mono); font-size: 12px; color: #38bdf8;">${escapeHTML(item.model || '')}</td>
+                <td>
+                  <div style="display: flex; align-items: center;">${typeBadge}${pinBadge}</div>
+                </td>
+                <td style="max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: 12px;" title="${promptText}">
+                  ${promptText}
+                </td>
+                <td style="font-family: var(--mono); font-size: 11px; white-space: nowrap;">
+                  <span style="color: #60a5fa;">${(item.prompt_tokens || 0).toLocaleString()}</span> / <span style="color: #a78bfa;">${(item.completion_tokens || 0).toLocaleString()}</span>
+                  <span style="color: var(--muted); font-size: 10px;">(${totalTok.toLocaleString()})</span>
+                </td>
+                <td>
+                  <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: 700;">${(item.hit_count || 0).toLocaleString()}</span>
+                </td>
+                <td style="color: #34d399; font-family: var(--mono); font-weight: 600;">${savedStr}</td>
+                <td style="color: var(--muted); font-size: 12px; white-space: nowrap;" title="${item.last_accessed_at || ''}">${timeAgo}</td>
+                <td>
+                  <div style="display: flex; gap: 4px;">
+                    <button class="btn btn-secondary" style="padding: 3px 7px; font-size: 11px; font-weight: 600;" onclick="openCacheDrawer('${item.hash}')">Inspect</button>
+                    <button class="btn btn-secondary" style="padding: 3px 6px; font-size: 11px;" onclick="togglePinTable('${item.hash}')" title="${item.is_pinned ? 'Unpin Entry' : 'Pin Entry'}">${item.is_pinned ? 'Unpin' : 'Pin'}</button>
+                    <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" onclick="deleteCacheEntry('${item.hash}')" title="Purge entry">Purge</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #f87171;">Error querying cache: ' + escapeHTML(err.message) + '</td></tr>';
+      }
+    }
+
+    function loadCacheEntries() {
+      queryCache(1);
+    }
+
+    function resetCacheFilter() {
+      const search = document.getElementById('cache-flt-search');
+      if (search) search.value = '';
+      const model = document.getElementById('cache-flt-model');
+      if (model) model.value = 'all';
+      const type = document.getElementById('cache-flt-type');
+      if (type) type.value = 'all';
+      const sort = document.getElementById('cache-flt-sort');
+      if (sort) sort.value = 'accessed';
+      queryCache(1);
+    }
+
+    async function openCacheDrawer(hash) {
+      if (!hash) return;
+      try {
+        const res = await fetch('/api/v1/cache/' + hash);
+        if (!res.ok) {
+          alert('Failed to fetch cache entry details');
+          return;
+        }
+        const item = await res.json();
+        currentCacheItemDetail = item;
+
+        // Populate header badges
+        const typeBadge = document.getElementById('cinsp-type-badge');
+        if (typeBadge) {
+          typeBadge.className = item.is_semantic ? 'badge badge-hit-sem' : 'badge badge-hit-exact';
+          typeBadge.innerText = item.is_semantic ? 'TIER-3 SEMANTIC' : 'TIER-1 EXACT';
+        }
+        const pinBadge = document.getElementById('cinsp-pinned-badge');
+        if (pinBadge) {
+          pinBadge.style.display = item.is_pinned ? 'inline-block' : 'none';
+        }
+        const modelBadge = document.getElementById('cinsp-model-badge');
+        if (modelBadge) modelBadge.innerText = item.model || 'model';
+
+        // Hash
+        const hashEl = document.getElementById('cinsp-hash');
+        if (hashEl) hashEl.innerText = item.hash || '-';
+
+        // Metrics
+        const hitsEl = document.getElementById('cinsp-hits');
+        if (hitsEl) hitsEl.innerText = (item.hit_count || 0).toLocaleString();
+        const pTokEl = document.getElementById('cinsp-prompt-tokens');
+        if (pTokEl) pTokEl.innerText = (item.prompt_tokens || 0).toLocaleString() + ' tok';
+        const cTokEl = document.getElementById('cinsp-comp-tokens');
+        if (cTokEl) cTokEl.innerText = (item.completion_tokens || 0).toLocaleString() + ' tok';
+        const totTokEl = document.getElementById('cinsp-total-tokens');
+        if (totTokEl) totTokEl.innerText = (item.total_tokens || 0).toLocaleString() + ' tok';
+        const savedEl = document.getElementById('cinsp-saved-usd');
+        if (savedEl) savedEl.innerText = formatCurrency(item.saved_usd_est || 0);
+        const createdEl = document.getElementById('cinsp-created-at');
+        if (createdEl) createdEl.innerText = item.created_at ? new Date(item.created_at).toLocaleString() : '-';
+        const lastEl = document.getElementById('cinsp-last-accessed');
+        if (lastEl) lastEl.innerText = item.last_accessed_at ? new Date(item.last_accessed_at).toLocaleString() : '-';
+        const ttlEl = document.getElementById('cinsp-ttl');
+        if (ttlEl) ttlEl.innerText = (item.ttl_seconds || 0) > 0 ? (item.ttl_seconds / 86400).toFixed(1) + ' days (' + item.ttl_seconds + 's)' : 'Permanent';
+
+        // Normalized Prompt
+        const promptBox = document.getElementById('cinsp-prompt');
+        if (promptBox) promptBox.innerText = item.normalized_prompt || '';
+        const promptLen = document.getElementById('cinsp-prompt-len');
+        if (promptLen) promptLen.innerText = `(${((item.normalized_prompt || '').length).toLocaleString()} chars)`;
+
+        // Response Payload
+        currentPayloadMode = 'text';
+        renderCachePayloadView();
+
+        // Pin Button state
+        const pinBtn = document.getElementById('cinsp-pin-btn');
+        if (pinBtn) pinBtn.innerText = item.is_pinned ? 'Unpin Entry' : 'Pin Entry';
+
+        const drawer = document.getElementById('cache-drawer-backdrop');
+        if (drawer) drawer.classList.add('show');
+      } catch (e) {
+        alert('Error loading cache entry: ' + e.message);
+      }
+    }
+
+    function renderCachePayloadView() {
+      if (!currentCacheItemDetail) return;
+      const respBox = document.getElementById('cinsp-response');
+      if (!respBox) return;
+
+      const raw = currentCacheItemDetail.response_payload || '';
+      if (currentPayloadMode === 'raw') {
+        try {
+          const parsed = JSON.parse(raw);
+          respBox.innerText = JSON.stringify(parsed, null, 2);
+        } catch (_) {
+          respBox.innerText = raw;
+        }
+      } else {
+        // Attempt to extract text from common completion envelopes
+        let extracted = raw;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.choices && parsed.choices[0] && parsed.choices[0].message) {
+            extracted = parsed.choices[0].message.content || '';
+          } else if (parsed.content && Array.isArray(parsed.content)) {
+            extracted = parsed.content.map(b => b.text || '').filter(Boolean).join('\n');
+          } else if (parsed.text) {
+            extracted = parsed.text;
+          }
+        } catch (_) {}
+        respBox.innerText = extracted || raw;
+      }
+
+      const btnText = document.getElementById('cinsp-mode-text');
+      const btnJson = document.getElementById('cinsp-mode-json');
+      if (btnText && btnJson) {
+        if (currentPayloadMode === 'text') {
+          btnText.classList.add('active');
+          btnJson.classList.remove('active');
+        } else {
+          btnText.classList.remove('active');
+          btnJson.classList.add('active');
+        }
+      }
+    }
+
+    function setCachePayloadMode(mode) {
+      currentPayloadMode = mode;
+      renderCachePayloadView();
+    }
+
+    function closeCacheDrawer(event) {
+      if (event && event.target && event.target.id !== 'cache-drawer-backdrop') {
+        return;
+      }
+      const drawer = document.getElementById('cache-drawer-backdrop');
+      if (drawer) drawer.classList.remove('show');
+    }
+
+    function copyTextToClipboard(text, btn) {
+      if (!navigator.clipboard) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      } else {
+        navigator.clipboard.writeText(text);
+      }
+      if (btn) {
+        const orig = btn.innerText;
+        btn.innerText = 'Copied!';
+        setTimeout(() => { btn.innerText = orig; }, 1500);
+      }
+    }
+
+    function copyCacheHash() {
+      if (!currentCacheItemDetail) return;
+      copyTextToClipboard(currentCacheItemDetail.hash, document.getElementById('cinsp-copy-hash-btn'));
+    }
+
+    function copyCachePrompt() {
+      if (!currentCacheItemDetail) return;
+      copyTextToClipboard(currentCacheItemDetail.normalized_prompt, document.getElementById('cinsp-copy-prompt-btn'));
+    }
+
+    function copyCachePayload() {
+      if (!currentCacheItemDetail) return;
+      const respBox = document.getElementById('cinsp-response');
+      copyTextToClipboard(respBox ? respBox.innerText : currentCacheItemDetail.response_payload, document.getElementById('cinsp-copy-resp-btn'));
+    }
+
+    async function toggleDrawerPin() {
+      if (!currentCacheItemDetail) return;
+      const hash = currentCacheItemDetail.hash;
+      const res = await fetch('/api/v1/cache/' + hash + '/pin', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        currentCacheItemDetail.is_pinned = data.is_pinned;
+        const pinBadge = document.getElementById('cinsp-pinned-badge');
+        if (pinBadge) pinBadge.style.display = data.is_pinned ? 'inline-block' : 'none';
+        const pinBtn = document.getElementById('cinsp-pin-btn');
+        if (pinBtn) pinBtn.innerText = data.is_pinned ? 'Unpin Entry' : 'Pin Entry';
+        queryCache(currentCachePage);
+      }
+    }
+
+    async function togglePinTable(hash) {
+      const res = await fetch('/api/v1/cache/' + hash + '/pin', { method: 'POST' });
+      if (res.ok) {
+        queryCache(currentCachePage);
+      }
+    }
+
+    async function purgeEntryFromDrawer() {
+      if (!currentCacheItemDetail) return;
+      const hash = currentCacheItemDetail.hash;
+      if (!confirm('Purge cache entry ' + hash.slice(0, 12) + '...?')) return;
+      await fetch('/api/v1/cache/' + hash, { method: 'DELETE' });
+      closeCacheDrawer();
+      queryCache(currentCachePage);
+      loadOverview();
     }
 
     async function deleteCacheEntry(hash) {
-      if (!confirm('Purge cache entry ' + hash.slice(0, 12) + '?')) return;
+      if (!confirm('Purge cache entry ' + hash.slice(0, 12) + '...?')) return;
       await fetch('/api/v1/cache/' + hash, { method: 'DELETE' });
-      loadCacheEntries();
+      queryCache(currentCachePage);
       loadOverview();
     }
 
     async function purgeAllCache() {
-      if (!confirm('Flush ENTIRE cache?')) return;
+      if (!confirm('Flush ENTIRE cache? All exact and semantic matches will be removed.')) return;
       await fetch('/api/v1/cache/purge?all=true', { method: 'POST' });
-      loadCacheEntries();
+      queryCache(1);
       loadOverview();
     }
 
@@ -4158,6 +4748,7 @@
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeLogDrawer();
+        closeCacheDrawer();
         closeClearLogsModal();
         closeKeyModal();
         closePackModal();

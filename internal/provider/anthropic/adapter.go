@@ -182,8 +182,12 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		Model   string `json:"model"`
 		Role    string `json:"role"`
 		Content []struct {
-			Type string `json:"type"`
-			Text string `json:"text"`
+			Type     string                 `json:"type"`
+			Text     string                 `json:"text"`
+			Thinking string                 `json:"thinking"`
+			ID       string                 `json:"id"`
+			Name     string                 `json:"name"`
+			Input    map[string]interface{} `json:"input"`
 		} `json:"content"`
 		StopReason string `json:"stop_reason"`
 		Usage      struct {
@@ -199,18 +203,38 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	}
 
 	content := ""
+	reasoningContent := ""
+	var toolCalls []provider.UnifiedToolCall
 	for _, c := range anthResp.Content {
-		if c.Type == "text" {
+		switch c.Type {
+		case "text":
 			content += c.Text
+		case "thinking":
+			reasoningContent += c.Thinking
+		case "tool_use":
+			inputBytes, _ := json.Marshal(c.Input)
+			toolCalls = append(toolCalls, provider.UnifiedToolCall{
+				ID:   c.ID,
+				Type: "function",
+				Function: struct {
+					Name      string `json:"name"`
+					Arguments string `json:"arguments"`
+				}{
+					Name:      c.Name,
+					Arguments: string(inputBytes),
+				},
+			})
 		}
 	}
 
 	return &provider.UnifiedChatResponse{
-		ID:           anthResp.ID,
-		Model:        anthResp.Model,
-		Role:         anthResp.Role,
-		Content:      content,
-		FinishReason: anthResp.StopReason,
+		ID:               anthResp.ID,
+		Model:            anthResp.Model,
+		Role:             anthResp.Role,
+		Content:          content,
+		ReasoningContent: reasoningContent,
+		ToolCalls:        toolCalls,
+		FinishReason:     anthResp.StopReason,
 		Usage: provider.UnifiedUsage{
 			PromptTokens:     anthResp.Usage.InputTokens,
 			CompletionTokens: anthResp.Usage.OutputTokens,

@@ -20,17 +20,19 @@ import (
 	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/primaybr/liltok/internal/miner"
 	"github.com/primaybr/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/tokens"
 )
 
 // AdminHandler serves REST APIs for the developer dashboard.
 type AdminHandler struct {
-	cfg         *config.Config
-	configPath  string
-	database    *db.DB
-	ledger      *ledger.Ledger
-	keyManager  *ledger.KeyManager
-	router      *router.Router
+	cfg           *config.Config
+	configPath    string
+	database      *db.DB
+	ledger        *ledger.Ledger
+	keyManager    *ledger.KeyManager
+	router        *router.Router
 	cacheStore    cache.Store
+	pricing       *tokens.PricingRegistry
 	broadcaster   *Broadcaster
 	startTime     time.Time
 	miningManager *miner.MiningManager
@@ -52,6 +54,7 @@ func NewAdminHandler(cfg *config.Config, database *db.DB, led *ledger.Ledger, km
 		startTime:   time.Now(),
 	}
 	if database != nil {
+		ah.pricing = tokens.NewPricingRegistry(database)
 		ah.miningManager = miner.NewMiningManager(database, func(ev miner.MiningProgressEvent) {
 			b.Broadcast(TelemetryEvent{
 				Type:      ev.Type,
@@ -61,6 +64,11 @@ func NewAdminHandler(cfg *config.Config, database *db.DB, led *ledger.Ledger, km
 		})
 	}
 	return ah
+}
+
+// SetPricing assigns an external pricing registry.
+func (h *AdminHandler) SetPricing(pr *tokens.PricingRegistry) {
+	h.pricing = pr
 }
 
 // SetConfigPath overrides the config file path (useful for test isolation).
@@ -80,6 +88,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/system", h.HandleSystemDiagnostics)
 		r.Post("/system/vacuum", h.HandleSystemVacuum)
 		r.Get("/cache", h.HandleListCache)
+		r.Get("/cache/{hash}", h.HandleGetCacheEntry)
+		r.Post("/cache/{hash}/pin", h.HandleTogglePinCacheEntry)
 		r.Delete("/cache/{hash}", h.HandleDeleteCacheEntry)
 		r.Post("/cache/purge", h.HandlePurgeCache)
 		r.Post("/cache/pack", h.HandlePackStarterCache)
@@ -139,7 +149,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.1.8-beta",
+		"version":                   "0.1.9-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -929,33 +939,96 @@ func (h *AdminHandler) HandleSystemVacuum(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// HandleListCache returns active cache entries with hit counts and metadata.
+// HandleListCache returns active cache entries with hit counts, token metrics, and metadata.
 func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 	if h.database == nil {
 		writeJSON(w, http.StatusOK, []interface{}{})
 		return
 	}
 
-	query := r.URL.Query().Get("q")
-	var rows *sql.Rows
-	var err error
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	modelFilter := strings.TrimSpace(r.URL.Query().Get("model"))
+	typeFilter := strings.TrimSpace(r.URL.Query().Get("type"))
+	sortBy := strings.TrimSpace(r.URL.Query().Get("sort"))
+	paginate := r.URL.Query().Get("paginate") == "true"
+
+	limit := 50
+	if paginate {
+		limit = 25
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val > 0 {
+			limit = val
+			if limit > 200 {
+				limit = 200
+			}
+		}
+	}
+
+	offset := 0
+	if o := r.URL.Query().Get("offset"); o != "" {
+		if val, err := strconv.Atoi(o); err == nil && val >= 0 {
+			offset = val
+		}
+	}
+
+	var whereClauses []string
+	var whereArgs []interface{}
 
 	if query != "" {
-		rows, err = h.database.QueryContext(r.Context(), `
-			SELECT hash, model, normalized_prompt, hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic
-			FROM cache_entries
-			WHERE normalized_prompt LIKE ?
-			ORDER BY hit_count DESC
-			LIMIT 100
-		`, "%"+query+"%")
-	} else {
-		rows, err = h.database.QueryContext(r.Context(), `
-			SELECT hash, model, normalized_prompt, hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic
-			FROM cache_entries
-			ORDER BY last_accessed_at DESC
-			LIMIT 100
-		`)
+		whereClauses = append(whereClauses, "(normalized_prompt LIKE ? OR hash LIKE ?)")
+		whereArgs = append(whereArgs, "%"+query+"%", query+"%")
 	}
+	if modelFilter != "" && modelFilter != "all" {
+		whereClauses = append(whereClauses, "model = ?")
+		whereArgs = append(whereArgs, modelFilter)
+	}
+	if typeFilter == "exact" {
+		whereClauses = append(whereClauses, "is_semantic = 0")
+	} else if typeFilter == "semantic" {
+		whereClauses = append(whereClauses, "is_semantic = 1")
+	} else if typeFilter == "pinned" {
+		whereClauses = append(whereClauses, "is_pinned = 1")
+	}
+
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// Count total matching
+	var totalMatching int64
+	countQuery := "SELECT COUNT(*) FROM cache_entries " + whereSQL
+	_ = h.database.QueryRowContext(r.Context(), countQuery, whereArgs...).Scan(&totalMatching)
+
+	// Determine sort order
+	orderBy := "last_accessed_at DESC"
+	switch sortBy {
+	case "hits":
+		orderBy = "hit_count DESC, last_accessed_at DESC"
+	case "last_accessed":
+		orderBy = "last_accessed_at DESC"
+	case "created":
+		orderBy = "created_at DESC"
+	case "tokens":
+		orderBy = "(prompt_tokens + completion_tokens) DESC, hit_count DESC"
+	default:
+		if query != "" {
+			orderBy = "hit_count DESC, last_accessed_at DESC"
+		}
+	}
+
+	selectSQL := fmt.Sprintf(`
+		SELECT hash, model, normalized_prompt, prompt_tokens, completion_tokens,
+		       hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic, is_pinned
+		FROM cache_entries
+		%s
+		ORDER BY %s
+		LIMIT ? OFFSET ?
+	`, whereSQL, orderBy)
+
+	queryArgs := append(whereArgs, limit, offset)
+	rows, err := h.database.QueryContext(r.Context(), selectSQL, queryArgs...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -963,33 +1036,218 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type cacheItem struct {
-		Hash           string `json:"hash"`
-		Model          string `json:"model"`
-		PromptPreview  string `json:"prompt_preview"`
-		HitCount       int    `json:"hit_count"`
-		CreatedAt      string `json:"created_at"`
-		LastAccessedAt string `json:"last_accessed_at"`
-		TTLSeconds     int    `json:"ttl_seconds"`
-		IsSemantic     bool   `json:"is_semantic"`
+		Hash             string  `json:"hash"`
+		Model            string  `json:"model"`
+		PromptPreview    string  `json:"prompt_preview"`
+		PromptTokens     int     `json:"prompt_tokens"`
+		CompletionTokens int     `json:"completion_tokens"`
+		TotalTokens      int     `json:"total_tokens"`
+		HitCount         int     `json:"hit_count"`
+		SavedUSDEst      float64 `json:"saved_usd_est"`
+		CreatedAt        string  `json:"created_at"`
+		LastAccessedAt   string  `json:"last_accessed_at"`
+		TTLSeconds       int     `json:"ttl_seconds"`
+		IsSemantic       bool    `json:"is_semantic"`
+		IsPinned         bool    `json:"is_pinned"`
 	}
 
 	var items []cacheItem
 	for rows.Next() {
 		var item cacheItem
 		var prompt string
-		var isSem int
-		if err := rows.Scan(&item.Hash, &item.Model, &prompt, &item.HitCount, &item.CreatedAt, &item.LastAccessedAt, &item.TTLSeconds, &isSem); err == nil {
+		var isSem, isPin int
+		if err := rows.Scan(
+			&item.Hash, &item.Model, &prompt, &item.PromptTokens, &item.CompletionTokens,
+			&item.HitCount, &item.CreatedAt, &item.LastAccessedAt, &item.TTLSeconds, &isSem, &isPin,
+		); err == nil {
 			item.IsSemantic = isSem == 1
+			item.IsPinned = isPin == 1
+			item.TotalTokens = item.PromptTokens + item.CompletionTokens
 			if len(prompt) > 120 {
 				item.PromptPreview = prompt[:120] + "..."
 			} else {
 				item.PromptPreview = prompt
 			}
+			if h.pricing != nil {
+				bd := h.pricing.CalculateDetailed(item.Model, item.PromptTokens, item.CompletionTokens, 0, "HIT", "TIER1_EXACT")
+				item.SavedUSDEst = bd.SavedUSD * float64(item.HitCount)
+			}
 			items = append(items, item)
 		}
 	}
+	if items == nil {
+		items = []cacheItem{}
+	}
+
+	w.Header().Set("X-Total-Count", strconv.FormatInt(totalMatching, 10))
+	w.Header().Set("X-Limit", strconv.Itoa(limit))
+	w.Header().Set("X-Offset", strconv.Itoa(offset))
+
+	if paginate {
+		var models []string
+		modelRows, err := h.database.QueryContext(r.Context(), "SELECT DISTINCT model FROM cache_entries ORDER BY model ASC")
+		if err == nil {
+			defer modelRows.Close()
+			for modelRows.Next() {
+				var m string
+				if err := modelRows.Scan(&m); err == nil && m != "" {
+					models = append(models, m)
+				}
+			}
+		}
+		if models == nil {
+			models = []string{}
+		}
+
+		var stats struct {
+			TotalEntries    int64   `json:"total_entries"`
+			ExactEntries    int64   `json:"exact_entries"`
+			SemanticEntries int64   `json:"semantic_entries"`
+			TotalTokens     int64   `json:"total_tokens"`
+			TotalHits       int64   `json:"total_hits"`
+			TotalSavedUSD   float64 `json:"total_saved_usd"`
+		}
+		_ = h.database.QueryRowContext(r.Context(), `
+			SELECT COUNT(*),
+			       COALESCE(SUM(CASE WHEN is_semantic = 0 THEN 1 ELSE 0 END), 0),
+			       COALESCE(SUM(CASE WHEN is_semantic = 1 THEN 1 ELSE 0 END), 0),
+			       COALESCE(SUM(prompt_tokens + completion_tokens), 0),
+			       COALESCE(SUM(hit_count), 0)
+			FROM cache_entries
+		`).Scan(&stats.TotalEntries, &stats.ExactEntries, &stats.SemanticEntries, &stats.TotalTokens, &stats.TotalHits)
+
+		if h.ledger != nil {
+			ov, _ := h.ledger.GetOverviewStats(r.Context())
+			stats.TotalSavedUSD = ov.TotalSavedUSD
+		}
+
+		resp := map[string]interface{}{
+			"items":  items,
+			"total":  totalMatching,
+			"limit":  limit,
+			"offset": offset,
+			"models": models,
+			"stats":  stats,
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 
 	writeJSON(w, http.StatusOK, items)
+}
+
+// HandleGetCacheEntry returns complete inspection details for a single cache record.
+func (h *AdminHandler) HandleGetCacheEntry(w http.ResponseWriter, r *http.Request) {
+	hash := chi.URLParam(r, "hash")
+	if hash == "" {
+		writeError(w, http.StatusBadRequest, "missing cache hash parameter")
+		return
+	}
+	if h.database == nil {
+		writeError(w, http.StatusInternalServerError, "database unavailable")
+		return
+	}
+
+	var item struct {
+		Hash             string   `json:"hash"`
+		Model            string   `json:"model"`
+		NormalizedPrompt string   `json:"normalized_prompt"`
+		ResponsePayload  string   `json:"response_payload"`
+		PromptTokens     int      `json:"prompt_tokens"`
+		CompletionTokens int      `json:"completion_tokens"`
+		TotalTokens      int      `json:"total_tokens"`
+		HitCount         int      `json:"hit_count"`
+		SavedUSDEst      float64  `json:"saved_usd_est"`
+		CreatedAt        string   `json:"created_at"`
+		LastAccessedAt   string   `json:"last_accessed_at"`
+		TTLSeconds       int      `json:"ttl_seconds"`
+		IsPinned         bool     `json:"is_pinned"`
+		IsSemantic       bool     `json:"is_semantic"`
+		Tags             []string `json:"tags"`
+	}
+
+	var rawPayload []byte
+	var isPin, isSem int
+
+	err := h.database.QueryRowContext(r.Context(), `
+		SELECT hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens,
+		       hit_count, created_at, last_accessed_at, ttl_seconds, is_pinned, is_semantic
+		FROM cache_entries
+		WHERE hash = ?
+	`, hash).Scan(
+		&item.Hash, &item.Model, &item.NormalizedPrompt, &rawPayload, &item.PromptTokens, &item.CompletionTokens,
+		&item.HitCount, &item.CreatedAt, &item.LastAccessedAt, &item.TTLSeconds, &isPin, &isSem,
+	)
+	if err == sql.ErrNoRows {
+		writeError(w, http.StatusNotFound, "cache entry not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	item.IsPinned = isPin == 1
+	item.IsSemantic = isSem == 1
+	item.TotalTokens = item.PromptTokens + item.CompletionTokens
+	item.ResponsePayload = string(rawPayload)
+	item.Tags = []string{}
+
+	if pr := h.pricing; pr != nil {
+		bd := pr.CalculateDetailed(item.Model, item.PromptTokens, item.CompletionTokens, 0, "HIT", "TIER1_EXACT")
+		item.SavedUSDEst = bd.SavedUSD * float64(item.HitCount)
+	}
+
+	tagRows, err := h.database.QueryContext(r.Context(), "SELECT tag FROM cache_tags WHERE cache_hash = ?", hash)
+	if err == nil {
+		defer tagRows.Close()
+		for tagRows.Next() {
+			var t string
+			if err := tagRows.Scan(&t); err == nil {
+				item.Tags = append(item.Tags, t)
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, item)
+}
+
+// HandleTogglePinCacheEntry toggles is_pinned for a cache entry to protect it from eviction.
+func (h *AdminHandler) HandleTogglePinCacheEntry(w http.ResponseWriter, r *http.Request) {
+	hash := chi.URLParam(r, "hash")
+	if hash == "" {
+		writeError(w, http.StatusBadRequest, "missing cache hash parameter")
+		return
+	}
+	if h.database == nil {
+		writeError(w, http.StatusInternalServerError, "database unavailable")
+		return
+	}
+
+	var currentPinned int
+	err := h.database.QueryRowContext(r.Context(), "SELECT is_pinned FROM cache_entries WHERE hash = ?", hash).Scan(&currentPinned)
+	if err == sql.ErrNoRows {
+		writeError(w, http.StatusNotFound, "cache entry not found")
+		return
+	} else if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	newPinned := 1
+	if currentPinned == 1 {
+		newPinned = 0
+	}
+
+	_, err = h.database.ExecContext(r.Context(), "UPDATE cache_entries SET is_pinned = ? WHERE hash = ?", newPinned, hash)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"hash":      hash,
+		"is_pinned": newPinned == 1,
+	})
 }
 
 // HandleDeleteCacheEntry purges an individual cache record by hash.

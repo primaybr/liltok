@@ -113,11 +113,12 @@ func replayAnthropicSSE(w http.ResponseWriter, flusher http.Flusher, entry *Cach
 		Model      string `json:"model"`
 		StopReason string `json:"stop_reason"`
 		Content    []struct {
-			Type  string                 `json:"type"`
-			Text  string                 `json:"text"`
-			ID    string                 `json:"id"`
-			Name  string                 `json:"name"`
-			Input map[string]interface{} `json:"input"`
+			Type     string                 `json:"type"`
+			Text     string                 `json:"text"`
+			Thinking string                 `json:"thinking"`
+			ID       string                 `json:"id"`
+			Name     string                 `json:"name"`
+			Input    map[string]interface{} `json:"input"`
 		} `json:"content"`
 	}
 
@@ -147,6 +148,27 @@ func replayAnthropicSSE(w http.ResponseWriter, flusher http.Flusher, entry *Cach
 	// 2. Iterate through content blocks
 	for i, c := range respObj.Content {
 		switch c.Type {
+		case "thinking":
+			eventBlockStart := fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n", i)
+			if _, err := w.Write([]byte(eventBlockStart)); err != nil {
+				return err
+			}
+			flusher.Flush()
+
+			escapedThinking, _ := json.Marshal(c.Thinking)
+			eventDelta := fmt.Sprintf("event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":%d,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":%s}}\n\n",
+				i, string(escapedThinking))
+			if _, err := w.Write([]byte(eventDelta)); err != nil {
+				return err
+			}
+			flusher.Flush()
+
+			eventBlockStop := fmt.Sprintf("event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":%d}\n\n", i)
+			if _, err := w.Write([]byte(eventBlockStop)); err != nil {
+				return err
+			}
+			flusher.Flush()
+
 		case "text":
 			eventBlockStart := fmt.Sprintf("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":%d,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n", i)
 			if _, err := w.Write([]byte(eventBlockStart)); err != nil {

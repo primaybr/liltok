@@ -661,19 +661,23 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	}
 
 	content := ""
+	reasoningContent := ""
 	role := "assistant"
 	finishReason := "stop"
 	var toolCalls []provider.UnifiedToolCall
 	if len(oaiResp.Choices) > 0 {
 		c := oaiResp.Choices[0]
 		content = c.Message.Content
+		if c.Message.ReasoningContent != "" {
+			reasoningContent = c.Message.ReasoningContent
+		} else if c.Message.Reasoning != "" {
+			reasoningContent = c.Message.Reasoning
+		} else if c.Message.Thought != "" {
+			reasoningContent = c.Message.Thought
+		}
 		if strings.TrimSpace(content) == "" {
-			if c.Message.ReasoningContent != "" {
-				content = c.Message.ReasoningContent
-			} else if c.Message.Reasoning != "" {
-				content = c.Message.Reasoning
-			} else if c.Message.Thought != "" {
-				content = c.Message.Thought
+			if reasoningContent != "" {
+				content = reasoningContent
 			} else if c.Message.Refusal != "" {
 				content = c.Message.Refusal
 			}
@@ -710,12 +714,13 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 	}
 
 	return &provider.UnifiedChatResponse{
-		ID:           oaiResp.ID,
-		Model:        oaiResp.Model,
-		Role:         role,
-		Content:      content,
-		ToolCalls:    toolCalls,
-		FinishReason: finishReason,
+		ID:               oaiResp.ID,
+		Model:            oaiResp.Model,
+		Role:             role,
+		Content:          content,
+		ReasoningContent: reasoningContent,
+		ToolCalls:        toolCalls,
+		FinishReason:     finishReason,
 		Usage: provider.UnifiedUsage{
 			PromptTokens:     oaiResp.Usage.PromptTokens,
 			CompletionTokens: oaiResp.Usage.CompletionTokens,
@@ -921,8 +926,19 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 	if req.TopP > 0 {
 		payload["top_p"] = req.TopP
 	}
-	if req.MaxTokens > 0 {
-		payload["max_tokens"] = req.MaxTokens
+	maxTokens := req.MaxTokens
+	if maxTokens > 0 {
+		if a.name == "groq" && maxTokens > 8192 {
+			maxTokens = 8192
+		} else if a.name == "nvidianim" && maxTokens > 16384 {
+			maxTokens = 16384
+		}
+		if len(req.Tools) > 0 && maxTokens < 4096 {
+			maxTokens = 4096
+		}
+		payload["max_tokens"] = maxTokens
+	} else if len(req.Tools) > 0 {
+		payload["max_tokens"] = 4096
 	}
 	if len(req.Tools) > 0 {
 		payload["tools"] = convertToolsToOpenAI(req.Tools)

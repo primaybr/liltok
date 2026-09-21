@@ -5,6 +5,32 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9-beta] - 2026-09-21
+
+### Added
+- **Claude Code Plan Mode Presentation Interceptor:**
+  - Standardized `ExitPlanMode` tool name across casing and snake_case variants (`exit_plan_mode`, `exitPlanMode`, `EXIT_PLAN_MODE`).
+  - Extracted implementation plans from `ExitPlanMode` tool arguments (`plan`, `plan_content`, `implementation_plan`, `description`, `summary`, `steps`, raw strings) and `<think>` reasoning traces.
+  - Guaranteed emission of a human-facing `type: "text"` block preceding the `type: "tool_use"` block, ensuring complete plan markdown is rendered in Claude Code's terminal chat before prompting for approval.
+  - Added structured formatting for `"steps"` arrays into numbered markdown lists.
+  - Synthesized `ExitPlanMode` tool calls when open-weights models output a plan and announce exiting plan mode without formal tool markup.
+  - Preserved illustrative markdown bash code blocks within implementation plans, preventing them from being converted into executable `Bash` tool calls.
+- **Compact Single-Line Navigation UI & Enhanced Cache Explorer:**
+  - Redesigned navigation bar to a compact, single-line layout (`.nav-compact-row`) with inline status pills, live metrics, and quick actions.
+  - Upgraded Cache Explorer with detailed cache inspector, advanced multi-field filtering (search query, tier, hit count, latency saved, date), entry inspector modal, copy response button, and detailed metadata breakdown.
+
+### Fixed
+- **Claude Code Mid-Task Script Exposure & Pause Loop Elimination:**
+  - Enforced `tool_use` stop reason priority over `max_tokens` when tool calls or `finish_reason: "tool_calls"` exist, eliminating Claude Code "continue" pause loops.
+  - Implemented `RepairJSON` state machine for unclosed JSON strings, bracket/brace nesting stacks, and trailing commas.
+  - Implemented `repairBashCommand` to automatically terminate unclosed heredocs (`cat << 'EOF' ... \nEOF\n`).
+  - Added recovery for truncated/unclosed `<tool_call>` and DSML `<|DSML|invoke>` tags.
+  - Extracted markdown JSON and bash execution code blocks into `Bash` tool calls.
+  - Isolated thinking and scratchpad blocks into Anthropic `type: "thinking"` content blocks with streaming support in `replayAnthropicSSE`.
+  - Clamped `max_tokens` safely for Groq / NVIDIA NIM in OpenAI adapter and ensured 4096 min tokens for agentic calls.
+
+---
+
 ## [0.1.8-beta] - 2026-09-21
 
 ### Added

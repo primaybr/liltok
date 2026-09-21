@@ -121,6 +121,42 @@ func TestAdminCacheOperations(t *testing.T) {
 		t.Fatalf("expected 200 listing cache, got %d", recList.Code)
 	}
 
+	// 1b. List cache with pagination
+	reqPaginated := httptest.NewRequest("GET", "/api/v1/cache?paginate=true&q=prompt", nil)
+	recPaginated := httptest.NewRecorder()
+	r.ServeHTTP(recPaginated, reqPaginated)
+
+	if recPaginated.Code != http.StatusOK {
+		t.Fatalf("expected 200 listing paginated cache, got %d", recPaginated.Code)
+	}
+	if !strings.Contains(recPaginated.Body.String(), `"items"`) || !strings.Contains(recPaginated.Body.String(), `"total"`) {
+		t.Fatalf("expected paginated structure, got %s", recPaginated.Body.String())
+	}
+
+	// 1c. Get cache entry detail
+	reqGet := httptest.NewRequest("GET", "/api/v1/cache/hash_abc123", nil)
+	recGet := httptest.NewRecorder()
+	r.ServeHTTP(recGet, reqGet)
+
+	if recGet.Code != http.StatusOK {
+		t.Fatalf("expected 200 getting cache entry, got %d", recGet.Code)
+	}
+	if !strings.Contains(recGet.Body.String(), "prompt test") {
+		t.Fatalf("expected prompt test in response, got %s", recGet.Body.String())
+	}
+
+	// 1d. Toggle pin cache entry
+	reqPin := httptest.NewRequest("POST", "/api/v1/cache/hash_abc123/pin", nil)
+	recPin := httptest.NewRecorder()
+	r.ServeHTTP(recPin, reqPin)
+
+	if recPin.Code != http.StatusOK {
+		t.Fatalf("expected 200 pinning cache entry, got %d", recPin.Code)
+	}
+	if !strings.Contains(recPin.Body.String(), `"is_pinned":true`) {
+		t.Fatalf("expected is_pinned true, got %s", recPin.Body.String())
+	}
+
 	// 2. Delete cache entry
 	reqDel := httptest.NewRequest("DELETE", "/api/v1/cache/hash_abc123", nil)
 	recDel := httptest.NewRecorder()

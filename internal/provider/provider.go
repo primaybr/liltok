@@ -59,15 +59,16 @@ type UnifiedUsage struct {
 
 // UnifiedChatResponse represents a normalized completion response.
 type UnifiedChatResponse struct {
-	ID           string            `json:"id"`
-	Model        string            `json:"model"`
-	Role         string            `json:"role"`
-	Content      string            `json:"content"`
-	ToolCalls    []UnifiedToolCall `json:"tool_calls,omitempty"`
-	FinishReason string            `json:"finish_reason"`
-	Usage        UnifiedUsage      `json:"usage"`
-	RawResponse  []byte            `json:"raw_response,omitempty"`
-	Latency      time.Duration     `json:"latency"`
+	ID               string            `json:"id"`
+	Model            string            `json:"model"`
+	Role             string            `json:"role"`
+	Content          string            `json:"content"`
+	ReasoningContent string            `json:"reasoning_content,omitempty"`
+	ToolCalls        []UnifiedToolCall `json:"tool_calls,omitempty"`
+	FinishReason     string            `json:"finish_reason"`
+	Usage            UnifiedUsage      `json:"usage"`
+	RawResponse      []byte            `json:"raw_response,omitempty"`
+	Latency          time.Duration     `json:"latency"`
 }
 
 // UnifiedSSEEvent represents a streaming event chunk.
