@@ -171,6 +171,13 @@ func (p *Pruner) PruneJSONPayloadWithOptions(raw []byte, opts PruneOptions) ([]b
 				continue
 			}
 
+			// Tool output (OpenAI role "tool", Anthropic tool_result) is left verbatim: agents copy it
+			// into Edit old_string, so stripped whitespace or dropped lines break exact-match edits.
+			// Old, oversized tool output is still reduced by the session compactor above.
+			if role, _ := msgMap["role"].(string); role == "tool" {
+				continue
+			}
+
 			content, hasContent := msgMap["content"]
 			if !hasContent {
 				continue
@@ -195,30 +202,6 @@ func (p *Pruner) PruneJSONPayloadWithOptions(raw []byte, opts PruneOptions) ([]b
 									partMap["text"] = pruned
 									c[j] = partMap
 									modified = true
-								}
-							}
-						} else if pType == "tool_result" {
-							if resStr, ok := partMap["content"].(string); ok {
-								pruned, saved := p.PruneTextWithOptions(resStr, opts)
-								if saved > 0 {
-									partMap["content"] = pruned
-									c[j] = partMap
-									modified = true
-								}
-							} else if resParts, ok := partMap["content"].([]interface{}); ok {
-								for k, rPart := range resParts {
-									if rPartMap, ok := rPart.(map[string]interface{}); ok {
-										if rPartMap["type"] == "text" {
-											if rText, ok := rPartMap["text"].(string); ok {
-												pruned, saved := p.PruneTextWithOptions(rText, opts)
-												if saved > 0 {
-													rPartMap["text"] = pruned
-													resParts[k] = rPartMap
-													modified = true
-												}
-											}
-										}
-									}
 								}
 							}
 						}

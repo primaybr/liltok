@@ -139,7 +139,7 @@
       <div class="logo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
         <span>liltok</span>
-        <span class="logo-badge">v0.1.9-beta</span>
+        <span class="logo-badge">v0.2.0-beta</span>
         <span style="font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); letter-spacing: 0;">Little Token, Big Savings.</span>
       </div>
       <div class="header-right">
@@ -551,7 +551,6 @@
             <option value="gemini">Google Gemini</option>
             <option value="nvidianim">NVIDIA NIM</option>
             <option value="kilo">Kilo Gateway</option>
-            <option value="mistral">Mistral AI</option>
             <option value="openai">OpenAI</option>
             <option value="openrouter">OpenRouter</option>
             <option value="ollama">Ollama</option>
@@ -831,7 +830,6 @@
                 <option value="nvidianim">NVIDIA Free (DeepSeek V4, Nemotron Reasoning, Gemma 4)</option>
                 <option value="cline">Cline Free (DeepSeek V4, Nemotron, Gemma 4, Qwen 3.8)</option>
                 <option value="kilo">Kilo Free Gateway (Auto Free, DeepSeek V4, Nemotron)</option>
-                <option value="mistral">Mistral AI Free (Codestral 256k, Ministral 8B/3B)</option>
                 <option value="ollama">Local Ollama (Self-Hosted $0.00)</option>
                 <option value="openrouter">OpenRouter Free (DeepSeek V4, Nemotron, Gemma 4, Qwen 3.8)</option>
               </select>
@@ -2802,7 +2800,6 @@
         'OpenRouter': '#6366f1',
         'Kilo': '#0ea5e9',
         'Cline': '#0284c7',
-        'Mistral': '#ea580c',
         'Ollama': '#fbbf24',
         'DeepSeek': '#3b82f6',
         'Together': '#d946ef',
@@ -4570,8 +4567,6 @@
         modelInput.placeholder = 'kilo-auto/free or deepseek/deepseek-v4-flash-0731:free';
       } else if (prov === 'cline') {
         modelInput.placeholder = 'nvidia/nemotron-3.5-lightning:free or google/gemma-4-31b-it:free';
-      } else if (prov === 'mistral') {
-        modelInput.placeholder = 'codestral-latest or ministral-8b-latest';
       } else if (prov === 'ollama') {
         modelInput.placeholder = 'qwen2.5-coder:7b';
       } else if (prov === 'openrouter') {

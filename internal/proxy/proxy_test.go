@@ -647,7 +647,7 @@ func TestProxyFreeFirstBypassesPaidUpstreamFallback(t *testing.T) {
 
 	r := router.NewRouter(cfg)
 	// Explicitly register failing mock on all free and paid providers so router dispatch exhausts
-	for _, name := range []string{"groq", "gemini", "nvidianim", "openrouter", "mistral", "kilo", "cline"} {
+	for _, name := range []string{"groq", "gemini", "nvidianim", "openrouter", "kilo", "cline"} {
 		r.SetProvider(name, &mockFailingProvider{name: name})
 	}
 

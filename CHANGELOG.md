@@ -5,6 +5,27 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0-beta] - 2026-09-24
+
+### Added
+- **Tool-Name Validation:** returned tool calls are checked against the request's declared tools. Case or underscore mismatches are repaired (`glob` -> `Glob`); undeclared names (`Global`) trigger rolling failover.
+
+### Changed
+- **Claude Code Plan Mode:** an `ExitPlanMode` issued before the plan file is written is replaced with a `Write` of the plan to the path named in the plan-mode reminder, and the plan is shown as chat text. Claude Code reads the plan from that file. `ExitPlanMode` with no plan text anywhere now triggers failover instead of reaching the user as an empty plan.
+- **Tool Output Preserved Verbatim:** the pre-flight pruner no longer rewrites `tool_result` or `role: "tool"` content. Stripped trailing whitespace and collapsed lines broke exact-match `Edit` calls. Oversized historical tool output is still reduced by the session compactor.
+
+### Removed
+- **Mistral Provider:** removed from routing, configuration, dashboard, miner, and pricing due to 200+ second upstream latency. A `providers.mistral` block in existing configs is ignored.
+
+### Security
+- **Cline API Key No Longer Built In:** the Cline key hardcoded in the default configuration since 0.1.3-beta is removed. Set `providers.cline.api_key` or `CLINE_API_KEY` to keep using Cline. The old key is in git history and in earlier release binaries and must be treated as exposed.
+
+### Fixed
+- **Empty Turns:** completions whose only output is a `<think>` block are now rejected as empty and fail over, instead of reaching Claude Code as a blank turn.
+- **Repetition Loop Breaker:** Claude Code `<system-reminder>` messages no longer count as human input, so loop detection stays active during autonomous runs. Real user messages still exempt retries.
+
+---
+
 ## [0.1.9-beta] - 2026-09-21
 
 ### Added

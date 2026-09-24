@@ -234,3 +234,52 @@ func TestPruneJSONPayload_SessionCompactorEndToEnd(t *testing.T) {
 		t.Errorf("expected head and tail preserved in historical output")
 	}
 }
+
+// Tool output is what the agent later copies into Edit old_string, so it must reach the model verbatim.
+func TestPruneJSONPayload_PreservesToolResultsVerbatim(t *testing.T) {
+	readOutput := "1\tpackage config\n2\t\n3\t// ==========================\n4\tvar x = 1   \n\n\n\n8\tvar y = 2\n"
+	p := prune.NewPruner(prune.DefaultOptions())
+
+	anthropic := map[string]interface{}{
+		"model": "claude-sonnet-5",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "edit config"},
+			{"role": "assistant", "content": []map[string]interface{}{{"type": "tool_use", "id": "r1", "name": "Read", "input": map[string]string{"file_path": "config.go"}}}},
+			{"role": "user", "content": []map[string]interface{}{
+				{"type": "tool_result", "tool_use_id": "r1", "content": readOutput},
+				{"type": "tool_result", "tool_use_id": "r2", "content": []map[string]interface{}{{"type": "text", "text": readOutput}}},
+			}},
+		},
+	}
+	openai := map[string]interface{}{
+		"model": "gpt-4o",
+		"messages": []map[string]interface{}{
+			{"role": "user", "content": "edit config"},
+			{"role": "tool", "tool_call_id": "r1", "content": readOutput},
+		},
+	}
+
+	for name, payload := range map[string]interface{}{"anthropic": anthropic, "openai": openai} {
+		raw, _ := json.Marshal(payload)
+		out, _, err := p.PruneJSONPayload(raw)
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", name, err)
+		}
+		var decoded struct {
+			Messages []json.RawMessage `json:"messages"`
+		}
+		if err := json.Unmarshal(out, &decoded); err != nil {
+			t.Fatalf("%s: unmarshal failed: %v", name, err)
+		}
+		expected, _ := json.Marshal(readOutput)
+		last := string(decoded.Messages[len(decoded.Messages)-1])
+		if strings.Count(last, string(expected)) != strings.Count(string(mustMarshal(payload)), string(expected)) {
+			t.Errorf("%s: tool result content was modified by the pruner:\n%s", name, last)
+		}
+	}
+}
+
+func mustMarshal(v interface{}) []byte {
+	b, _ := json.Marshal(v)
+	return b
+}

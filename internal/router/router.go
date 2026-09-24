@@ -291,60 +291,6 @@ func isDeprecatedKilo(model string) bool {
 	return ok
 }
 
-// defaultMistralActiveModels provides the verified baseline active models from api.mistral.ai on the free experimentation tier.
-var defaultMistralActiveModels = []provider.ModelInfo{
-	{ID: "codestral-latest", Provider: "mistral", Active: true, ContextWindow: 256000, OwnedBy: "mistralai"},
-	{ID: "codestral-2508", Provider: "mistral", Active: true, ContextWindow: 256000, OwnedBy: "mistralai"},
-	{ID: "mistral-code-latest", Provider: "mistral", Active: true, ContextWindow: 256000, OwnedBy: "mistralai"},
-	{ID: "ministral-8b-latest", Provider: "mistral", Active: true, ContextWindow: 262144, OwnedBy: "mistralai"},
-	{ID: "ministral-8b-2512", Provider: "mistral", Active: true, ContextWindow: 262144, OwnedBy: "mistralai"},
-	{ID: "ministral-3b-latest", Provider: "mistral", Active: true, ContextWindow: 131072, OwnedBy: "mistralai"},
-	{ID: "ministral-3b-2512", Provider: "mistral", Active: true, ContextWindow: 131072, OwnedBy: "mistralai"},
-	{ID: "ministral-14b-latest", Provider: "mistral", Active: true, ContextWindow: 262144, OwnedBy: "mistralai"},
-	{ID: "ministral-14b-2512", Provider: "mistral", Active: true, ContextWindow: 262144, OwnedBy: "mistralai"},
-	{ID: "voxtral-small-latest", Provider: "mistral", Active: true, ContextWindow: 32768, OwnedBy: "mistralai"},
-}
-
-// mistralDeprecatedModelReplacements maps shorthand or alias Mistral model names to working models.
-var mistralDeprecatedModelReplacements = map[string]string{
-	"codestral":            "codestral-latest",
-	"mistral/codestral":    "codestral-latest",
-	"ministral-8b":         "ministral-8b-latest",
-	"mistral/ministral-8b": "ministral-8b-latest",
-	"ministral-3b":         "ministral-3b-latest",
-	"mistral/ministral-3b": "ministral-3b-latest",
-	"mistral-small":        "ministral-8b-latest",
-	"mistral-small-latest": "ministral-8b-latest",
-	"open-mistral-7b":      "ministral-8b-latest",
-	"mistral-tiny":         "ministral-3b-latest",
-}
-
-// RemapMistralModel translates deprecated or shorthand Mistral model names to active working models.
-func RemapMistralModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "mistral/")
-	if strings.HasSuffix(lower, ":free") {
-		return model, false
-	}
-	if repl, ok := mistralDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range mistralDeprecatedModelReplacements {
-		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
-
-func isDeprecatedMistral(model string) bool {
-	if strings.HasSuffix(strings.ToLower(model), ":free") {
-		return false
-	}
-	_, ok := RemapMistralModel(model)
-	return ok
-}
-
 // defaultClineActiveModels provides the verified baseline active free reasoning and chat models from api.cline.bot/api/v1/models
 var defaultClineActiveModels = []provider.ModelInfo{
 	{ID: "nvidia/nemotron-3.5-lightning:free", Provider: "cline", Active: true, ContextWindow: 1000000, OwnedBy: "nvidia"},
@@ -482,12 +428,6 @@ func NewRouter(cfg *config.Config) *Router {
 	}
 	r.registerProvider(openai.NewKiloAdapter(cfg.Providers.Kilo.APIKey, kiloURL))
 
-	mistralURL := cfg.Providers.Mistral.BaseURL
-	if mistralURL == "" {
-		mistralURL = "https://api.mistral.ai/v1"
-	}
-	r.registerProvider(openai.NewMistralAdapter(cfg.Providers.Mistral.APIKey, mistralURL))
-
 	clineURL := cfg.Providers.Cline.BaseURL
 	if clineURL == "" {
 		clineURL = "https://api.cline.bot/api/v1"
@@ -515,7 +455,7 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Mistral -> Kilo
+	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
@@ -542,8 +482,6 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "openrouter", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "openrouter", UpstreamModel: "google/gemma-4-31b-it:free"},
 			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
-			{ProviderName: "mistral", UpstreamModel: "codestral-latest"},
-			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
 			{ProviderName: "kilo", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
@@ -553,7 +491,7 @@ func (r *Router) initDefaultRoutes() {
 		},
 	}
 
-	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free -> Mistral Free -> Kilo Free -> Cline Free
+	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free -> Kilo Free -> Cline Free
 	r.routes["free-first"] = Route{
 		ID:       "free-first",
 		Strategy: "free_first",
@@ -579,8 +517,6 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "openrouter", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
 			{ProviderName: "openrouter", UpstreamModel: "google/gemma-4-31b-it:free"},
 			{ProviderName: "openrouter", UpstreamModel: "openrouter/free"},
-			{ProviderName: "mistral", UpstreamModel: "codestral-latest"},
-			{ProviderName: "mistral", UpstreamModel: "ministral-8b-latest"},
 			{ProviderName: "kilo", UpstreamModel: "kilo-auto/free"},
 			{ProviderName: "kilo", UpstreamModel: "deepseek/deepseek-v4-flash-0731:free"},
 			{ProviderName: "kilo", UpstreamModel: "nvidia/nemotron-3.5-lightning:free"},
@@ -789,32 +725,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return targets
 	}
 
-	if strings.HasPrefix(lowerModel, "mistral/") || isDeprecatedMistral(requestedModel) {
-		actualModel := requestedModel
-		if strings.HasPrefix(lowerModel, "mistral/") {
-			candidate := strings.TrimPrefix(requestedModel, "mistral/")
-			for _, m := range r.GetProviderActiveModels("mistral") {
-				if strings.EqualFold(m.ID, candidate) {
-					actualModel = m.ID
-					break
-				}
-			}
-		}
-		if repl, isDep := RemapMistralModel(actualModel); isDep {
-			actualModel = repl
-		}
-		targets := []TargetSpec{
-			{ProviderName: "mistral", UpstreamModel: actualModel},
-		}
-		for _, t := range r.routes["free-first"].Targets {
-			if t.ProviderName == "mistral" && t.UpstreamModel == actualModel {
-				continue
-			}
-			targets = append(targets, t)
-		}
-		return targets
-	}
-
 	// 4. If default strategy is explicitly free-first, use free-first targets to reduce token consumption
 	if strategy == "free-first" {
 		return r.routes["free-first"].Targets
@@ -888,23 +798,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		}
 		for _, t := range r.routes["free-first"].Targets {
 			if t.ProviderName == "kilo" && t.UpstreamModel == actualModel {
-				continue
-			}
-			targets = append(targets, t)
-		}
-		return targets
-	}
-
-	if r.IsActiveModel("mistral", requestedModel) {
-		actualModel := requestedModel
-		if repl, isDep := RemapMistralModel(actualModel); isDep {
-			actualModel = repl
-		}
-		targets := []TargetSpec{
-			{ProviderName: "mistral", UpstreamModel: actualModel},
-		}
-		for _, t := range r.routes["free-first"].Targets {
-			if t.ProviderName == "mistral" && t.UpstreamModel == actualModel {
 				continue
 			}
 			targets = append(targets, t)
@@ -994,7 +887,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			}
 		}
 
-		// 2. High-Context Tier 2 (>= 256K Context Windows): OpenRouter, Kilo, Cline, Mistral (256k)
+		// 2. High-Context Tier 2 (>= 256K Context Windows): OpenRouter, Kilo, Cline
 		for _, t := range targets {
 			if t.ProviderName != "anthropic" && t.ProviderName != "openai" {
 				ctxWin := r.GetModelContextWindow(t.ProviderName, t.UpstreamModel)
@@ -1121,24 +1014,6 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			}
 		}
 
-		// Strictly ensure only active models are dispatched to Mistral
-		if target.ProviderName == "mistral" {
-			if repl, isDep := RemapMistralModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated Mistral model to active replacement")
-				target.UpstreamModel = repl
-			}
-			if !r.IsActiveModel("mistral", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "mistral").
-					Str("model", target.UpstreamModel).
-					Msg("Mistral model is not in active models catalog, skipping target")
-				continue
-			}
-		}
-
 		// Strictly ensure only active models are dispatched to Cline
 		if target.ProviderName == "cline" {
 			if repl, isDep := RemapClineModel(target.UpstreamModel); isDep {
@@ -1195,9 +1070,23 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				}
 			}
 
-			// Reject silent empty or corrupted completions (0 text content and 0 tool calls) to trigger failover
-			if strings.TrimSpace(resp.Content) == "" && len(resp.ToolCalls) == 0 {
+			// Reject silent empty or corrupted completions (0 visible text and 0 tool calls) to trigger failover.
+			// Visible text excludes <think> blocks, which the Anthropic translator moves out of the text block.
+			_, visibleText := extractThinkingBlocks(resp.Content)
+			if strings.TrimSpace(visibleText) == "" && len(resp.ToolCalls) == 0 {
 				err = fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
+			}
+
+			// Reject calls to tools the client never declared (e.g. "Global" for "Glob"); repair case-only mismatches
+			if err == nil {
+				if bad := reconcileToolNames(req.Tools, resp.ToolCalls); bad != "" {
+					err = fmt.Errorf("upstream provider %s model %s called undeclared tool %q", target.ProviderName, target.UpstreamModel, bad)
+				}
+			}
+
+			// Reject ExitPlanMode calls that skip writing the plan and carry no plan text to write
+			if err == nil && isEmptyExitPlanMode(req, resp) {
+				err = fmt.Errorf("upstream provider %s model %s called ExitPlanMode without writing or providing a plan", target.ProviderName, target.UpstreamModel)
 			}
 
 			// Reject completions stuck in an in-context repetition loop to trigger rolling failover
@@ -1304,8 +1193,8 @@ func isRepetitionLoop(req *provider.UnifiedChatRequest, resp *provider.UnifiedCh
 				toolResultHasError = true
 			}
 		} else if msg.Role == "user" {
-			// If a user message starts with [System Reminder], it is an automated environment update, not human input.
-			if !strings.HasPrefix(strings.TrimSpace(msg.Content), "[System Reminder]") {
+			// Client-injected <system-reminder> updates are not human input.
+			if !isAutomatedUserMessage(msg.Content) {
 				onlyToolResultsSinceLastAssistant = false
 			}
 		}
@@ -1495,8 +1384,6 @@ func (r *Router) UpdateProvider(name string, creds config.ProviderCreds) error {
 			r.cfg.Providers.Ollama = creds
 		case "kilo":
 			r.cfg.Providers.Kilo = creds
-		case "mistral":
-			r.cfg.Providers.Mistral = creds
 		case "cline":
 			r.cfg.Providers.Cline = creds
 		}
@@ -1572,7 +1459,6 @@ func (r *Router) seedActiveModels() {
 	r.activeModels["nvidianim"] = append([]provider.ModelInfo(nil), defaultNVIDIANIMActiveModels...)
 	r.activeModels["openrouter"] = append([]provider.ModelInfo(nil), defaultOpenRouterActiveModels...)
 	r.activeModels["kilo"] = append([]provider.ModelInfo(nil), defaultKiloActiveModels...)
-	r.activeModels["mistral"] = append([]provider.ModelInfo(nil), defaultMistralActiveModels...)
 	r.activeModels["cline"] = append([]provider.ModelInfo(nil), defaultClineActiveModels...)
 }
 
@@ -1686,11 +1572,6 @@ func (r *Router) GetProviderActiveModels(providerName string) []provider.ModelIn
 		copy(out, defaultKiloActiveModels)
 		return out
 	}
-	if providerName == "mistral" {
-		out := make([]provider.ModelInfo, len(defaultMistralActiveModels))
-		copy(out, defaultMistralActiveModels)
-		return out
-	}
 	if providerName == "cline" {
 		out := make([]provider.ModelInfo, len(defaultClineActiveModels))
 		copy(out, defaultClineActiveModels)
@@ -1749,8 +1630,6 @@ func (r *Router) GetModelContextWindow(providerName, modelID string) int {
 		return 131072
 	case "openrouter", "kilo", "cline":
 		return 262144
-	case "mistral":
-		return 256000
 	default:
 		return 131072
 	}
@@ -1769,7 +1648,6 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 	hasNvidia := false
 	hasOpenRouter := false
 	hasKilo := false
-	hasMistral := false
 	hasCline := false
 	for _, m := range all {
 		if m.Provider == "groq" {
@@ -1783,9 +1661,6 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 		}
 		if m.Provider == "kilo" {
 			hasKilo = true
-		}
-		if m.Provider == "mistral" {
-			hasMistral = true
 		}
 		if m.Provider == "cline" {
 			hasCline = true
@@ -1802,9 +1677,6 @@ func (r *Router) GetAllActiveModels(ctx context.Context) []provider.ModelInfo {
 	}
 	if !hasKilo {
 		all = append(all, defaultKiloActiveModels...)
-	}
-	if !hasMistral {
-		all = append(all, defaultMistralActiveModels...)
 	}
 	if !hasCline {
 		all = append(all, defaultClineActiveModels...)

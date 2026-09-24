@@ -70,11 +70,6 @@ func DefaultPricingRules() []ModelPricing {
 		{ModelPattern: `^ollama/.*`, Provider: "ollama", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^kilo/.*`, Provider: "kilo", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^kilo-auto/.*`, Provider: "kilo", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^codestral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^ministral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^mistral-code.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^voxtral-.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
-		{ModelPattern: `^mistral/.*`, Provider: "mistral", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 		{ModelPattern: `^cline/.*`, Provider: "cline", Tier: "free", InputCostPerM: 0.00, CachedInputCostPerM: 0.00, OutputCostPerM: 0.00},
 	}
 
@@ -213,7 +208,7 @@ func (pr *PricingRegistry) Calculate(model string, promptTokens, completionToken
 // CalculateDetailedForRouting computes detailed breakdown when a requested model is fulfilled by a specific provider.
 func (pr *PricingRegistry) CalculateDetailedForRouting(requestedModel, fulfillingProvider string, promptTokens, completionTokens, cachedTokens int, cacheStatus, cacheTier string) CostBreakdown {
 	prov := strings.ToLower(fulfillingProvider)
-	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "openrouter" || prov == "kilo" || prov == "mistral" || prov == "cline" || prov == "free"
+	isFree := prov == "gemini" || prov == "groq" || prov == "nvidianim" || prov == "ollama" || prov == "openrouter" || prov == "kilo" || prov == "cline" || prov == "free"
 
 	if isFree {
 		savedUSD := 0.0

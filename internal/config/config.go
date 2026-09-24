@@ -65,7 +65,6 @@ type ProvidersConfig struct {
 	OpenRouter ProviderCreds `yaml:"openrouter"`
 	Ollama     ProviderCreds `yaml:"ollama"`
 	Kilo       ProviderCreds `yaml:"kilo"`
-	Mistral    ProviderCreds `yaml:"mistral"`
 	Cline      ProviderCreds `yaml:"cline"`
 }
 
@@ -174,12 +173,6 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("KILO_BASE_URL"); v != "" {
 		cfg.Providers.Kilo.BaseURL = v
-	}
-	if v := os.Getenv("MISTRAL_API_KEY"); v != "" {
-		cfg.Providers.Mistral.APIKey = v
-	}
-	if v := os.Getenv("MISTRAL_BASE_URL"); v != "" {
-		cfg.Providers.Mistral.BaseURL = v
 	}
 	if v := os.Getenv("CLINE_API_KEY"); v != "" {
 		cfg.Providers.Cline.APIKey = v
@@ -316,8 +309,6 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 			return p.Ollama, true
 		case "kilo":
 			return p.Kilo, true
-		case "mistral":
-			return p.Mistral, true
 		case "cline":
 			return p.Cline, true
 		default:

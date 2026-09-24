@@ -769,114 +769,6 @@ func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 }
 
-func TestRouterMistralActiveModelResolutionAndRemapping(t *testing.T) {
-	cfg := config.DefaultConfig()
-	r := NewRouter(cfg)
-
-	// 1. Test RemapMistralModel
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"mistral/codestral", "codestral-latest"},
-		{"codestral", "codestral-latest"},
-		{"mistral/ministral-8b", "ministral-8b-latest"},
-		{"mistral/ministral-3b", "ministral-3b-latest"},
-		{"mistral/mistral-small-latest", "ministral-8b-latest"},
-		{"mistral/codestral-latest", "codestral-latest"},
-		{"ministral-14b-latest", "ministral-14b-latest"},
-	}
-
-	for _, tc := range tests {
-		got, _ := RemapMistralModel(tc.input)
-		if got != tc.expected {
-			t.Errorf("RemapMistralModel(%q) = %q, expected %q", tc.input, got, tc.expected)
-		}
-	}
-
-	// 2. Test ResolveTargets with mistral prefix
-	targets := r.ResolveTargets("mistral/codestral-latest", "")
-	if len(targets) == 0 {
-		t.Fatalf("expected at least 1 target for mistral/codestral-latest")
-	}
-	if targets[0].ProviderName != "mistral" {
-		t.Errorf("expected primary provider mistral, got %s", targets[0].ProviderName)
-	}
-	if targets[0].UpstreamModel != "codestral-latest" {
-		t.Errorf("expected model codestral-latest, got %s", targets[0].UpstreamModel)
-	}
-
-	aliasTargets := r.ResolveTargets("mistral/codestral", "")
-	if len(aliasTargets) == 0 {
-		t.Fatalf("expected at least 1 target for mistral/codestral")
-	}
-	if aliasTargets[0].ProviderName != "mistral" {
-		t.Errorf("expected primary provider mistral, got %s", aliasTargets[0].ProviderName)
-	}
-	if aliasTargets[0].UpstreamModel != "codestral-latest" {
-		t.Errorf("expected remapped model codestral-latest, got %s", aliasTargets[0].UpstreamModel)
-	}
-
-	// 3. Test IsActiveModel
-	if !r.IsActiveModel("mistral", "codestral-latest") {
-		t.Errorf("expected codestral-latest to be active on mistral")
-	}
-	if !r.IsActiveModel("mistral", "ministral-8b-latest") {
-		t.Errorf("expected ministral-8b-latest to be active on mistral")
-	}
-	if !r.IsActiveModel("mistral", "ministral-3b-latest") {
-		t.Errorf("expected ministral-3b-latest to be active on mistral")
-	}
-	if r.IsActiveModel("mistral", "mistral-small-latest") {
-		t.Errorf("expected rate-limited mistral-small-latest to NOT be in active catalog")
-	}
-
-	// 4. Test GetAllActiveModels contains Mistral models
-	allModels := r.GetAllActiveModels(context.Background())
-	foundCodestral := false
-	for _, m := range allModels {
-		if m.Provider == "mistral" && m.ID == "codestral-latest" {
-			foundCodestral = true
-			break
-		}
-	}
-	if !foundCodestral {
-		t.Errorf("expected mistral/codestral-latest in GetAllActiveModels")
-	}
-
-	// 5. Test DispatchChat auto-remaps alias model
-	mockMistral := &mockProvider{
-		name: "mistral",
-		fail: false,
-		response: &provider.UnifiedChatResponse{
-			ID:      "mock-mistral-id",
-			Model:   "codestral-latest",
-			Content: "mistral code response",
-		},
-	}
-	r.SetProvider("mistral", mockMistral)
-
-	req := &provider.UnifiedChatRequest{
-		Model: "mistral/codestral",
-		Messages: []provider.UnifiedChatMessage{
-			{Role: "user", Content: "write a function"},
-		},
-	}
-	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
-	if err != nil {
-		t.Fatalf("unexpected dispatch error: %v", err)
-	}
-	if winProv != "mistral" {
-		t.Errorf("expected winning provider mistral, got %s", winProv)
-	}
-	if resp.Content != "mistral code response" {
-		t.Errorf("expected content 'mistral code response', got %s", resp.Content)
-	}
-	if mockMistral.lastModel != "codestral-latest" {
-		t.Errorf("expected provider to receive remapped model codestral-latest, got %s", mockMistral.lastModel)
-	}
-}
-
 func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
@@ -1002,8 +894,6 @@ func TestRouterGetModelContextWindow(t *testing.T) {
 		{"openrouter", "cohere/north-mini-code:free", 256000},
 		{"kilo", "kilo-auto/free", 256000},
 		{"kilo", "deepseek/deepseek-v4-flash-0731:free", 1048576},
-		{"mistral", "codestral-latest", 256000},
-		{"mistral", "ministral-8b-latest", 262144},
 		{"cline", "nvidia/nemotron-3.5-lightning:free", 1000000},
 		{"groq", "openai/gpt-oss-120b", 131072},
 		{"groq", "qwen/qwen3.8-27b", 131042},
@@ -1618,3 +1508,148 @@ func TestRouter_RepetitionLoopFailover(t *testing.T) {
 	}
 }
 
+
+func TestRouterThinkingOnlyResponseTriggersFailover(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	r.SetProvider("groq", &mockProvider{
+		name:     "groq",
+		response: &provider.UnifiedChatResponse{ID: "groq-think-only", Content: "<think>I should edit the file next.</think>"},
+	})
+	r.SetProvider("gemini", &mockProvider{
+		name:     "gemini",
+		response: &provider.UnifiedChatResponse{ID: "gemini-valid", Content: "hello from gemini"},
+	})
+
+	req := &provider.UnifiedChatRequest{
+		Model:    "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "hello"}},
+	}
+	_, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+	if winProv != "gemini" {
+		t.Errorf("expected failover when the only output is a <think> block, got %s", winProv)
+	}
+}
+
+func TestRouterEmptyExitPlanModeTriggersFailover(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	r.SetProvider("groq", &mockProvider{
+		name: "groq",
+		response: &provider.UnifiedChatResponse{
+			ID:           "groq-empty-exit",
+			FinishReason: "tool_calls",
+			ToolCalls:    []provider.UnifiedToolCall{makeToolCall("call_exit", "ExitPlanMode", `{}`)},
+		},
+	})
+	r.SetProvider("gemini", &mockProvider{
+		name:     "gemini",
+		response: &provider.UnifiedChatResponse{ID: "gemini-plan", Content: "# Plan\n1. Add adapter"},
+	})
+
+	_, winProv, err := r.DispatchChat(context.Background(), planModeRequest(), "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+	if winProv != "gemini" {
+		t.Errorf("expected failover for ExitPlanMode with no plan text and no plan file, got %s", winProv)
+	}
+}
+
+func TestRouter_IsRepetitionLoop_SystemReminderIsNotHumanInput(t *testing.T) {
+	editCall := []provider.UnifiedToolCall{makeToolCall("call_edit_1", "Edit",
+		`{"file_path":"internal/config/default.go","old_string":"\t\t\t\tMistral","new_string":"\t\t\t\tOmniRoute"}`)}
+
+	req := &provider.UnifiedChatRequest{
+		Messages: []provider.UnifiedChatMessage{
+			{Role: "user", Content: "remove mistral"},
+			{Role: "assistant", ToolCalls: editCall},
+			{Role: "tool", Content: "<tool_use_error>String to replace not found in file.</tool_use_error>"},
+			{Role: "user", Content: "<system-reminder>\nThe user hasn't heard from you in a while.\n</system-reminder>"},
+		},
+	}
+	resp := &provider.UnifiedChatResponse{ToolCalls: editCall}
+	if !isRepetitionLoop(req, resp) {
+		t.Errorf("a Claude Code <system-reminder> must not count as human input and disable loop detection")
+	}
+
+	req.Messages[3].Content = "try that edit again please"
+	if isRepetitionLoop(req, resp) {
+		t.Errorf("a real human message must still exempt a repeated call")
+	}
+}
+
+func declaredTools(names ...string) []interface{} {
+	tools := make([]interface{}, 0, len(names))
+	for i, n := range names {
+		if i%2 == 0 {
+			// Anthropic tool schema
+			tools = append(tools, map[string]interface{}{"name": n, "input_schema": map[string]interface{}{"type": "object"}})
+		} else {
+			// OpenAI function schema
+			tools = append(tools, map[string]interface{}{"type": "function", "function": map[string]interface{}{"name": n}})
+		}
+	}
+	return tools
+}
+
+func TestReconcileToolNames(t *testing.T) {
+	tools := declaredTools("Glob", "Read", "ExitPlanMode", "mcp__liltok__liltok_ask")
+
+	calls := []provider.UnifiedToolCall{
+		makeToolCall("c1", "glob", `{}`),
+		makeToolCall("c2", "exit_plan_mode", `{}`),
+		makeToolCall("c3", "Read", `{}`),
+		makeToolCall("c4", "mcp__liltok__liltok_ask", `{}`),
+	}
+	if bad := reconcileToolNames(tools, calls); bad != "" {
+		t.Fatalf("expected all calls to reconcile, got undeclared %q", bad)
+	}
+	for i, want := range []string{"Glob", "ExitPlanMode", "Read", "mcp__liltok__liltok_ask"} {
+		if calls[i].Function.Name != want {
+			t.Errorf("call %d: expected name %q, got %q", i, want, calls[i].Function.Name)
+		}
+	}
+
+	if bad := reconcileToolNames(tools, []provider.UnifiedToolCall{makeToolCall("c5", "Global", `{}`)}); bad != "Global" {
+		t.Errorf("expected Global to be reported as undeclared, got %q", bad)
+	}
+
+	if bad := reconcileToolNames(nil, []provider.UnifiedToolCall{makeToolCall("c6", "Anything", `{}`)}); bad != "" {
+		t.Errorf("requests without declared tools must not be checked, got %q", bad)
+	}
+}
+
+func TestRouterUndeclaredToolTriggersFailover(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	r.SetProvider("groq", &mockProvider{
+		name: "groq",
+		response: &provider.UnifiedChatResponse{
+			ID:           "groq-bad-tool",
+			FinishReason: "tool_calls",
+			ToolCalls:    []provider.UnifiedToolCall{makeToolCall("c1", "Global", `{"pattern":"**/*.go"}`)},
+		},
+	})
+	r.SetProvider("gemini", &mockProvider{
+		name: "gemini",
+		response: &provider.UnifiedChatResponse{
+			ID:           "gemini-good-tool",
+			FinishReason: "tool_calls",
+			ToolCalls:    []provider.UnifiedToolCall{makeToolCall("c2", "Glob", `{"pattern":"**/*.go"}`)},
+		},
+	})
+
+	req := &provider.UnifiedChatRequest{
+		Model:    "claude-sonnet-5",
+		Tools:    declaredTools("Glob", "Read"),
+		Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "find go files"}},
+	}
+	resp, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+	if winProv != "gemini" || resp.ToolCalls[0].Function.Name != "Glob" {
+		t.Errorf("expected failover to a model calling a declared tool, got %s calling %s", winProv, resp.ToolCalls[0].Function.Name)
+	}
+}

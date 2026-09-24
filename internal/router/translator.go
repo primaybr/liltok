@@ -21,6 +21,12 @@ func NewTranslator() *Translator {
 
 // ConvertOpenAIToAnthropicResponse transforms a standard OpenAI response into an Anthropic Messages response.
 func (t *Translator) ConvertOpenAIToAnthropicResponse(resp *provider.UnifiedChatResponse, targetModel string) ([]byte, error) {
+	return t.ConvertOpenAIToAnthropicResponseForRequest(resp, nil, targetModel)
+}
+
+// ConvertOpenAIToAnthropicResponseForRequest is ConvertOpenAIToAnthropicResponse with the originating
+// request, so request-dependent rewrites (Claude Code plan mode) can use the conversation history.
+func (t *Translator) ConvertOpenAIToAnthropicResponseForRequest(resp *provider.UnifiedChatResponse, req *provider.UnifiedChatRequest, targetModel string) ([]byte, error) {
 	msgID := fmt.Sprintf("msg_%s", resp.ID)
 	if resp.ID == "" {
 		msgID = fmt.Sprintf("msg_%x", time.Now().UnixMilli())
@@ -52,7 +58,7 @@ func (t *Translator) ConvertOpenAIToAnthropicResponse(resp *provider.UnifiedChat
 	}
 
 	// 2.5. Claude Code Plan Mode Interceptor: Ensure implementation plan is presented in chat text
-	textContent, toolCalls = handlePlanMode(textContent, thinkingText, toolCalls)
+	textContent, toolCalls = handlePlanMode(textContent, thinkingText, toolCalls, extractPlanModeContext(req))
 
 	// 3. Determine Stop Reason: Tool use MUST take priority over max_tokens to prevent Claude Code pause loops
 	stopReason := "end_turn"
@@ -1079,7 +1085,20 @@ func extractPlanFromArguments(argsStr string) (string, map[string]interface{}) {
 	return "", argsMap
 }
 
-func handlePlanMode(textContent, thinkingText string, toolCalls []provider.UnifiedToolCall) (string, []provider.UnifiedToolCall) {
+// newPlanFileWrite builds the Write call that stores a plan in the Claude Code plan file.
+func newPlanFileWrite(planPath, plan string) provider.UnifiedToolCall {
+	argsBytes, _ := json.Marshal(map[string]string{"file_path": planPath, "content": plan})
+	tc := provider.UnifiedToolCall{ID: fmt.Sprintf("call_plan_write_%x", time.Now().UnixNano()), Type: "function"}
+	tc.Function.Name = "Write"
+	tc.Function.Arguments = string(argsBytes)
+	return tc
+}
+
+// handlePlanMode keeps Claude Code plan mode intact for models that skip steps: the plan is always
+// shown as chat text, and an ExitPlanMode issued before the plan file exists is replaced with a Write
+// of that file, because Claude Code reads the plan from the file and not from ExitPlanMode arguments.
+func handlePlanMode(textContent, thinkingText string, toolCalls []provider.UnifiedToolCall, ctx PlanModeContext) (string, []provider.UnifiedToolCall) {
+	needsPlanFile := ctx.Active && !ctx.PlanWritten && ctx.PlanPath != ""
 	hasExitPlan := false
 	for i, tc := range toolCalls {
 		if isExitPlanMode(tc.Function.Name) {
@@ -1102,6 +1121,10 @@ func handlePlanMode(textContent, thinkingText string, toolCalls []provider.Unifi
 				} else if !strings.Contains(textContent, finalPlan) {
 					textContent = strings.TrimSpace(textContent) + "\n\n" + finalPlan
 				}
+				if needsPlanFile {
+					toolCalls[i] = newPlanFileWrite(ctx.PlanPath, finalPlan)
+					continue
+				}
 				argsMap["plan"] = finalPlan
 				if b, err := json.Marshal(argsMap); err == nil {
 					toolCalls[i].Function.Arguments = string(b)
@@ -1122,7 +1145,9 @@ func handlePlanMode(textContent, thinkingText string, toolCalls []provider.Unifi
 			strings.Contains(lower, "### plan") ||
 			strings.Contains(lower, "plan:")
 
-		if hasExitPlanMention && hasPlanStructure {
+		if hasExitPlanMention && hasPlanStructure && needsPlanFile {
+			toolCalls = append(toolCalls, newPlanFileWrite(ctx.PlanPath, textContent))
+		} else if hasExitPlanMention && hasPlanStructure {
 			argsMap := map[string]interface{}{
 				"plan": textContent,
 			}

@@ -59,12 +59,8 @@ func DefaultConfig() *Config {
 			Kilo: ProviderCreds{
 				BaseURL: "https://api.kilo.ai/api/gateway",
 			},
-			Mistral: ProviderCreds{
-				BaseURL: "https://api.mistral.ai/v1",
-			},
 			Cline: ProviderCreds{
 				BaseURL: "https://api.cline.bot/api/v1",
-				APIKey:  "sk_279872a1245584795bbedddfdf1c94ebd201b0c132df138061b4982be27c6cea",
 			},
 		},
 		Routes: RouteConfig{

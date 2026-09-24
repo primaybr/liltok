@@ -87,14 +87,6 @@ func NewKiloAdapter(apiKey, baseURL string) *Adapter {
 	return NewAdapter("kilo", provider.TierFree, baseURL, apiKey)
 }
 
-// NewMistralAdapter creates an adapter for Mistral AI's models.
-func NewMistralAdapter(apiKey, baseURL string) *Adapter {
-	if baseURL == "" {
-		baseURL = "https://api.mistral.ai/v1"
-	}
-	return NewAdapter("mistral", provider.TierFree, baseURL, apiKey)
-}
-
 // NewClineAdapter creates an adapter for Cline's free and reasoning models.
 func NewClineAdapter(apiKey, baseURL string) *Adapter {
 	if baseURL == "" {
@@ -284,11 +276,6 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 			continue
 		}
 
-		// Mistral filtering: strictly retain verified chat models operational on free experimentation tier
-		if name == "mistral" && !isMistralFreeChatModel(item.ID, item.Capabilities.CompletionChat) {
-			continue
-		}
-
 		// Cline filtering: strictly retain free chat and reasoning models (exclude paid, audio, safety guards)
 		if name == "cline" && !isClineFreeChatModel(item.ID) {
 			continue
@@ -304,8 +291,6 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 				ctxWindow = getNVIDIANIMContextWindow(item.ID)
 			} else if name == "openrouter" || name == "kilo" || name == "cline" {
 				ctxWindow = 262144
-			} else if name == "mistral" {
-				ctxWindow = 256000
 			}
 		}
 
@@ -470,43 +455,6 @@ func isKiloFreeChatModel(id, promptPrice, compPrice string, outputModalities []s
 	isFreeID := strings.HasSuffix(lower, ":free") || strings.HasSuffix(lower, "/free") || lower == "kilo-auto/free"
 
 	return isFreePricing || isFreeID
-}
-
-// isMistralFreeChatModel determines whether a model from Mistral AI is an active working model on the free experimentation tier.
-func isMistralFreeChatModel(id string, completionChat bool) bool {
-	lower := strings.ToLower(strings.TrimSpace(id))
-
-	// Must support chat completions
-	if !completionChat {
-		return false
-	}
-
-	// Exclude non-chat, moderation, ocr, audio, or embeddings
-	if strings.Contains(lower, "embed") || strings.Contains(lower, "moderation") || strings.Contains(lower, "ocr") || strings.Contains(lower, "realtime") || strings.Contains(lower, "tts") {
-		return false
-	}
-
-	// Under Mistral's free experimentation tier:
-	// mistral-small-* and mistral-medium-* return HTTP 429 rate limit exceeded.
-	// labs-* return HTTP 403 forbidden.
-	// Verified working models:
-	// - codestral-latest, codestral-2508, mistral-code-latest, mistral-code-fim-latest
-	// - ministral-8b-latest, ministral-8b-2512
-	// - ministral-3b-latest, ministral-3b-2512
-	// - ministral-14b-latest, ministral-14b-2512
-	// - voxtral-small-latest, voxtral-small-2507
-	if strings.HasPrefix(lower, "mistral-small") || strings.HasPrefix(lower, "magistral-small") ||
-		strings.HasPrefix(lower, "mistral-medium") || strings.HasPrefix(lower, "magistral-medium") ||
-		strings.HasPrefix(lower, "labs-") {
-		return false
-	}
-
-	if strings.HasPrefix(lower, "codestral") || strings.HasPrefix(lower, "ministral") ||
-		strings.HasPrefix(lower, "mistral-code") || strings.HasPrefix(lower, "voxtral-small") {
-		return true
-	}
-
-	return false
 }
 
 // isClineFreeChatModel determines whether a model from Cline is a free chat/reasoning model.

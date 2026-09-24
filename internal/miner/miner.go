@@ -165,13 +165,6 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		if cfg.Model == "" {
 			cfg.Model = "kilo-auto/free"
 		}
-	case "mistral":
-		if cfg.BaseURL == "" {
-			cfg.BaseURL = "https://api.mistral.ai/v1"
-		}
-		if cfg.Model == "" {
-			cfg.Model = "codestral-latest"
-		}
 	case "cline":
 		if cfg.BaseURL == "" {
 			cfg.BaseURL = "https://api.cline.bot/api/v1"

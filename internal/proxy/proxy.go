@@ -432,7 +432,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 
 				var finalBytes []byte
 				if targetProvider == "anthropic" && winningProvider != "anthropic" {
-					finalBytes, _ = p.router.Translator().ConvertOpenAIToAnthropicResponse(resp, unifiedReq.Model)
+					finalBytes, _ = p.router.Translator().ConvertOpenAIToAnthropicResponseForRequest(resp, unifiedReq, unifiedReq.Model)
 				} else {
 					finalBytes = resp.RawResponse
 					if len(finalBytes) == 0 {
@@ -646,7 +646,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					w.Header().Set("X-Liltok-Cache-Tier", "NONE")
 					w.Header().Set("X-Liltok-Provider", winningProvider)
 
-					finalBytes, _ := p.router.Translator().ConvertOpenAIToAnthropicResponse(fbResp, unifiedReq.Model)
+					finalBytes, _ := p.router.Translator().ConvertOpenAIToAnthropicResponseForRequest(fbResp, unifiedReq, unifiedReq.Model)
 					if chatReq.Stream {
 						entry := &cache.CacheEntry{
 							Model:           unifiedReq.Model,

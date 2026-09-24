@@ -84,5 +84,6 @@ _agent/
 .windsurfrules
 .kilo/
 .antigravity/
+.remember/
 *.transcript.jsonl
 

@@ -613,3 +613,129 @@ I will call ExitPlanMode now to proceed.`
 		t.Errorf("expected text block to preserve markdown bash code block intact")
 	}
 }
+
+func makeToolCall(id, name, args string) provider.UnifiedToolCall {
+	tc := provider.UnifiedToolCall{ID: id, Type: "function"}
+	tc.Function.Name = name
+	tc.Function.Arguments = args
+	return tc
+}
+
+const testPlanPath = `C:\Users\dev\.claude\plans\glistening-noodling-galaxy.md`
+
+func planModeRequest(extra ...provider.UnifiedChatMessage) *provider.UnifiedChatRequest {
+	msgs := []provider.UnifiedChatMessage{
+		{Role: "user", Content: "add omniroute provider"},
+		{Role: "assistant", ToolCalls: []provider.UnifiedToolCall{makeToolCall("call_enter", "EnterPlanMode", `{}`)}},
+		{Role: "tool", ToolCallID: "call_enter", Content: "Entered plan mode."},
+		{Role: "user", Content: "<system-reminder>\nPlan mode is active.\n## Plan File Info:\nNo plan file exists yet. You should create your plan at " + testPlanPath + " using the Write tool.\n</system-reminder>"},
+	}
+	return &provider.UnifiedChatRequest{Model: "claude-sonnet-5", Messages: append(msgs, extra...)}
+}
+
+func planWrittenRequest(path string) *provider.UnifiedChatRequest {
+	args, _ := json.Marshal(map[string]string{"file_path": path, "content": "# Plan"})
+	return planModeRequest(
+		provider.UnifiedChatMessage{Role: "assistant", ToolCalls: []provider.UnifiedToolCall{makeToolCall("call_w", "Write", string(args))}},
+		provider.UnifiedChatMessage{Role: "tool", ToolCallID: "call_w", Content: "File created successfully"},
+	)
+}
+
+func TestExtractPlanModeContext(t *testing.T) {
+	ctx := extractPlanModeContext(planModeRequest())
+	if !ctx.Active || ctx.PlanPath != testPlanPath {
+		t.Errorf("expected active plan mode with path %q, got %+v", testPlanPath, ctx)
+	}
+	if ctx.PlanWritten {
+		t.Errorf("expected PlanWritten=false before any Write")
+	}
+
+	if ctx := extractPlanModeContext(planWrittenRequest("C:/Users/dev/.claude/plans/glistening-noodling-galaxy.md")); !ctx.PlanWritten {
+		t.Errorf("expected PlanWritten=true after Write to the plan path with different slash style")
+	}
+
+	exited := planWrittenRequest(testPlanPath)
+	exited.Messages = append(exited.Messages,
+		provider.UnifiedChatMessage{Role: "assistant", ToolCalls: []provider.UnifiedToolCall{makeToolCall("call_x", "ExitPlanMode", `{}`)}},
+		provider.UnifiedChatMessage{Role: "tool", ToolCallID: "call_x", Content: "User has approved exiting plan mode. You can now proceed."},
+	)
+	if ctx := extractPlanModeContext(exited); ctx.Active {
+		t.Errorf("expected plan mode inactive after approved ExitPlanMode")
+	}
+
+	if ctx := extractPlanModeContext(nil); ctx.Active {
+		t.Errorf("expected nil request to yield inactive plan mode")
+	}
+}
+
+type anthropicTestBlock struct {
+	Type  string                 `json:"type"`
+	Text  string                 `json:"text"`
+	Name  string                 `json:"name"`
+	Input map[string]interface{} `json:"input"`
+}
+
+func convertForRequest(t *testing.T, resp *provider.UnifiedChatResponse, req *provider.UnifiedChatRequest) []anthropicTestBlock {
+	t.Helper()
+	raw, err := NewTranslator().ConvertOpenAIToAnthropicResponseForRequest(resp, req, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("conversion failed: %v", err)
+	}
+	var parsed struct {
+		Content []anthropicTestBlock `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal failed: %v", err)
+	}
+	return parsed.Content
+}
+
+func TestTranslator_ExitPlanMode_RewritesToPlanFileWrite(t *testing.T) {
+	resp := &provider.UnifiedChatResponse{
+		ID:           "exit_without_file",
+		FinishReason: "tool_calls",
+		Content:      "# Plan\n\n1. Add OmniRoute adapter\n2. Remove Mistral",
+		ToolCalls:    []provider.UnifiedToolCall{makeToolCall("call_exit", "ExitPlanMode", `{}`)},
+	}
+
+	var sawText, sawWrite bool
+	for _, b := range convertForRequest(t, resp, planModeRequest()) {
+		switch {
+		case b.Type == "text":
+			sawText = strings.Contains(b.Text, "Remove Mistral")
+		case b.Type == "tool_use" && b.Name == "ExitPlanMode":
+			t.Errorf("ExitPlanMode must not be forwarded before the plan file is written")
+		case b.Type == "tool_use" && b.Name == "Write":
+			sawWrite = true
+			if b.Input["file_path"] != testPlanPath {
+				t.Errorf("unexpected Write file_path: %v", b.Input["file_path"])
+			}
+			if c, _ := b.Input["content"].(string); !strings.Contains(c, "Add OmniRoute adapter") {
+				t.Errorf("expected plan text in Write content, got %q", c)
+			}
+		}
+	}
+	if !sawText {
+		t.Errorf("expected plan to be shown as chat text")
+	}
+	if !sawWrite {
+		t.Errorf("expected ExitPlanMode to be rewritten into a Write of the plan file")
+	}
+}
+
+func TestTranslator_ExitPlanMode_PassesThroughWhenPlanFileWritten(t *testing.T) {
+	resp := &provider.UnifiedChatResponse{
+		ID:           "exit_with_file",
+		FinishReason: "tool_calls",
+		ToolCalls:    []provider.UnifiedToolCall{makeToolCall("call_exit", "ExitPlanMode", `{}`)},
+	}
+	sawExit := false
+	for _, b := range convertForRequest(t, resp, planWrittenRequest(testPlanPath)) {
+		if b.Type == "tool_use" && b.Name == "ExitPlanMode" {
+			sawExit = true
+		}
+	}
+	if !sawExit {
+		t.Errorf("expected ExitPlanMode to pass through once the plan file exists")
+	}
+}
