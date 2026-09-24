@@ -1,0 +1,166 @@
+{
+  "description": "A client <system-reminder> after the tool result is not human input, so loop detection stays active.",
+  "origin": "0.2.0-beta repetition loop breaker",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Run the tests."
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_01",
+            "name": "Bash",
+            "input": {
+              "command": "go test ./..."
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_01",
+            "content": "FAIL: TestAuth\nexit code 1"
+          },
+          {
+            "type": "text",
+            "text": "<system-reminder>The task list is empty.</system-reminder>"
+          }
+        ]
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "tool_calls": [
+        {
+          "name": "Bash",
+          "arguments": {
+            "command": "go test ./..."
+          }
+        }
+      ]
+    },
+    {
+      "tool_calls": [
+        {
+          "name": "Read",
+          "arguments": {
+            "file_path": "auth_test.go"
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "attempts": 2,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "auth_test.go"
+        }
+      }
+    ]
+  }
+}

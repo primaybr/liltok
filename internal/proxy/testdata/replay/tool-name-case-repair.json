@@ -1,0 +1,129 @@
+{
+  "description": "A tool call whose name differs from a declared tool only by case is repaired, not failed over.",
+  "origin": "0.2.0-beta tool-name validation",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Find all Go files."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "tool_calls": [
+        {
+          "name": "glob",
+          "arguments": {
+            "pattern": "**/*.go"
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "tool_use",
+        "name": "Glob",
+        "input": {
+          "pattern": "**/*.go"
+        }
+      }
+    ]
+  }
+}

@@ -237,3 +237,27 @@ func TestPackStarterCache(t *testing.T) {
 	}
 }
 
+
+func TestDefaultTargetModels_MatchClientModelIDs(t *testing.T) {
+	models := miner.DefaultTargetModels()
+	want := map[string]bool{"claude-opus-5-5": false, "claude-haiku-4-5-20251001": false}
+	for _, m := range models {
+		if m == "claude-opus-5" || m == "claude-haiku-4-5" {
+			t.Errorf("default targets contain %q, which Claude Code does not send", m)
+		}
+		if _, ok := want[m]; ok {
+			want[m] = true
+		}
+	}
+	for m, found := range want {
+		if !found {
+			t.Errorf("default targets missing %q", m)
+		}
+	}
+
+	// Callers append to the result; each call must return an independent slice.
+	models[0] = "mutated"
+	if miner.DefaultTargetModels()[0] == "mutated" {
+		t.Error("DefaultTargetModels returned a shared slice")
+	}
+}

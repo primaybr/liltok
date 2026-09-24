@@ -76,8 +76,8 @@ func TestRouterTargetResolution(t *testing.T) {
 
 	// Test premium-only route resolution
 	premiumTargets := r.ResolveTargets("premium-only", "")
-	if len(premiumTargets) == 0 || premiumTargets[0].UpstreamModel != "claude-opus-5" {
-		t.Errorf("expected claude-opus-5 primary for premium-only, got %v", premiumTargets)
+	if len(premiumTargets) == 0 || premiumTargets[0].UpstreamModel != "claude-opus-5-5" {
+		t.Errorf("expected claude-opus-5-5 primary for premium-only, got %v", premiumTargets)
 	}
 
 	// Test free-first route resolution

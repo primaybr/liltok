@@ -1,0 +1,130 @@
+{
+  "description": "Inline <think> reasoning becomes a thinking block and stays out of the visible text.",
+  "origin": "0.1.9-beta thinking isolation",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "What is 6 times 7?"
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "<think>6 times 7 is 42.</think>The answer is 42."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "blocks": [
+      {
+        "type": "thinking",
+        "contains": [
+          "6 times 7 is 42"
+        ]
+      },
+      {
+        "type": "text",
+        "contains": [
+          "The answer is 42."
+        ],
+        "excludes": [
+          "<think>",
+          "</think>"
+        ]
+      }
+    ]
+  }
+}

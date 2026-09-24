@@ -75,6 +75,9 @@ type RouteConfig struct {
 	// AttemptTimeoutSeconds bounds each non-premium upstream attempt in a fallback chain,
 	// so a provider that accepts a request and never answers cannot stall the chain. 0 disables it.
 	AttemptTimeoutSeconds int `yaml:"attempt_timeout_seconds"`
+	// CaptureDir, when set, receives a replay fixture for every routed /v1/messages request.
+	// Fixtures hold the full conversation, so leave it empty outside debugging sessions.
+	CaptureDir string `yaml:"capture_dir"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -217,6 +220,9 @@ func applyEnvOverrides(cfg *Config) {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Routes.AttemptTimeoutSeconds = n
 		}
+	}
+	if v := os.Getenv("LILTOK_CAPTURE_DIR"); v != "" {
+		cfg.Routes.CaptureDir = v
 	}
 	if v := os.Getenv("LILTOK_PROTECT_CODE_FILES"); v != "" {
 		cfg.Cache.ProtectCodeFiles = strings.ToLower(v) == "true" || v == "1"

@@ -34,6 +34,21 @@ type MinerConfig struct {
 	TargetModels []string // Target models to synthesize cache for (e.g. "claude-3-5-sonnet-20241022", "gpt-4o")
 }
 
+// DefaultTargetModels returns the model IDs mined entries are stored under when
+// none are configured. Cache keys hash the exact model string, so these must match
+// what clients send: Claude Code requests Haiku by its dated ID.
+func DefaultTargetModels() []string {
+	return []string{
+		"claude-opus-5-5",
+		"claude-sonnet-5",
+		"claude-haiku-4-5-20251001",
+		"claude-sonnet-4-5",
+		"gpt-4o",
+		"gpt-4o-mini",
+		"deepseek-chat",
+	}
+}
+
 // MiningStats tracks progress of a mining session.
 type MiningStats struct {
 	TotalPrompts    int           `json:"total_prompts"`
@@ -127,15 +142,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		cfg.RateLimitRPM = 30
 	}
 	if len(cfg.TargetModels) == 0 {
-		cfg.TargetModels = []string{
-			"claude-sonnet-4-5",
-			"claude-haiku-4-5",
-			"claude-sonnet-5",
-			"claude-opus-5",
-			"gpt-4o",
-			"gpt-4o-mini",
-			"deepseek-chat",
-		}
+		cfg.TargetModels = DefaultTargetModels()
 	}
 
 	// Resolve provider defaults and apply remapping for deprecated models
@@ -823,15 +830,7 @@ func AuditCorpusStatus(database *db.DB, category string) ([]PromptAuditItem, Cor
 		Categories:   make(map[string]int),
 	}
 
-	targetModels := []string{
-		"claude-sonnet-4-5",
-		"claude-haiku-4-5",
-		"claude-sonnet-5",
-		"claude-opus-5",
-		"gpt-4o",
-		"gpt-4o-mini",
-		"deepseek-chat",
-	}
+	targetModels := DefaultTargetModels()
 
 	type cacheMeta struct {
 		hitCount  int

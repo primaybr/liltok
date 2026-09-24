@@ -1,0 +1,121 @@
+{
+  "description": "Plain text completion translates to a single Anthropic text block.",
+  "origin": "baseline",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "What does a binary search do?"
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "It halves the search interval on each comparison."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "end_turn",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "halves the search interval"
+        ]
+      }
+    ]
+  }
+}

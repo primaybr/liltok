@@ -891,13 +891,13 @@
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-4-5" checked /> claude-sonnet-4-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-4-5" checked /> claude-haiku-4-5
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-4-5-20251001" checked /> claude-haiku-4-5-20251001
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-5" checked /> claude-sonnet-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
-                <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-5" checked /> claude-opus-5
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-5-5" checked /> claude-opus-5-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-fable-5-1" /> claude-fable-5-1
@@ -907,6 +907,12 @@
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="claude-sonnet-4" /> claude-sonnet-4
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-opus-5" /> claude-opus-5
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
+                <input type="checkbox" class="miner-target-model-checkbox" value="claude-haiku-4-5" /> claude-haiku-4-5
               </label>
               <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--mono); background: rgba(255,255,255,0.03); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer;">
                 <input type="checkbox" class="miner-target-model-checkbox" value="gpt-4o" checked /> gpt-4o
@@ -4586,10 +4592,10 @@
 
     function setDefaultTargetModels() {
       const rec = new Set([
-        'claude-sonnet-4-5',
-        'claude-haiku-4-5',
+        'claude-opus-5-5',
         'claude-sonnet-5',
-        'claude-opus-5',
+        'claude-haiku-4-5-20251001',
+        'claude-sonnet-4-5',
         'gpt-4o',
         'gpt-4o-mini',
         'deepseek-chat'
@@ -4604,10 +4610,10 @@
       const targets = Array.from(checkboxes).map(cb => cb.value);
       if (targets.length === 0) {
         return [
-          'claude-sonnet-4-5',
-          'claude-haiku-4-5',
+          'claude-opus-5-5',
           'claude-sonnet-5',
-          'claude-opus-5',
+          'claude-haiku-4-5-20251001',
+          'claude-sonnet-4-5',
           'gpt-4o',
           'gpt-4o-mini',
           'deepseek-chat'

@@ -1,0 +1,131 @@
+{
+  "description": "A tool call written as <tool_call> text is converted into a structured tool_use block.",
+  "origin": "0.1.9-beta text tool calls",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Open main.go"
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "I'll read it.\n<tool_call>{\"name\": \"Read\", \"arguments\": {\"file_path\": \"main.go\"}}</tool_call>"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "I'll read it."
+        ],
+        "excludes": [
+          "<tool_call>"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "main.go"
+        }
+      }
+    ]
+  }
+}

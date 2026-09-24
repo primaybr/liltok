@@ -538,7 +538,7 @@ func (r *Router) initDefaultRoutes() {
 		ID:       "premium-only",
 		Strategy: "fallback",
 		Targets: []TargetSpec{
-			{ProviderName: "anthropic", UpstreamModel: "claude-opus-5"},
+			{ProviderName: "anthropic", UpstreamModel: "claude-opus-5-5"},
 			{ProviderName: "openai", UpstreamModel: "gpt-4o"},
 		},
 	}
@@ -1079,6 +1079,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if timedOut {
 			err = fmt.Errorf("upstream provider %s model %s did not respond within %s: %w", target.ProviderName, target.UpstreamModel, r.attemptTimeout, err)
 		}
+		observeAttempt(ctx, resp, err)
 		if err == nil {
 			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
 			if len(resp.ToolCalls) == 0 && resp.Content != "" {
@@ -1339,6 +1340,38 @@ func hasPriorIdenticalToolCall(messages []provider.UnifiedChatMessage, targetCal
 		}
 	}
 	return false
+}
+
+type attemptObserverKey struct{}
+
+// AttemptObserver receives each upstream attempt's raw result, before failover interceptors
+// repair or reject it. resp is a copy the observer may keep.
+type AttemptObserver func(resp *provider.UnifiedChatResponse, err error)
+
+// WithAttemptObserver returns a context whose DispatchChat calls report every attempt to obs.
+func WithAttemptObserver(ctx context.Context, obs AttemptObserver) context.Context {
+	return context.WithValue(ctx, attemptObserverKey{}, obs)
+}
+
+func observeAttempt(ctx context.Context, resp *provider.UnifiedChatResponse, err error) {
+	obs, ok := ctx.Value(attemptObserverKey{}).(AttemptObserver)
+	if !ok || obs == nil {
+		return
+	}
+	if resp == nil {
+		obs(nil, err)
+		return
+	}
+	snapshot := *resp
+	snapshot.ToolCalls = append([]provider.UnifiedToolCall(nil), resp.ToolCalls...)
+	obs(&snapshot, err)
+}
+
+// SetRoute registers or replaces a named route. Requests select it by model name or X-Liltok-Route.
+func (r *Router) SetRoute(route Route) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.routes[route.ID] = route
 }
 
 // SetProvider registers or overrides a provider client thread-safely.

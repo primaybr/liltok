@@ -52,3 +52,4 @@ providers:
 routes:
   default_strategy: "auto-resilient" # "auto-resilient" | "free-first" | "premium-only"
   attempt_timeout_seconds: 45 # per non-premium upstream attempt before failing over; 0 disables
+  # capture_dir: ./captures # debug only: writes a replay fixture (full conversation) per routed /v1/messages request

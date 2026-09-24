@@ -199,6 +199,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 		}
 		_ = r.Body.Close()
 	}
+	originalBody := bodyBytes // replay fixtures record the request as the client sent it
 
 	// 0. Tier-0 Pre-Flight Token Pruner
 	var prunedBytesCount int
@@ -422,7 +423,13 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	if p.router != nil && len(bodyBytes) > 0 && shouldRoute {
 		unifiedReq, err := provider.ParseUnifiedRequest(bodyBytes, targetProvider == "anthropic")
 		if err == nil {
-			resp, winningProvider, err := p.router.DispatchChat(r.Context(), unifiedReq, routeAlias)
+			dispatchCtx := r.Context()
+			var capture *fixtureCapture
+			if p.cfg.Routes.CaptureDir != "" && targetProvider == "anthropic" {
+				capture = &fixtureCapture{}
+				dispatchCtx = router.WithAttemptObserver(dispatchCtx, capture.observe)
+			}
+			resp, winningProvider, err := p.router.DispatchChat(dispatchCtx, unifiedReq, routeAlias)
 
 			if err == nil {
 				w.Header().Set("X-Liltok-Request-Id", reqID)
@@ -433,6 +440,13 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				var finalBytes []byte
 				if targetProvider == "anthropic" && winningProvider != "anthropic" {
 					finalBytes, _ = p.router.Translator().ConvertOpenAIToAnthropicResponseForRequest(resp, unifiedReq, unifiedReq.Model)
+					if capture != nil {
+						if path, capErr := capture.write(p.cfg.Routes.CaptureDir, reqID, originalBody, finalBytes); capErr != nil {
+							telemetry.Log.Warn().Str("request_id", reqID).Err(capErr).Msg("Failed to write replay fixture capture")
+						} else {
+							telemetry.Log.Info().Str("request_id", reqID).Str("path", path).Msg("Replay fixture captured")
+						}
+					}
 				} else {
 					finalBytes = resp.RawResponse
 					if len(finalBytes) == 0 {

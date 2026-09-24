@@ -1424,8 +1424,8 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		},
 		{
 			"id":          "premium-only",
-			"description": "Frontier intelligence models (Claude Opus 5, GPT-4o) with prompt caching",
-			"targets":     []string{"anthropic/claude-opus-5", "openai/gpt-4o"},
+			"description": "Frontier intelligence models (Claude Opus 5.5, GPT-4o) with prompt caching",
+			"targets":     []string{"anthropic/claude-opus-5-5", "openai/gpt-4o"},
 		},
 	}
 
@@ -2103,15 +2103,7 @@ func (h *AdminHandler) HandleMinerStart(w http.ResponseWriter, r *http.Request) 
 		req.RateLimitRPM = 30
 	}
 	if len(req.TargetModels) == 0 {
-		req.TargetModels = []string{
-			"claude-sonnet-4-5",
-			"claude-haiku-4-5",
-			"claude-sonnet-5",
-			"claude-opus-5",
-			"gpt-4o",
-			"gpt-4o-mini",
-			"deepseek-chat",
-		}
+		req.TargetModels = miner.DefaultTargetModels()
 	}
 
 	// Filter prompts

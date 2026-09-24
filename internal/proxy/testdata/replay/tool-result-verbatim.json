@@ -1,0 +1,157 @@
+{
+  "description": "Tool output reaches the upstream byte for byte, so later exact-match Edit calls still apply.",
+  "origin": "0.2.0-beta pruner tool_result corruption",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Fix the indentation in config.py"
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_02",
+            "name": "Read",
+            "input": {
+              "file_path": "config.py"
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_02",
+            "content": "def load():   \n\n\n\n    return  {}\t\n"
+          }
+        ]
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "tool_calls": [
+        {
+          "name": "Edit",
+          "arguments": {
+            "file_path": "config.py",
+            "old_string": "    return  {}\t",
+            "new_string": "    return {}"
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "upstream_contains": [
+      "def load():   \n\n\n\n    return  {}\t\n"
+    ],
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "tool_use",
+        "name": "Edit",
+        "input": {
+          "old_string": "    return  {}\t"
+        }
+      }
+    ]
+  }
+}

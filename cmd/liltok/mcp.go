@@ -97,7 +97,7 @@ func runMCPLoop(gatewayURL string) error {
 					},
 					"model": map[string]interface{}{
 						"type":        "string",
-						"description": "Target model (optional, e.g. claude-opus-5, claude-sonnet-5, gpt-4o, llama-3.3-70b-versatile, defaults to claude-opus-5)",
+						"description": "Target model (optional, e.g. claude-opus-5-5, claude-sonnet-5, gpt-4o, llama-3.3-70b-versatile, defaults to claude-opus-5-5)",
 					},
 					"system": map[string]interface{}{
 						"type":        "string",
@@ -206,7 +206,7 @@ func executeTool(name string, args map[string]interface{}, gatewayURL string) to
 		}
 		model, _ := args["model"].(string)
 		if model == "" {
-			model = "claude-opus-5"
+			model = "claude-opus-5-5"
 		}
 		system, _ := args["system"].(string)
 		apiKey, _ := args["api_key"].(string)

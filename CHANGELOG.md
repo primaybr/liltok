@@ -5,6 +5,16 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Translation Replay Harness:** `internal/proxy/testdata/replay/*.json` fixtures pair a Claude Code `/v1/messages` request with scripted upstream replies per fallback attempt. Each runs through the real handler (pruner, router validators, translator, SSE replay) in JSON and streaming mode and checks the content blocks, stop reason, attempt count, and upstream request text. The first 13 fixtures cover the empty-turn, thinking-split, tool-name, text tool-call, repetition-loop, tool-output, plan-mode, and chain-exhaustion fixes from 0.1.9 to 0.2.1. `Router.SetRoute` registers a named route.
+- **Replay Fixture Capture:** set `routes.capture_dir` (or `LILTOK_CAPTURE_DIR`) to record a fixture for every routed `/v1/messages` request answered by a translated provider. Each file holds the original request, the raw upstream reply of every fallback attempt, and expectations that snapshot the response sent. Correct the expectations and move the file into `internal/proxy/testdata/replay/` to turn a live failure into a regression test. Captures contain the full conversation, so the option is off by default and files are written owner-only. `router.WithAttemptObserver` exposes the raw attempts.
+
+### Changed
+- **Miner Default Target Models:** mined entries are now stored under `claude-opus-5-5` and `claude-haiku-4-5-20251001` instead of `claude-opus-5` and `claude-haiku-4-5`. Cache keys hash the exact model string, and Claude Code sends the new IDs, so entries under the old IDs produced almost no hits. The CLI, dashboard, admin API, and corpus audit share one default list (`miner.DefaultTargetModels`). The old IDs remain selectable in the dashboard. The `liltok_ask` MCP tool now defaults to `claude-opus-5-5`.
+- **Premium-Only Route:** targets `claude-opus-5-5` instead of `claude-opus-5`.
+
 ## [0.2.1-beta] - 2026-09-24
 
 ### Added
