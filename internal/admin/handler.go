@@ -1862,8 +1862,12 @@ func (h *AdminHandler) HandleUpdateProviders(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	// Persist to YAML
-	_ = config.PersistProviders(h.configPath, h.cfg.Providers)
+	// Persist to YAML. The runtime already uses the new credentials; report a failed write so the
+	// user knows they will be lost on restart.
+	if err := config.PersistProviders(h.configPath, h.cfg.Providers); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Provider settings applied to runtime, but saving them to the config file failed (they will be lost on restart): %v", err))
+		return
+	}
 
 	if h.broadcaster != nil {
 		h.broadcaster.Broadcast(TelemetryEvent{

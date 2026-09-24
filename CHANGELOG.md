@@ -5,6 +5,16 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Per-Attempt Upstream Timeout:** each non-premium attempt in a fallback chain is limited to `routes.attempt_timeout_seconds` (default 45, `LILTOK_ATTEMPT_TIMEOUT_SECONDS`, 0 disables). A provider that accepts a request and never answers now hands over to the next target instead of holding the request for the full 120-second HTTP timeout. A timed-out attempt counts as a provider failure. Premium providers (Anthropic, OpenAI) are not limited, so long direct completions are not cut off.
+
+### Fixed
+- **Failover After Client Disconnect:** when the client cancels a request, the fallback chain stops immediately. Previously every remaining target was tried and failed instantly with `context canceled`.
+- **Dashboard Provider Keys Lost on Restart:** saving a provider's key from the dashboard only rewrote `api_key` lines that already existed in the config file, so a provider missing from the file (such as Cline in configs created before it was added) kept the key in memory only, and it was lost on restart. The save now edits the parsed YAML, adding missing provider blocks and `api_key` lines while keeping comments and other settings. It creates the config file if it doesn't exist, and a failed write is now reported by the dashboard instead of showing success. The file is written with owner-only permissions.
+- **Circuit Breakers Charged for Client Cancels:** `context canceled` errors no longer count as provider failures, so a disconnecting client no longer degrades the breakers of every provider left in the chain.
+
 ## [0.2.0-beta] - 2026-09-24
 
 ### Added

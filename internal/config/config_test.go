@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -147,5 +148,94 @@ providers:
 	}
 	if reloaded.Providers.OpenAI.APIKey != "sk-new-key" {
 		t.Errorf("expected OpenAI key 'sk-new-key', got %q", reloaded.Providers.OpenAI.APIKey)
+	}
+}
+
+// Providers saved from the dashboard must survive a restart even when the config file
+// predates them (no provider block, or a block without an api_key line).
+func TestPersistProviders_AddsMissingProviderAndKeyLines(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "liltok.yaml")
+	initialYAML := `# user config, keep this comment
+providers:
+  groq:
+    api_key: "gsk_old" # inline note
+    base_url: "https://api.groq.com/openai/v1"
+  ollama:
+    base_url: "http://localhost:11434"
+
+routes:
+  default_strategy: "free-first"
+`
+	if err := os.WriteFile(configFile, []byte(initialYAML), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	p := DefaultConfig().Providers
+	p.Groq.APIKey = "gsk_new"
+	p.Ollama.APIKey = "ollama-token"
+	p.Cline.APIKey = "sk_cline_new"
+
+	if err := PersistProviders(configFile, p); err != nil {
+		t.Fatalf("PersistProviders failed: %v", err)
+	}
+
+	reloaded, err := Load(configFile)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if got := reloaded.Providers.Cline.APIKey; got != "sk_cline_new" {
+		t.Errorf("expected Cline key added as a new provider block, got %q", got)
+	}
+	if got := reloaded.Providers.Ollama.APIKey; got != "ollama-token" {
+		t.Errorf("expected api_key line added to existing ollama block, got %q", got)
+	}
+	if got := reloaded.Providers.Groq.APIKey; got != "gsk_new" {
+		t.Errorf("expected Groq key updated, got %q", got)
+	}
+	if reloaded.Routes.DefaultStrategy != "free-first" {
+		t.Errorf("other sections must be kept, default_strategy is %q", reloaded.Routes.DefaultStrategy)
+	}
+
+	raw, _ := os.ReadFile(configFile)
+	if !strings.Contains(string(raw), "# user config, keep this comment") {
+		t.Errorf("expected comments preserved, got:\n%s", raw)
+	}
+	if strings.Contains(string(raw), "openrouter:") {
+		t.Errorf("providers with no key must not be added to the file, got:\n%s", raw)
+	}
+}
+
+func TestPersistProviders_CreatesProvidersSection(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "liltok.yaml")
+	if err := os.WriteFile(configFile, []byte("server:\n  port: 8080\n"), 0644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+	p := DefaultConfig().Providers
+	p.Cline.APIKey = "sk_cline_new"
+	if err := PersistProviders(configFile, p); err != nil {
+		t.Fatalf("PersistProviders failed: %v", err)
+	}
+	reloaded, err := Load(configFile)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if reloaded.Providers.Cline.APIKey != "sk_cline_new" || reloaded.Server.Port != 8080 {
+		t.Errorf("expected providers section created and server kept, got cline=%q port=%d", reloaded.Providers.Cline.APIKey, reloaded.Server.Port)
+	}
+}
+
+func TestPersistProviders_CreatesMissingFile(t *testing.T) {
+	configFile := filepath.Join(t.TempDir(), "nested", "liltok.yaml")
+	p := DefaultConfig().Providers
+	p.Cline.APIKey = "sk_cline_new"
+	if err := PersistProviders(configFile, p); err != nil {
+		t.Fatalf("PersistProviders failed on a missing file: %v", err)
+	}
+	reloaded, err := Load(configFile)
+	if err != nil {
+		t.Fatalf("failed to reload config: %v", err)
+	}
+	if reloaded.Providers.Cline.APIKey != "sk_cline_new" {
+		t.Errorf("expected Cline key in the newly created file, got %q", reloaded.Providers.Cline.APIKey)
 	}
 }

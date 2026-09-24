@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,6 +72,9 @@ type ProvidersConfig struct {
 // RouteConfig specifies default routing strategies and fallback options.
 type RouteConfig struct {
 	DefaultStrategy string `yaml:"default_strategy"` // "auto-resilient", "free-first", "premium-only"
+	// AttemptTimeoutSeconds bounds each non-premium upstream attempt in a fallback chain,
+	// so a provider that accepts a request and never answers cannot stall the chain. 0 disables it.
+	AttemptTimeoutSeconds int `yaml:"attempt_timeout_seconds"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -209,6 +213,11 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Cache.CompactorMinSizeBytes = n
 		}
 	}
+	if v := os.Getenv("LILTOK_ATTEMPT_TIMEOUT_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Routes.AttemptTimeoutSeconds = n
+		}
+	}
 	if v := os.Getenv("LILTOK_PROTECT_CODE_FILES"); v != "" {
 		cfg.Cache.ProtectCodeFiles = strings.ToLower(v) == "true" || v == "1"
 	}
@@ -276,82 +285,120 @@ func PersistDefaultStrategy(configPath, strategy string) error {
 	return os.WriteFile(expanded, []byte(strings.Join(lines, "\n")), 0644)
 }
 
-// PersistProviders updates provider credentials in the YAML config file while preserving comments.
+// providerEntry pairs a provider's config key with its credentials.
+type providerEntry struct {
+	Name  string
+	Creds ProviderCreds
+}
+
+// providerEntries lists every configured provider in config-file order.
+func providerEntries(p ProvidersConfig) []providerEntry {
+	return []providerEntry{
+		{"openai", p.OpenAI}, {"anthropic", p.Anthropic}, {"nvidianim", p.NVIDIANIM},
+		{"groq", p.Groq}, {"gemini", p.Gemini}, {"openrouter", p.OpenRouter},
+		{"ollama", p.Ollama}, {"kilo", p.Kilo}, {"cline", p.Cline},
+	}
+}
+
+// mappingValue returns the mapping stored under key in m. With create set, a missing key, or a key
+// with an empty value ("providers:" and nothing under it), is given a new empty mapping.
+func mappingValue(m *yaml.Node, key string, create bool) *yaml.Node {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value != key {
+			continue
+		}
+		v := m.Content[i+1]
+		if v.Kind != yaml.MappingNode {
+			if !create {
+				return nil
+			}
+			*v = yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		}
+		return v
+	}
+	if !create {
+		return nil
+	}
+	v := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}, v)
+	return v
+}
+
+// setScalar sets key to value in mapping m, keeping the existing quoting and comments when the key is
+// already present. A missing key is only added when value is non-empty.
+func setScalar(m *yaml.Node, key, value string) {
+	for i := 0; i+1 < len(m.Content); i += 2 {
+		if m.Content[i].Value == key {
+			v := m.Content[i+1]
+			v.Kind, v.Tag, v.Value = yaml.ScalarNode, "!!str", value
+			if v.Style == 0 {
+				v.Style = yaml.DoubleQuotedStyle
+			}
+			return
+		}
+	}
+	if value == "" {
+		return
+	}
+	m.Content = append(m.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value, Style: yaml.DoubleQuotedStyle})
+}
+
+// PersistProviders writes provider credentials into the YAML config file, preserving comments and all
+// other settings. Providers already in the file are updated. A provider missing from the file is added
+// only when it has an API key, so a key saved from the dashboard survives a restart even when the file
+// predates that provider.
 func PersistProviders(configPath string, p ProvidersConfig) error {
 	if configPath == "" {
 		configPath = "~/.liltok/liltok.yaml"
 	}
 	expanded := ExpandHomeDir(configPath)
 	data, err := os.ReadFile(expanded)
+	if os.IsNotExist(err) {
+		if err := os.MkdirAll(filepath.Dir(expanded), 0700); err != nil {
+			return err
+		}
+		data, err = nil, nil
+	}
 	if err != nil {
 		return err
 	}
 
-	lines := strings.Split(string(data), "\n")
-	inProviders := false
-	currentProvider := ""
-
-	getCreds := func(name string) (ProviderCreds, bool) {
-		switch strings.ToLower(name) {
-		case "openai":
-			return p.OpenAI, true
-		case "anthropic":
-			return p.Anthropic, true
-		case "nvidianim":
-			return p.NVIDIANIM, true
-		case "groq":
-			return p.Groq, true
-		case "gemini":
-			return p.Gemini, true
-		case "openrouter":
-			return p.OpenRouter, true
-		case "ollama":
-			return p.Ollama, true
-		case "kilo":
-			return p.Kilo, true
-		case "cline":
-			return p.Cline, true
-		default:
-			return ProviderCreds{}, false
-		}
+	var doc yaml.Node
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		return fmt.Errorf("failed to parse %s: %w", configPath, err)
+	}
+	if doc.Kind == 0 {
+		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode, Tag: "!!map"}}}
+	}
+	root := doc.Content[0]
+	if root.Kind != yaml.MappingNode {
+		return fmt.Errorf("%s: top level is not a mapping", configPath)
 	}
 
-	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "providers:" {
-			inProviders = true
-			currentProvider = ""
-			continue
-		}
-
-		if inProviders {
-			// Check if we exited providers block (top-level key)
-			if !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && trimmed != "" {
-				inProviders = false
-				currentProvider = ""
+	providers := mappingValue(root, "providers", true)
+	for _, e := range providerEntries(p) {
+		block := mappingValue(providers, e.Name, false)
+		if block == nil {
+			if e.Creds.APIKey == "" {
 				continue
 			}
-
-			// Sub-key under providers (e.g. "  groq:")
-			if strings.HasSuffix(trimmed, ":") && !strings.Contains(trimmed, " ") {
-				currentProvider = strings.TrimSuffix(trimmed, ":")
-				continue
-			}
-
-			if currentProvider != "" {
-				creds, ok := getCreds(currentProvider)
-				if ok {
-					indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
-					if strings.HasPrefix(trimmed, "api_key:") {
-						lines[i] = fmt.Sprintf("%sapi_key: %q", indent, creds.APIKey)
-					} else if strings.HasPrefix(trimmed, "base_url:") {
-						lines[i] = fmt.Sprintf("%sbase_url: %q", indent, creds.BaseURL)
-					}
-				}
-			}
+			block = mappingValue(providers, e.Name, true)
 		}
+		setScalar(block, "api_key", e.Creds.APIKey)
+		setScalar(block, "base_url", e.Creds.BaseURL)
 	}
 
-	return os.WriteFile(expanded, []byte(strings.Join(lines, "\n")), 0644)
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(&doc); err != nil {
+		return fmt.Errorf("failed to encode %s: %w", configPath, err)
+	}
+	if err := enc.Close(); err != nil {
+		return err
+	}
+	return os.WriteFile(expanded, buf.Bytes(), 0600)
 }
 

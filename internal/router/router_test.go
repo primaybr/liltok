@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/provider"
@@ -1651,5 +1653,103 @@ func TestRouterUndeclaredToolTriggersFailover(t *testing.T) {
 	}
 	if winProv != "gemini" || resp.ToolCalls[0].Function.Name != "Glob" {
 		t.Errorf("expected failover to a model calling a declared tool, got %s calling %s", winProv, resp.ToolCalls[0].Function.Name)
+	}
+}
+
+// hangingProvider blocks until its context ends, like an upstream that accepted the request and never replied.
+type hangingProvider struct {
+	name  string
+	calls int
+}
+
+func (h *hangingProvider) Name() string                                  { return h.name }
+func (h *hangingProvider) Tier() provider.ProviderTier                   { return provider.TierFree }
+func (h *hangingProvider) CheckHealth(ctx context.Context) (bool, error) { return true, nil }
+func (h *hangingProvider) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
+	h.calls++
+	<-ctx.Done()
+	return nil, fmt.Errorf("upstream request failed: Post \"https://example.invalid/v1/chat/completions\": %w", ctx.Err())
+}
+func (h *hangingProvider) StreamChat(ctx context.Context, req *provider.UnifiedChatRequest) (<-chan provider.UnifiedSSEEvent, <-chan error, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func TestRouterAttemptTimeoutFailsOverFromHungProvider(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	r.attemptTimeout = 50 * time.Millisecond
+
+	r.SetProvider("anthropic", &mockProvider{name: "anthropic", fail: true})
+	hung := &hangingProvider{name: "groq"}
+	r.SetProvider("groq", hung)
+	r.SetProvider("gemini", &mockProvider{
+		name:     "gemini",
+		response: &provider.UnifiedChatResponse{ID: "gemini-ok", Content: "hello from gemini"},
+	})
+
+	req := &provider.UnifiedChatRequest{
+		Model:    "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "hello"}},
+	}
+
+	start := time.Now()
+	_, winProv, err := r.DispatchChat(context.Background(), req, "")
+	if err != nil {
+		t.Fatalf("dispatch failed: %v", err)
+	}
+	if winProv != "gemini" {
+		t.Errorf("expected failover to gemini after groq attempts time out, got %s", winProv)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Errorf("per-attempt timeout not applied: dispatch took %s", elapsed)
+	}
+	if hung.calls == 0 {
+		t.Errorf("expected the hung provider to be attempted")
+	}
+}
+
+func TestRouterStopsFailoverWhenClientCancels(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	r.attemptTimeout = 0
+
+	r.SetProvider("anthropic", &mockProvider{name: "anthropic", fail: true})
+	hung := &hangingProvider{name: "groq"}
+	next := &mockProvider{name: "gemini", response: &provider.UnifiedChatResponse{ID: "gemini-ok", Content: "late"}}
+	r.SetProvider("groq", hung)
+	r.SetProvider("gemini", next)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+
+	req := &provider.UnifiedChatRequest{
+		Model:    "claude-sonnet-5",
+		Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "hello"}},
+	}
+	_, _, err := r.DispatchChat(ctx, req, "")
+	if err == nil || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected a context.Canceled error once the client disconnects, got %v", err)
+	}
+	if hung.calls != 1 {
+		t.Errorf("expected exactly one attempt before the cancel, got %d", hung.calls)
+	}
+	if next.lastModel != "" {
+		t.Errorf("failover continued after the client canceled (gemini was called with %q)", next.lastModel)
+	}
+	if cb, ok := r.GetBreaker("groq/qwen/qwen3.8-27b"); ok {
+		if state, failures := cb.State(); state != StateClosed || failures != 0 {
+			t.Errorf("a client cancel must not count as a provider failure, breaker is %v with %d failures", state, failures)
+		}
+	}
+}
+
+func TestIsCircuitBreakerError_IgnoresCancellation(t *testing.T) {
+	wrapped := fmt.Errorf("upstream request failed: Post \"https://api.cline.bot/api/v1/chat/completions\": %w", context.Canceled)
+	if isCircuitBreakerError(wrapped) {
+		t.Errorf("context.Canceled must not count against a provider's circuit breaker")
+	}
+	if isCircuitBreakerError(errors.New(`upstream request failed: Post "https://x": context canceled`)) {
+		t.Errorf("unwrapped 'context canceled' text must not count against a provider's circuit breaker")
+	}
+	if !isCircuitBreakerError(errors.New("upstream error status 503")) {
+		t.Errorf("real upstream failures must still count")
 	}
 }

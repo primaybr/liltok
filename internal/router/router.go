@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -383,6 +384,9 @@ type Router struct {
 	translator   *Translator
 	activeModels map[string][]provider.ModelInfo
 	modelsMu     sync.RWMutex
+
+	// attemptTimeout bounds each non-premium upstream attempt; 0 means no per-attempt limit.
+	attemptTimeout time.Duration
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -394,6 +398,9 @@ func NewRouter(cfg *config.Config) *Router {
 		routes:       make(map[string]Route),
 		translator:   NewTranslator(),
 		activeModels: make(map[string][]provider.ModelInfo),
+	}
+	if cfg != nil && cfg.Routes.AttemptTimeoutSeconds > 0 {
+		r.attemptTimeout = time.Duration(cfg.Routes.AttemptTimeoutSeconds) * time.Second
 	}
 
 	// Register Standard Providers
@@ -930,6 +937,12 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 
 	var lastErr error
 	for _, target := range candidateTargets {
+		// Stop the chain once the client has gone: later attempts would fail instantly with
+		// "context canceled" and nobody is left to receive a reply.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, "", fmt.Errorf("request canceled before reaching %s: %w", target.ProviderName, ctxErr)
+		}
+
 		// Strictly bypass providers whose physical context window cannot accommodate prompt
 		ctxWin := r.GetModelContextWindow(target.ProviderName, target.UpstreamModel)
 		if approxTokens > ctxWin {
@@ -1050,7 +1063,22 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		targetReq := *req
 		targetReq.Model = target.UpstreamModel
 
-		resp, err := p.SendChat(ctx, &targetReq)
+		// Bound non-premium attempts so a provider that accepts the request and never answers
+		// hands over to the next target instead of stalling the whole chain.
+		attemptCtx, cancelAttempt := ctx, context.CancelFunc(func() {})
+		if r.attemptTimeout > 0 && p.Tier() != provider.TierPremium {
+			attemptCtx, cancelAttempt = context.WithTimeout(ctx, r.attemptTimeout)
+		}
+		resp, err := p.SendChat(attemptCtx, &targetReq)
+		timedOut := err != nil && ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
+		cancelAttempt()
+
+		if err != nil && ctx.Err() != nil {
+			return nil, "", fmt.Errorf("request canceled while waiting on %s: %w", target.ProviderName, ctx.Err())
+		}
+		if timedOut {
+			err = fmt.Errorf("upstream provider %s model %s did not respond within %s: %w", target.ProviderName, target.UpstreamModel, r.attemptTimeout, err)
+		}
 		if err == nil {
 			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
 			if len(resp.ToolCalls) == 0 && resp.Content != "" {
@@ -1151,7 +1179,15 @@ func isCircuitBreakerError(err error) bool {
 	if err == nil {
 		return false
 	}
+	// A canceled request is the client leaving, not the provider failing. Attempt timeouts are
+	// wrapped in a "did not respond within" error, which still counts.
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
 	errStr := strings.ToLower(err.Error())
+	if strings.Contains(errStr, "context canceled") && !strings.Contains(errStr, "did not respond within") {
+		return false
+	}
 	if strings.Contains(errStr, "status 400") ||
 		strings.Contains(errStr, "error 400") ||
 		strings.Contains(errStr, "status 401") ||

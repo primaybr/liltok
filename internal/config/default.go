@@ -64,7 +64,8 @@ func DefaultConfig() *Config {
 			},
 		},
 		Routes: RouteConfig{
-			DefaultStrategy: "auto-resilient",
+			DefaultStrategy:       "auto-resilient",
+			AttemptTimeoutSeconds: 45,
 		},
 		Maintainer: MaintainerConfig{
 			Enabled:        false,
