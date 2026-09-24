@@ -5,7 +5,7 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.1-beta] - 2026-09-24
 
 ### Added
 - **Per-Attempt Upstream Timeout:** each non-premium attempt in a fallback chain is limited to `routes.attempt_timeout_seconds` (default 45, `LILTOK_ATTEMPT_TIMEOUT_SECONDS`, 0 disables). A provider that accepts a request and never answers now hands over to the next target instead of holding the request for the full 120-second HTTP timeout. A timed-out attempt counts as a provider failure. Premium providers (Anthropic, OpenAI) are not limited, so long direct completions are not cut off.
