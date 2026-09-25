@@ -387,8 +387,9 @@ type Router struct {
 
 	// attemptTimeout bounds each non-premium upstream attempt; 0 means no per-attempt limit.
 	attemptTimeout time.Duration
-	// excluded holds normalized routes.excluded_models entries.
-	excluded map[string]bool
+	// excluded and lastResort hold normalized routes.excluded_models and routes.last_resort_models entries.
+	excluded   map[string]bool
+	lastResort map[string]bool
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -404,11 +405,16 @@ func NewRouter(cfg *config.Config) *Router {
 	if cfg != nil && cfg.Routes.AttemptTimeoutSeconds > 0 {
 		r.attemptTimeout = time.Duration(cfg.Routes.AttemptTimeoutSeconds) * time.Second
 	}
-	r.excluded = make(map[string]bool)
+	r.excluded, r.lastResort = make(map[string]bool), make(map[string]bool)
 	if cfg != nil {
 		for _, m := range cfg.Routes.ExcludedModels {
 			if n := normalizeModelID(m); n != "" {
 				r.excluded[n] = true
+			}
+		}
+		for _, m := range cfg.Routes.LastResortModels {
+			if n := normalizeModelID(m); n != "" {
+				r.lastResort[n] = true
 			}
 		}
 	}
@@ -472,7 +478,7 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
+	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6; 3.5-lite as last resort) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
@@ -484,6 +490,7 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"}, // last resort, see routes.last_resort_models
 			{ProviderName: "nvidianim", UpstreamModel: "deepseek-ai/deepseek-v4-flash-0731"},
 			{ProviderName: "nvidianim", UpstreamModel: "google/gemma-4-31b-it"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
@@ -518,6 +525,7 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
+			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"}, // last resort, see routes.last_resort_models
 			{ProviderName: "nvidianim", UpstreamModel: "deepseek-ai/deepseek-v4-flash-0731"},
 			{ProviderName: "nvidianim", UpstreamModel: "google/gemma-4-31b-it"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
@@ -942,6 +950,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		// Prompts <= 25k tokens: use default sequence (Groq fast tier first, then Gemini, then NVIDIA NIM)
 		candidateTargets = targets
 	}
+	candidateTargets = r.demoteLastResort(candidateTargets)
 
 	var lastErr error
 	for _, target := range candidateTargets {
@@ -1437,6 +1446,24 @@ func normalizeModelID(id string) string {
 		id = id[:i]
 	}
 	return id
+}
+
+// demoteLastResort moves targets whose model is in routes.last_resort_models to the end of the
+// chain, keeping the relative order within each group.
+func (r *Router) demoteLastResort(targets []TargetSpec) []TargetSpec {
+	if len(r.lastResort) == 0 {
+		return targets
+	}
+	ordered := make([]TargetSpec, 0, len(targets))
+	var demoted []TargetSpec
+	for _, t := range targets {
+		if r.lastResort[normalizeModelID(t.UpstreamModel)] {
+			demoted = append(demoted, t)
+			continue
+		}
+		ordered = append(ordered, t)
+	}
+	return append(ordered, demoted...)
 }
 
 // isExcludedModel reports whether routes.excluded_models covers the model.

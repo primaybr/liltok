@@ -240,9 +240,9 @@ func TestPersistProviders_CreatesMissingFile(t *testing.T) {
 	}
 }
 
-// Configs written before routes.excluded_models existed keep the default exclusion; an explicit
-// empty list clears it and the environment variable overrides both.
-func TestExcludedModelsDefaultAndOverrides(t *testing.T) {
+// Configs written before these settings existed keep the defaults (nothing excluded, Flash-Lite as
+// last resort); an explicit empty list clears a default and the environment overrides the file.
+func TestModelListDefaultsAndOverrides(t *testing.T) {
 	dir := t.TempDir()
 	write := func(name, body string) string {
 		p := filepath.Join(dir, name)
@@ -256,18 +256,22 @@ func TestExcludedModelsDefaultAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Routes.ExcludedModels) != 1 || cfg.Routes.ExcludedModels[0] != "gemini-3.5-flash-lite" {
-		t.Errorf("config without excluded_models should keep the default, got %v", cfg.Routes.ExcludedModels)
+	if len(cfg.Routes.ExcludedModels) != 0 {
+		t.Errorf("nothing should be excluded by default, got %v", cfg.Routes.ExcludedModels)
+	}
+	if len(cfg.Routes.LastResortModels) != 1 || cfg.Routes.LastResortModels[0] != "gemini-3.5-flash-lite" {
+		t.Errorf("config without last_resort_models should keep the default, got %v", cfg.Routes.LastResortModels)
 	}
 
-	cfg, err = Load(write("cleared.yaml", "routes:\n  excluded_models: []\n"))
+	cfg, err = Load(write("cleared.yaml", "routes:\n  last_resort_models: []\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cfg.Routes.ExcludedModels) != 0 {
-		t.Errorf("explicit empty list should clear exclusions, got %v", cfg.Routes.ExcludedModels)
+	if len(cfg.Routes.LastResortModels) != 0 {
+		t.Errorf("explicit empty list should clear the default, got %v", cfg.Routes.LastResortModels)
 	}
 
+	t.Setenv("LILTOK_LAST_RESORT_MODELS", "slow-model")
 	t.Setenv("LILTOK_EXCLUDED_MODELS", "a-model, google/b-model:free ,")
 	cfg, err = Load(write("env.yaml", "routes:\n  excluded_models: [\"x\"]\n"))
 	if err != nil {
@@ -275,5 +279,8 @@ func TestExcludedModelsDefaultAndOverrides(t *testing.T) {
 	}
 	if len(cfg.Routes.ExcludedModels) != 2 || cfg.Routes.ExcludedModels[1] != "google/b-model:free" {
 		t.Errorf("env override = %v, want [a-model google/b-model:free]", cfg.Routes.ExcludedModels)
+	}
+	if len(cfg.Routes.LastResortModels) != 1 || cfg.Routes.LastResortModels[0] != "slow-model" {
+		t.Errorf("env last-resort override = %v, want [slow-model]", cfg.Routes.LastResortModels)
 	}
 }

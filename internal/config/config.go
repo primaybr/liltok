@@ -81,6 +81,9 @@ type RouteConfig struct {
 	// ExcludedModels lists upstream models never used, from any provider. Entries match ignoring
 	// case, a provider prefix ("google/") and a variant suffix (":free").
 	ExcludedModels []string `yaml:"excluded_models"`
+	// LastResortModels lists upstream models tried only after every other target in the chain has
+	// failed or been skipped. Entries match like ExcludedModels.
+	LastResortModels []string `yaml:"last_resort_models"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -225,12 +228,10 @@ func applyEnvOverrides(cfg *Config) {
 		}
 	}
 	if v, ok := os.LookupEnv("LILTOK_EXCLUDED_MODELS"); ok {
-		cfg.Routes.ExcludedModels = nil
-		for _, m := range strings.Split(v, ",") {
-			if m = strings.TrimSpace(m); m != "" {
-				cfg.Routes.ExcludedModels = append(cfg.Routes.ExcludedModels, m)
-			}
-		}
+		cfg.Routes.ExcludedModels = splitModelList(v)
+	}
+	if v, ok := os.LookupEnv("LILTOK_LAST_RESORT_MODELS"); ok {
+		cfg.Routes.LastResortModels = splitModelList(v)
 	}
 	if v := os.Getenv("LILTOK_CAPTURE_DIR"); v != "" {
 		cfg.Routes.CaptureDir = v
@@ -419,3 +420,13 @@ func PersistProviders(configPath string, p ProvidersConfig) error {
 	return os.WriteFile(expanded, buf.Bytes(), 0600)
 }
 
+// splitModelList parses a comma-separated list of model IDs, dropping blanks.
+func splitModelList(v string) []string {
+	var out []string
+	for _, m := range strings.Split(v, ",") {
+		if m = strings.TrimSpace(m); m != "" {
+			out = append(out, m)
+		}
+	}
+	return out
+}

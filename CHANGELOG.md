@@ -5,6 +5,11 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Gemini 3.5 Flash-Lite as Last Resort:** replaces the full exclusion from 0.2.2-beta. Live Claude Code runs showed Flash-Lite stalling, looping and losing track in tool-heavy sessions, but fully excluding it left 30-110 s free-tier turns once the larger Gemini models hit quota. It now stays in the `auto-resilient` and `free-first` chains but is tried only after every other target has failed or been skipped. Two new settings control this for any provider: `routes.last_resort_models` (`LILTOK_LAST_RESORT_MODELS`, default `["gemini-3.5-flash-lite"]`) moves matching targets to the end of the chain, and `routes.excluded_models` (`LILTOK_EXCLUDED_MODELS`, default empty) never uses them; excluded models are also rejected when an auto-routing upstream (`openrouter/free`, `kilo-auto/free`) reports serving one. Entries match ignoring case, provider prefix and `:free`-style suffix. Configs without the keys get the defaults; an empty list clears a default.
+
 ## [0.2.2-beta] - 2026-09-25
 
 ### Added

@@ -25,14 +25,62 @@ func TestNormalizeModelID(t *testing.T) {
 	}
 }
 
-func TestDefaultRoutesOmitFlashLite(t *testing.T) {
+// Flash-Lite stays in the default chains but is tried only after every other target.
+func TestDefaultRoutesDemoteFlashLite(t *testing.T) {
 	r := NewRouter(config.DefaultConfig())
-	for id, route := range r.routes {
-		for _, target := range route.Targets {
+	for _, id := range []string{"auto-resilient", "free-first"} {
+		chain := r.demoteLastResort(r.routes[id].Targets)
+		last := chain[len(chain)-1]
+		if last.UpstreamModel != "gemini-3.5-flash-lite" {
+			t.Errorf("route %s: last target = %s/%s, want gemini-3.5-flash-lite", id, last.ProviderName, last.UpstreamModel)
+		}
+		for _, target := range chain[:len(chain)-1] {
 			if normalizeModelID(target.UpstreamModel) == "gemini-3.5-flash-lite" {
-				t.Errorf("route %s still targets %s/%s", id, target.ProviderName, target.UpstreamModel)
+				t.Errorf("route %s: flash-lite appears before the end of the chain", id)
 			}
 		}
+	}
+	if r.isExcludedModel("gemini-3.5-flash-lite") {
+		t.Error("flash-lite must not be excluded by default")
+	}
+}
+
+// A last-resort model is tried only after every other target failed, even when the route lists
+// it earlier, and it serves the request when nothing else can.
+func TestDispatchTriesLastResortModelLast(t *testing.T) {
+	r := NewRouter(config.DefaultConfig())
+	lite := &mockProvider{name: "lrlite", tier: provider.TierFree,
+		response: &provider.UnifiedChatResponse{Content: "lite answer"}}
+	failing := &mockProvider{name: "lrfail", tier: provider.TierFree, fail: true}
+	good := &mockProvider{name: "lrgood", tier: provider.TierFree,
+		response: &provider.UnifiedChatResponse{Content: "good answer"}}
+	r.SetProvider("lrlite", lite)
+	r.SetProvider("lrfail", failing)
+	r.SetProvider("lrgood", good)
+	req := func() *provider.UnifiedChatRequest {
+		return &provider.UnifiedChatRequest{Model: "claude-sonnet-5", Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "hi"}}}
+	}
+
+	r.SetRoute(Route{ID: "lr-healthy", Targets: []TargetSpec{
+		{ProviderName: "lrlite", UpstreamModel: "google/gemini-3.5-flash-lite:free"},
+		{ProviderName: "lrfail", UpstreamModel: "m-fail"},
+		{ProviderName: "lrgood", UpstreamModel: "m-good"},
+	}})
+	_, winner, err := r.DispatchChat(context.Background(), req(), "lr-healthy")
+	if err != nil || winner != "lrgood" {
+		t.Fatalf("with a healthy target left, winner = %s (%v), want lrgood", winner, err)
+	}
+	if lite.lastModel != "" {
+		t.Errorf("last-resort model was tried while a better target was healthy")
+	}
+
+	r.SetRoute(Route{ID: "lr-only", Targets: []TargetSpec{
+		{ProviderName: "lrlite", UpstreamModel: "gemini-3.5-flash-lite"},
+		{ProviderName: "lrfail", UpstreamModel: "m-fail-2"},
+	}})
+	resp, winner, err := r.DispatchChat(context.Background(), req(), "lr-only")
+	if err != nil || winner != "lrlite" || resp.Content != "lite answer" {
+		t.Fatalf("when every other target fails, winner = %s (%v), want lrlite", winner, err)
 	}
 }
 
@@ -40,6 +88,7 @@ func TestDefaultRoutesOmitFlashLite(t *testing.T) {
 // upstream that reports an excluded model fails over.
 func TestDispatchSkipsExcludedModels(t *testing.T) {
 	cfg := config.DefaultConfig()
+	cfg.Routes.ExcludedModels = []string{"gemini-3.5-flash-lite"}
 	r := NewRouter(cfg)
 
 	excludedTarget := &mockProvider{name: "exgem", tier: provider.TierFree,
@@ -77,10 +126,12 @@ func TestDispatchSkipsExcludedModels(t *testing.T) {
 	}
 }
 
-func TestExcludedModelsCanBeCleared(t *testing.T) {
+func TestLastResortModelsCanBeCleared(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Routes.ExcludedModels = nil
-	if NewRouter(cfg).isExcludedModel("gemini-3.5-flash-lite") {
-		t.Error("clearing routes.excluded_models must re-enable the model")
+	cfg.Routes.LastResortModels = nil
+	r := NewRouter(cfg)
+	targets := []TargetSpec{{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"}, {ProviderName: "groq", UpstreamModel: "x"}}
+	if got := r.demoteLastResort(targets); got[0].UpstreamModel != "gemini-3.5-flash-lite" {
+		t.Error("clearing routes.last_resort_models must keep the route's own order")
 	}
 }

@@ -53,4 +53,5 @@ routes:
   default_strategy: "auto-resilient" # "auto-resilient" | "free-first" | "premium-only"
   attempt_timeout_seconds: 45 # per non-premium upstream attempt before failing over; 0 disables
   # capture_dir: ./captures # debug only: writes a replay fixture (full conversation) per routed /v1/messages request
-  excluded_models: ["gemini-3.5-flash-lite"] # never routed to, from any provider (matches google/...:free variants too)
+  excluded_models: [] # never routed to, from any provider (matches google/...:free variants too)
+  last_resort_models: ["gemini-3.5-flash-lite"] # tried only after every other target failed or was skipped
