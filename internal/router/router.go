@@ -923,6 +923,9 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			Msg("Provider target failed, failing over to next target in rolling sequence")
 	}
 
+	if lastErr == nil {
+		return nil, "", errors.New("all providers in fallback chain failed: every target was skipped (context window, inactive model, excluded model or open circuit breaker)")
+	}
 	return nil, "", fmt.Errorf("all providers in fallback chain failed: %w", lastErr)
 }
 
