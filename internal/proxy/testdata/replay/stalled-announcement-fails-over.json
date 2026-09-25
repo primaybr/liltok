@@ -1,0 +1,106 @@
+{
+  "description": "A turn that announces its next tool action in text without calling a tool is a stall: it fails over instead of ending the agent run as a final answer.",
+  "origin": "2026-09-25 headless agent audit (t3 rerun): Gemini Flash-Lite replied only 'Let me read ...' and Claude Code ended the run after one turn",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Fix buildPayload so an explicit temperature of 0 is sent."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Let me read `internal/provider/anthropic/adapter.go` and `internal/provider/provider.go`."
+    },
+    {
+      "content": "Reading the adapter first.",
+      "tool_calls": [
+        {
+          "name": "Read",
+          "arguments": {
+            "file_path": "internal/provider/anthropic/adapter.go"
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "attempts": 2,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Reading the adapter first."
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "internal/provider/anthropic/adapter.go"
+        }
+      }
+    ]
+  }
+}

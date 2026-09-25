@@ -1126,6 +1126,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				}
 			}
 
+			// Reject turns that announce a tool action without calling it; the client would end the run
+			if err == nil && isStalledAgentTurn(req, resp) {
+				err = fmt.Errorf("upstream provider %s model %s announced a tool action without calling a tool", target.ProviderName, target.UpstreamModel)
+			}
+
 			// Reject ExitPlanMode calls that skip writing the plan and carry no plan text to write
 			if err == nil && isEmptyExitPlanMode(req, resp) {
 				err = fmt.Errorf("upstream provider %s model %s called ExitPlanMode without writing or providing a plan", target.ProviderName, target.UpstreamModel)

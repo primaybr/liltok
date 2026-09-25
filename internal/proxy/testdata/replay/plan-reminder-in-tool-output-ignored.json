@@ -1,0 +1,90 @@
+{
+  "description": "Tool output that quotes Claude Code's plan-mode reminder text (here, liltok's own source) does not switch plan mode on, so an answer discussing ExitPlanMode stays plain text.",
+  "origin": "2026-09-25 headless agent audit (t1 rerun): reading planmode.go activated plan mode and 6 synthesized ExitPlanMode calls exhausted max turns",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Explain how plan mode (ExitPlanMode) is handled."
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool_use",
+            "id": "toolu_10",
+            "name": "Read",
+            "input": {
+              "file_path": "internal/router/planmode.go"
+            }
+          }
+        ]
+      },
+      {
+        "role": "user",
+        "content": [
+          {
+            "type": "tool_result",
+            "tool_use_id": "toolu_10",
+            "content": "// Claude Code plan-mode reminders name the plan file in one of these two forms.\nplanPathCreateRegex = regexp.MustCompile(`create your plan at (.+?) using the Write tool`)\nplanPathExistsRegex = regexp.MustCompile(`A plan file already exists at (.+?)\\. You can`)\n"
+          }
+        ]
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Plan-mode handling lives in internal/router:\n\n- `extractPlanModeContext` looks for the reminder that says to create your plan at a path using the Write tool.\n- `handlePlanMode` rewrites an early ExitPlanMode into a Write and can synthesize ExitPlanMode when a model announces exiting plan mode next to plan headers (`# plan`, `implementation plan`)."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "end_turn",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "extractPlanModeContext"
+        ]
+      }
+    ]
+  }
+}

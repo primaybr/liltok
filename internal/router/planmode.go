@@ -31,13 +31,19 @@ func extractPlanModeContext(req *provider.UnifiedChatRequest) PlanModeContext {
 	}
 
 	pathIdx := -1
+	planReminder := ""
 	for i, msg := range req.Messages {
-		if msg.Role != "user" && msg.Role != "system" && msg.Role != "tool" {
+		// Claude Code delivers plan-mode state as <system-reminder> blocks in user or system turns.
+		// Tool output is excluded: a file or command output quoting the reminder text must not
+		// switch plan mode on.
+		if msg.Role != "user" && msg.Role != "system" {
 			continue
 		}
-		if path := findPlanPath(msg.Content); path != "" {
+		reminders := strings.Join(systemReminderRegex.FindAllString(msg.Content, -1), "\n")
+		if path := findPlanPath(reminders); path != "" {
 			ctx.PlanPath = path
 			pathIdx = i
+			planReminder = reminders
 		}
 	}
 	if pathIdx < 0 {
@@ -71,7 +77,7 @@ func extractPlanModeContext(req *provider.UnifiedChatRequest) PlanModeContext {
 	}
 
 	// Plan files written before the latest reminder also count (the "already exists" form).
-	if planPathExistsRegex.MatchString(req.Messages[pathIdx].Content) {
+	if planPathExistsRegex.MatchString(planReminder) {
 		ctx.PlanWritten = true
 	}
 	return ctx
