@@ -59,8 +59,15 @@ type replayBlock struct {
 
 // replayMessage is the Anthropic message a client reconstructs from the response.
 type replayMessage struct {
-	StopReason string
-	Blocks     []replayOutBlock
+	StopReason   string
+	InputTokens  int
+	OutputTokens int
+	Blocks       []replayOutBlock
+}
+
+type anthropicUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 type replayOutBlock struct {
@@ -72,8 +79,9 @@ type replayOutBlock struct {
 
 func parseAnthropicJSON(body []byte) (replayMessage, error) {
 	var resp struct {
-		Type       string `json:"type"`
-		StopReason string `json:"stop_reason"`
+		Type       string         `json:"type"`
+		StopReason string         `json:"stop_reason"`
+		Usage      anthropicUsage `json:"usage"`
 		Content    []struct {
 			Type     string                 `json:"type"`
 			Text     string                 `json:"text"`
@@ -88,7 +96,7 @@ func parseAnthropicJSON(body []byte) (replayMessage, error) {
 	if resp.Type != "message" {
 		return replayMessage{}, fmt.Errorf("type = %q, want message", resp.Type)
 	}
-	msg := replayMessage{StopReason: resp.StopReason}
+	msg := replayMessage{StopReason: resp.StopReason, InputTokens: resp.Usage.InputTokens, OutputTokens: resp.Usage.OutputTokens}
 	for _, c := range resp.Content {
 		text := c.Text
 		if c.Type == "thinking" {

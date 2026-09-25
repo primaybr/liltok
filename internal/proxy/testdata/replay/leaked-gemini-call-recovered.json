@@ -1,0 +1,108 @@
+{
+  "description": "A Gemini call:default_api:Name{...} written as text becomes a real tool_use, instead of ending the agent run as a final answer.",
+  "origin": "2026-09-25 headless agent audit (t3): Gemini leaked its Grep call as text and the run ended with success but no fix",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "offset": {
+              "type": "number"
+            },
+            "limit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "glob": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Find where UnifiedChatRequest is parsed."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Let's check `internal/provider/openai/adapter.go`, `internal/provider/gemini/adapter.go`, `internal/proxy/proxy.go`, `internal/router/router.go`, etc. to see how `UnifiedChatRequest` is parsed and used.\nLet's read `internal/proxy/proxy.go` where `UnifiedChatRequest` or `parseRequest` happens.call:default_api:Grep{path:internal/proxy/,pattern:UnifiedChatRequest}"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Let's read `internal/proxy/proxy.go`"
+        ],
+        "excludes": [
+          "call:default_api"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Grep",
+        "input": {
+          "path": "internal/proxy/",
+          "pattern": "UnifiedChatRequest"
+        }
+      }
+    ]
+  }
+}

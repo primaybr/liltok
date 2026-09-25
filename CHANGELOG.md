@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Token Usage in Streamed Replies:** routed replies replayed as Anthropic SSE reported `input_tokens: 0` and `output_tokens: 0`, so Claude Code could not track its context size (and would not auto-compact) while a free model was serving. The replay now reports the translated response's usage, falling back to the cache entry's counts.
+- **ExitPlanMode Synthesized Outside Plan Mode:** a text answer that mentioned ExitPlanMode together with plan-like headers was turned into an `ExitPlanMode` call even when plan mode was not active; Claude Code rejected each one and the model retried. Synthesis now requires active plan mode.
+- **Tool Calls Leaked as Text:** Gemini models sometimes write a call as `call:default_api:Grep{path:...,pattern:...}` in the answer text. It reached Claude Code as a final answer and ended agent runs early. Such calls are now converted to structured tool calls, splitting unquoted arguments only at the tool's declared parameter names; call syntax that cannot be converted triggers failover.
+
 ### Added
 - **Translation Replay Harness:** `internal/proxy/testdata/replay/*.json` fixtures pair a Claude Code `/v1/messages` request with scripted upstream replies per fallback attempt. Each runs through the real handler (pruner, router validators, translator, SSE replay) in JSON and streaming mode and checks the content blocks, stop reason, attempt count, and upstream request text. The first 13 fixtures cover the empty-turn, thinking-split, tool-name, text tool-call, repetition-loop, tool-output, plan-mode, and chain-exhaustion fixes from 0.1.9 to 0.2.1. `Router.SetRoute` registers a named route.
 - **Replay Fixture Capture:** set `routes.capture_dir` (or `LILTOK_CAPTURE_DIR`) to record a fixture for every routed `/v1/messages` request answered by a translated provider. Each file holds the original request, the raw upstream reply of every fallback attempt, and expectations that snapshot the response sent. Correct the expectations and move the file into `internal/proxy/testdata/replay/` to turn a live failure into a regression test. Captures contain the full conversation, so the option is off by default and files are written owner-only. `router.WithAttemptObserver` exposes the raw attempts.

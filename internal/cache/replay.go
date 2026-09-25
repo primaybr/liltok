@@ -112,7 +112,11 @@ func replayAnthropicSSE(w http.ResponseWriter, flusher http.Flusher, entry *Cach
 		ID         string `json:"id"`
 		Model      string `json:"model"`
 		StopReason string `json:"stop_reason"`
-		Content    []struct {
+		Usage      struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
+		Content []struct {
 			Type     string                 `json:"type"`
 			Text     string                 `json:"text"`
 			Thinking string                 `json:"thinking"`
@@ -136,10 +140,19 @@ func replayAnthropicSSE(w http.ResponseWriter, flusher http.Flusher, entry *Cach
 	if respObj.StopReason != "" {
 		stopReason = respObj.StopReason
 	}
+	// Claude Code sizes its context window from this usage, so report the payload's counts
+	// and fall back to the entry's.
+	inputTokens, outputTokens := respObj.Usage.InputTokens, respObj.Usage.OutputTokens
+	if inputTokens == 0 {
+		inputTokens = entry.PromptTokens
+	}
+	if outputTokens == 0 {
+		outputTokens = entry.CompletionTokens
+	}
 
 	// 1. message_start
-	eventStart := fmt.Sprintf("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":%q,\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":%q,\"usage\":{\"input_tokens\":0,\"output_tokens\":%d}}}\n\n",
-		id, model, entry.CompletionTokens)
+	eventStart := fmt.Sprintf("event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":%q,\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":%q,\"usage\":{\"input_tokens\":%d,\"output_tokens\":%d}}}\n\n",
+		id, model, inputTokens, outputTokens)
 	if _, err := w.Write([]byte(eventStart)); err != nil {
 		return err
 	}
@@ -217,7 +230,7 @@ func replayAnthropicSSE(w http.ResponseWriter, flusher http.Flusher, entry *Cach
 
 	// 3. message_delta
 	eventMsgDelta := fmt.Sprintf("event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":%q},\"usage\":{\"output_tokens\":%d}}\n\n",
-		stopReason, entry.CompletionTokens)
+		stopReason, outputTokens)
 	if _, err := w.Write([]byte(eventMsgDelta)); err != nil {
 		return err
 	}

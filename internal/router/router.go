@@ -1099,6 +1099,19 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				}
 			}
 
+			// Recover call:Name{...} tool calls written as text; unparseable ones would otherwise reach the
+			// client as a final answer and end an agent run early.
+			if len(resp.ToolCalls) == 0 {
+				cleanText, calls, leaked := extractLeakedCalls(resp.Content, req.Tools)
+				if len(calls) > 0 {
+					resp.Content = cleanText
+					resp.ToolCalls = calls
+					resp.FinishReason = "tool_calls"
+				} else if leaked {
+					err = fmt.Errorf("upstream provider %s model %s wrote an unparseable tool call as text", target.ProviderName, target.UpstreamModel)
+				}
+			}
+
 			// Reject silent empty or corrupted completions (0 visible text and 0 tool calls) to trigger failover.
 			// Visible text excludes <think> blocks, which the Anthropic translator moves out of the text block.
 			_, visibleText := extractThinkingBlocks(resp.Content)

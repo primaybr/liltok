@@ -560,8 +560,13 @@ I will call ExitPlanMode now to proceed.`
 		Content:      content,
 		FinishReason: "stop",
 	}
+	// ExitPlanMode is only synthesized in plan mode; the plan file already exists, so no Write is needed.
+	req := &provider.UnifiedChatRequest{Messages: []provider.UnifiedChatMessage{{
+		Role:    "user",
+		Content: "<system-reminder>Plan mode is active. A plan file already exists at /tmp/plans/p.md. You can edit it.</system-reminder>",
+	}}}
 
-	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	raw, err := translator.ConvertOpenAIToAnthropicResponseForRequest(resp, req, "claude-sonnet-5")
 	if err != nil {
 		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
 	}

@@ -1,0 +1,98 @@
+{
+  "description": "In plan mode with the plan file already written, a text plan that announces exiting plan mode is turned into an ExitPlanMode call.",
+  "origin": "0.1.9-beta implicit ExitPlanMode synthesis",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "ExitPlanMode",
+        "description": "Exit plan mode",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "plan": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "<system-reminder>Plan mode is active. You MUST NOT make any edits except the plan file. A plan file already exists at /path/to/project/.claude/plans/fix-auth.md. You can read it and make incremental edits using the Edit tool. When done, call ExitPlanMode.</system-reminder>\nFinish the plan for the auth fix."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "## Plan\n\n1. Move token validation into middleware.\n2. Add a test for expired tokens.\n\nThe plan is complete, exiting plan mode now."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Move token validation into middleware"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "ExitPlanMode",
+        "input_contains": {
+          "plan": "Add a test for expired tokens"
+        }
+      }
+    ]
+  }
+}

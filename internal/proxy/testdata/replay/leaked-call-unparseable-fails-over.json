@@ -1,0 +1,108 @@
+{
+  "description": "Tool-call syntax for an undeclared tool cannot be recovered, so the turn fails over instead of reaching the client as a final answer.",
+  "origin": "2026-09-25 leaked call parsing",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "offset": {
+              "type": "number"
+            },
+            "limit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "glob": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Find where UnifiedChatRequest is parsed."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Searching now.call:default_api:Search{query:UnifiedChatRequest}"
+    },
+    {
+      "tool_calls": [
+        {
+          "name": "Grep",
+          "arguments": {
+            "pattern": "UnifiedChatRequest"
+          }
+        }
+      ]
+    }
+  ],
+  "expect": {
+    "attempts": 2,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "tool_use",
+        "name": "Grep",
+        "input": {
+          "pattern": "UnifiedChatRequest"
+        }
+      }
+    ]
+  }
+}

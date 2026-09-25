@@ -1133,7 +1133,9 @@ func handlePlanMode(textContent, thinkingText string, toolCalls []provider.Unifi
 		}
 	}
 
-	if !hasExitPlan && len(toolCalls) == 0 && textContent != "" {
+	// Only synthesize plan-mode calls in plan mode: outside it, text that merely discusses
+	// ExitPlanMode or plan headers is an ordinary answer.
+	if ctx.Active && !hasExitPlan && len(toolCalls) == 0 && textContent != "" {
 		lower := strings.ToLower(textContent)
 		hasExitPlanMention := strings.Contains(lower, "exitplanmode") ||
 			strings.Contains(lower, "exit_plan_mode") ||

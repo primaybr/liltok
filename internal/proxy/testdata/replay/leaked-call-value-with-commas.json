@@ -1,0 +1,108 @@
+{
+  "description": "Leaked call arguments split only at declared parameter names, so commas and colons inside a value survive; numeric parameters are typed.",
+  "origin": "2026-09-25 leaked call parsing",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "offset": {
+              "type": "number"
+            },
+            "limit": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            },
+            "glob": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Read the start of the config loader."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "call:default_api:Grep{pattern:func (a, b int): error,glob:*.go}\ncall:Read{file_path:internal/config/config.go,offset:1,limit:40}"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "tool_use",
+        "name": "Grep",
+        "input": {
+          "pattern": "func (a, b int): error",
+          "glob": "*.go"
+        }
+      },
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "internal/config/config.go",
+          "offset": 1,
+          "limit": 40
+        }
+      }
+    ]
+  }
+}

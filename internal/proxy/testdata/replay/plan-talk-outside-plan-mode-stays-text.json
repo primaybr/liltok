@@ -1,0 +1,80 @@
+{
+  "description": "An answer that only talks about ExitPlanMode and plan headers, outside plan mode, stays plain text: no ExitPlanMode call is synthesized.",
+  "origin": "2026-09-25 headless agent audit (t1): Gemini answer about plan-mode code became 3 rejected ExitPlanMode calls",
+  "request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Grep",
+        "description": "Grep tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Find where Claude Code plan mode (the ExitPlanMode tool) is handled and explain it in at most 6 bullets."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Claude Code plan mode and `ExitPlanMode` handling for non-Anthropic models is implemented in the `internal/router` package:\n\n- **Context Detection** (`internal/router/planmode.go:extractPlanModeContext`): Scans request history for `<system-reminder>` prompts matching plan file creation patterns, tracks whether plan mode is active, records the target plan file path, and verifies whether a `Write` or `Edit` call has already written the plan file.\n- **Failover on Empty Exits** (`internal/router/router.go:routeAndDispatch` and `internal/router/planmode.go:isEmptyExitPlanMode`): During upstream model dispatch, if an upstream model emits `ExitPlanMode` while plan mode is active before writing the plan file and fails to supply plan text in arguments, visible text, or thinking blocks, the response is rejected as an error to trigger rolling failover to the next candidate provider.\n- **Translation Pipeline Interception** (`internal/router/translator.go:TranslateOpenAIToAnthropicResponse`): At step 2.5 of converting non-Anthropic OpenAI-compatible responses into Anthropic format, passes extracted text, thinking content, tool calls, and plan context to `handlePlanMode`.\n- **Pre-Write Interception** (`internal/router/translator.go:handlePlanMode`): When `ExitPlanMode` is emitted while plan mode is active and the plan file does not yet exist (`needsPlanFile`), replaces the `ExitPlanMode` tool call with a `Write` tool call targeting the plan path (via `newPlanFileWrite`), ensuring Claude Code finds the file before exiting plan mode.\n- **Chat Text Plan Injection** (`internal/router/translator.go:handlePlanMode`): Resolves plan content from tool arguments, thinking blocks (`extractPlanFromThinking`), or text, and appends the final plan text into visible `textContent` so the plan is presented in the chat stream.\n- **Implicit Exit Synthesis** (`internal/router/translator.go:handlePlanMode`): If the upstream response generated no tool calls but mentions exit plan mode alongside structured plan headers (`# plan`, `implementation plan`), synthesizes either a `Write` call to the plan path (if the file is missing) or an explicit `ExitPlanMode` tool call with the plan argument."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "end_turn",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Context Detection",
+          "handlePlanMode"
+        ]
+      }
+    ]
+  }
+}

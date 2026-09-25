@@ -217,6 +217,11 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 	if err != nil {
 		t.Fatalf("parse response: %v\n%s", err, rec.Body.String())
 	}
+	// The scripted provider reports 100 prompt and 20 completion tokens; Claude Code tracks its
+	// context size from these, so they must survive translation and SSE replay.
+	if msg.InputTokens != 100 || msg.OutputTokens != 20 {
+		t.Errorf("usage = %d in / %d out, want 100 / 20", msg.InputTokens, msg.OutputTokens)
+	}
 	checkReplayMessage(t, exp, msg, rec.Body.String())
 }
 
@@ -370,6 +375,10 @@ func parseAnthropicSSE(body []byte) (replayMessage, error) {
 				PartialJSON string `json:"partial_json"`
 				StopReason  string `json:"stop_reason"`
 			} `json:"delta"`
+			Message struct {
+				Usage anthropicUsage `json:"usage"`
+			} `json:"message"`
+			Usage *anthropicUsage `json:"usage"`
 		}
 		if err := json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))), &ev); err != nil {
 			return msg, fmt.Errorf("invalid event data %q: %w", line, err)
@@ -377,6 +386,8 @@ func parseAnthropicSSE(body []byte) (replayMessage, error) {
 		switch ev.Type {
 		case "message_start":
 			sawStart = true
+			msg.InputTokens = ev.Message.Usage.InputTokens
+			msg.OutputTokens = ev.Message.Usage.OutputTokens
 		case "content_block_start":
 			if ev.Index != len(msg.Blocks) {
 				return msg, fmt.Errorf("content_block_start index %d, want %d", ev.Index, len(msg.Blocks))
@@ -404,6 +415,13 @@ func parseAnthropicSSE(body []byte) (replayMessage, error) {
 			open[ev.Index] = false
 		case "message_delta":
 			msg.StopReason = ev.Delta.StopReason
+			// Like the Anthropic SDKs, message_delta usage updates the totals from message_start.
+			if ev.Usage != nil {
+				if ev.Usage.InputTokens > 0 {
+					msg.InputTokens = ev.Usage.InputTokens
+				}
+				msg.OutputTokens = ev.Usage.OutputTokens
+			}
 		case "message_stop":
 			sawStop = true
 		}
