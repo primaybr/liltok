@@ -2,6 +2,8 @@ package ledger_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"testing"
 	"time"
 
@@ -239,5 +241,58 @@ func TestLedger_RecordAndStats(t *testing.T) {
 	updatedKey, _ := km.ValidateKey(context.Background(), rawKey)
 	if updatedKey.CurrentSpendUSD < expectedCost-0.0001 || updatedKey.CurrentSpendUSD > expectedCost+0.0001 {
 		t.Errorf("expected key current spend $%.4f, got %f", expectedCost, updatedKey.CurrentSpendUSD)
+	}
+}
+
+// TestLedger_BatchedWritesPersistOnClose queues more records than one batch holds and checks that
+// Close drains all of them and applies key spend after the batch commits.
+func TestLedger_BatchedWritesPersistOnClose(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	ctx := context.Background()
+	km := ledger.NewKeyManager(database)
+	_, key, err := km.CreateKey(ctx, "batch-app", 50.00, 60, 100000)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	led := ledger.NewLedger(database, km)
+	const total = 1000
+	for i := 0; i < total; i++ {
+		item := &ledger.RequestLog{
+			RequestID:   fmt.Sprintf("req_batch_%d", i),
+			Model:       "gpt-4o",
+			Provider:    "cache-local",
+			CacheStatus: "HIT",
+			CacheTier:   "TIER1_EXACT",
+			StatusCode:  200,
+		}
+		if i%250 == 0 {
+			item.APIKeyID = key.ID
+			item.CostUSD = 0.25
+		}
+		led.Record(item)
+	}
+	if err := led.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	var rows int
+	if err := database.QueryRow("SELECT COUNT(*) FROM request_logs WHERE request_id LIKE 'req_batch_%'").Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != total {
+		t.Fatalf("persisted %d request logs, want %d", rows, total)
+	}
+
+	keys, err := km.ListKeys(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range keys {
+		if k.ID == key.ID && math.Abs(k.CurrentSpendUSD-1.00) > 1e-9 {
+			t.Fatalf("key spend = %v, want 1.00 (4 records x 0.25)", k.CurrentSpendUSD)
+		}
 	}
 }

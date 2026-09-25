@@ -295,7 +295,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 						Str("provider", targetProvider).
 						Msg("Tier-1 Exact Match Cache HIT")
 
-					pTokens := tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
+					pTokens := exactHitPromptTokens(entry, normReq)
 					_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
 					costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
@@ -337,7 +337,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 									Str("provider", targetProvider).
 									Msg("Tier-1 Exact Match Cache HIT (Coalesced)")
 
-								pTokens := tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
+								pTokens := exactHitPromptTokens(entry, normReq)
 								_, cTokens, _ := extractUsage(entry.ResponsePayload, normReq.Model)
 								costBD := p.pricingReg.CalculateDetailed(normReq.Model, pTokens, cTokens, 0, "HIT", "TIER1_EXACT")
 
@@ -556,6 +556,8 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 							Model:            normReq.Model,
 							NormalizedPrompt: normReq.CanonicalJSON,
 							ResponsePayload:  finalBytes,
+							PromptTokens:     pTokens,
+							CompletionTokens: cTokens,
 							TTLSeconds:       p.cfg.Cache.DefaultTTLSeconds,
 						}
 						_ = p.cacheStore.Set(context.Background(), entry)
@@ -908,6 +910,8 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 						Model:            normReq.Model,
 						NormalizedPrompt: normReq.CanonicalJSON,
 						ResponsePayload:  respBytes,
+						PromptTokens:     pTokens,
+						CompletionTokens: cTokens,
 						TTLSeconds:       p.cfg.Cache.DefaultTTLSeconds,
 					}
 					_ = p.cacheStore.Set(context.Background(), entry)
@@ -1076,4 +1080,13 @@ func joinURLPath(baseURL, path string) string {
 		path = "/" + path
 	}
 	return baseURL + path
+}
+
+// exactHitPromptTokens returns the prompt token count for a Tier-1 hit. Entries store the count when
+// they are written, so a hit skips re-tokenizing the prompt; entries written without it are counted.
+func exactHitPromptTokens(entry *cache.CacheEntry, normReq *cache.NormalizedRequest) int {
+	if entry.PromptTokens > 0 {
+		return entry.PromptTokens
+	}
+	return tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
 }

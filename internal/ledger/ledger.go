@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/primaybr/liltok/internal/db"
@@ -59,6 +60,14 @@ type OverviewStats struct {
 	ProviderCounts         map[string]int64 `json:"provider_counts"`
 }
 
+const (
+	// maxLogBatch caps how many queued records one transaction writes. The database has a single
+	// connection shared with cache reads, so a batch must stay short.
+	maxLogBatch = 256
+	// dropWarnInterval rate-limits the warning logged when the queue is full and records are dropped.
+	dropWarnInterval = 5 * time.Second
+)
+
 // Ledger provides asynchronous persistent audit logging and spend accounting.
 type Ledger struct {
 	db      *db.DB
@@ -66,6 +75,9 @@ type Ledger struct {
 	logChan chan *RequestLog
 	quit    chan struct{}
 	wg      sync.WaitGroup
+
+	dropped      atomic.Int64 // records dropped since the last warning
+	lastDropWarn atomic.Int64 // unix nanos of the last drop warning
 }
 
 // NewLedger initializes the ledger and starts the background writer worker.
@@ -86,47 +98,61 @@ func NewLedger(database *db.DB, km *KeyManager) *Ledger {
 func (l *Ledger) worker() {
 	defer l.wg.Done()
 
+	batch := make([]*RequestLog, 0, maxLogBatch)
 	for {
 		select {
 		case logItem, ok := <-l.logChan:
 			if !ok {
 				return
 			}
-			l.persistLog(logItem)
+			batch = l.drain(append(batch[:0], logItem))
+			l.persistBatch(batch)
 		case <-l.quit:
-			// Drain remaining logs
 			for {
-				select {
-				case logItem, ok := <-l.logChan:
-					if !ok {
-						return
-					}
-					l.persistLog(logItem)
-				default:
+				batch = l.drain(batch[:0])
+				if len(batch) == 0 {
 					return
 				}
+				l.persistBatch(batch)
 			}
 		}
 	}
 }
 
-func (l *Ledger) persistLog(item *RequestLog) {
-	if l.db == nil || item == nil {
+// drain appends queued records to batch without blocking, up to maxLogBatch.
+func (l *Ledger) drain(batch []*RequestLog) []*RequestLog {
+	for len(batch) < maxLogBatch {
+		select {
+		case logItem, ok := <-l.logChan:
+			if !ok {
+				return batch
+			}
+			batch = append(batch, logItem)
+		default:
+			return batch
+		}
+	}
+	return batch
+}
+
+// persistBatch writes the records in one transaction, then applies virtual key spend. Spend updates
+// run after the commit because the database has a single connection, which the transaction holds.
+func (l *Ledger) persistBatch(items []*RequestLog) {
+	if l.db == nil || len(items) == 0 {
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if item.Timestamp.IsZero() {
-		item.Timestamp = time.Now()
+	tx, err := l.db.BeginTx(ctx, nil)
+	if err != nil {
+		telemetry.Log.Error().Err(err).Int("records", len(items)).Msg("Failed to begin request log batch")
+		return
 	}
+	defer func() { _ = tx.Rollback() }()
 
-	if item.RequestedModel == "" {
-		item.RequestedModel = item.Model
-	}
-
-	_, err := l.db.ExecContext(ctx, `
+	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO request_logs (
 			request_id, timestamp, api_key_id, model, requested_model, provider,
 			cache_status, cache_tier, prompt_tokens, completion_tokens,
@@ -134,25 +160,53 @@ func (l *Ledger) persistLog(item *RequestLog) {
 			pruned_bytes, pruned_tokens,
 			status_code, error_message
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`,
-		item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.RequestedModel, item.Provider,
-		item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
-		item.CachedTokens, item.LatencyMs, item.CostUSD, item.PromptCostUSD, item.CompletionCostUSD, item.SavedUSD,
-		item.PrunedBytes, item.PrunedTokens,
-		item.StatusCode, item.ErrorMessage,
-	)
-
+	`)
 	if err != nil {
-		telemetry.Log.Error().
-			Str("request_id", item.RequestID).
-			Err(err).
-			Msg("Failed to persist request log to SQLite")
+		telemetry.Log.Error().Err(err).Int("records", len(items)).Msg("Failed to prepare request log insert")
+		return
+	}
+	defer stmt.Close()
+
+	written := make([]*RequestLog, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		if item.Timestamp.IsZero() {
+			item.Timestamp = time.Now()
+		}
+		if item.RequestedModel == "" {
+			item.RequestedModel = item.Model
+		}
+		_, err := stmt.ExecContext(ctx,
+			item.RequestID, item.Timestamp.UTC().Format(time.RFC3339), item.APIKeyID, item.Model, item.RequestedModel, item.Provider,
+			item.CacheStatus, item.CacheTier, item.PromptTokens, item.CompletionTokens,
+			item.CachedTokens, item.LatencyMs, item.CostUSD, item.PromptCostUSD, item.CompletionCostUSD, item.SavedUSD,
+			item.PrunedBytes, item.PrunedTokens,
+			item.StatusCode, item.ErrorMessage,
+		)
+		if err != nil {
+			telemetry.Log.Error().
+				Str("request_id", item.RequestID).
+				Err(err).
+				Msg("Failed to persist request log to SQLite")
+			continue
+		}
+		written = append(written, item)
+	}
+
+	if err := tx.Commit(); err != nil {
+		telemetry.Log.Error().Err(err).Int("records", len(items)).Msg("Failed to commit request log batch")
 		return
 	}
 
-	// Update virtual key current spend
-	if item.APIKeyID != "" && item.CostUSD > 0 && l.km != nil {
-		_ = l.km.UpdateSpend(ctx, item.APIKeyID, item.CostUSD)
+	if l.km == nil {
+		return
+	}
+	for _, item := range written {
+		if item.APIKeyID != "" && item.CostUSD > 0 {
+			_ = l.km.UpdateSpend(ctx, item.APIKeyID, item.CostUSD)
+		}
 	}
 }
 
@@ -164,9 +218,15 @@ func (l *Ledger) Record(item *RequestLog) {
 	select {
 	case l.logChan <- item:
 	default:
-		telemetry.Log.Warn().
-			Str("request_id", item.RequestID).
-			Msg("Ledger log channel full; audit entry dropped")
+		l.dropped.Add(1)
+		now := time.Now().UnixNano()
+		last := l.lastDropWarn.Load()
+		if now-last >= int64(dropWarnInterval) && l.lastDropWarn.CompareAndSwap(last, now) {
+			telemetry.Log.Warn().
+				Int64("dropped", l.dropped.Swap(0)).
+				Str("request_id", item.RequestID).
+				Msg("Ledger log channel full; audit entries dropped")
+		}
 	}
 }
 

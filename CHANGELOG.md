@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **CI Workflow:** `.github/workflows/ci.yml` runs on every push to `main` and on pull requests: gofmt check, `go vet`, golangci-lint, and the race-enabled test suite with a coverage floor (63%, the current total; raise it toward the 85% v1.0 target). The same checks run locally through new Makefile targets `fmt`, `fmt-check`, `vet`, `lint`, `cover` and `check`.
 - **Lint Configuration:** `.golangci.yml` (golangci-lint v2, pinned to v2.14.0 in the Makefile) enables the standard linters with staticcheck's bug and simplification checks. Unchecked errors from read-side `Close` calls and in tests are allowed; write-side `Close` errors are checked. The codebase lints clean.
+- **Cache-Hit Load Benchmarks (M10.3):** `BenchmarkCacheHitOpenAI` and `BenchmarkCacheHitAnthropic` in `internal/proxy` drive the real handlers against a warmed Tier-1 entry and report P50/P99 alongside ns/op; they fail if any iteration misses the cache or reaches the upstream. `scripts/k6/cache_hit.js` load-tests a running gateway at a constant arrival rate (default 5000 req/s for 30 s) with thresholds for P99 < 5 ms and a 99.9% Tier-1 hit rate; its setup warms the entry and aborts unless the next reply is a hit.
 
 ### Changed
 - **Release Workflow:** the Go version now comes from `go.mod` instead of a hardcoded 1.24 (which only built through automatic toolchain download), and release tests run with the race detector.
@@ -21,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Shutdown Flush Errors:** failures closing the cache store and request ledger on shutdown are logged instead of dropped.
 - **Test Suite Timing Out Under the Race Detector:** every test that opened a temporary database decoded and inserted the 20 MB embedded starter pack, so `go test -race` timed out after 10 minutes in five packages. `LILTOK_SKIP_STARTER_SEED=1` now skips seeding (set by `make cover` and both workflows; the seeding test re-enables it), bringing the race-enabled suite to about 2.5 minutes.
 - **MCP Messages Written in Two Parts:** each JSON-RPC response was written as the message and then a separate newline; it is now a single write per line.
+- **Token Counting Rebuilt the Tokenizer on Every Call:** `tokens.CountTokens` built a new tiktoken encoder per call, sorting the full vocabulary each time. A Tier-1 cache hit took about 77 ms and allocated 14 MB, 82% of it spent building encoders. Encoders are now built once per encoding and shared (a failed download of the encoding data is retried at most once a minute). A hit now takes about 40 microseconds and 15 KB in the proxy benchmark.
+- **Cache Hits Re-Tokenized the Prompt:** the non-streaming upstream paths stored cache entries without their token counts, so every hit counted the prompt tokens again. Entries now store the counts, and hits use them; entries written without counts are still counted on hit.
+- **Request Ledger Dropped Records Under Load:** each audit record was written in its own transaction, so at about 4000 req/s the queue filled and roughly two thirds of records were dropped, each drop logging its own warning. Queued records are now written up to 256 per transaction, and the drop warning is logged at most every 5 s with a count. In a 30 s k6 run at 4900 req/s of cache hits, the ledger kept 146,932 of 147,207 records, and handler-side hit latency was P99 1 ms.
 
 ## [0.2.2-beta] - 2026-09-25
 
