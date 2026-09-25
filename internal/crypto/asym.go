@@ -16,21 +16,21 @@ import (
 )
 
 const (
-	EnvelopeMagic       = "LTC1"
-	NonceSize           = 12
-	PublicKeyPrefix     = "ltpub_"
-	PrivateKeyPrefix    = "ltsec_"
-	KeyDerivationInfo   = "liltok-v1-cache-encryption"
-	MinEnvelopeSize     = 4 + 32 + NonceSize + 16
+	EnvelopeMagic     = "LTC1"
+	NonceSize         = 12
+	PublicKeyPrefix   = "ltpub_"
+	PrivateKeyPrefix  = "ltsec_"
+	KeyDerivationInfo = "liltok-v1-cache-encryption"
+	MinEnvelopeSize   = 4 + 32 + NonceSize + 16
 )
 
 var (
 	DefaultMaintainerPublicKey = ""
 
-	ErrInvalidMagic      = errors.New("invalid envelope magic header")
-	ErrPayloadTooShort   = errors.New("envelope payload too short")
-	ErrInvalidKeyFormat  = errors.New("invalid key format")
-	ErrDecryptionFailed  = errors.New("decryption failed: authenticating tag mismatch or invalid key")
+	ErrInvalidMagic     = errors.New("invalid envelope magic header")
+	ErrPayloadTooShort  = errors.New("envelope payload too short")
+	ErrInvalidKeyFormat = errors.New("invalid key format")
+	ErrDecryptionFailed = errors.New("decryption failed: authenticating tag mismatch or invalid key")
 )
 
 // KeyPair holds private and public key representations for maintainers.

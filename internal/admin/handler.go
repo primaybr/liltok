@@ -2201,4 +2201,3 @@ func parseLogTimestamp(ts string) time.Time {
 	}
 	return time.Now()
 }
-

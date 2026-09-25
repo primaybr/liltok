@@ -556,9 +556,14 @@ func sendResult(id interface{}, result interface{}) {
 		ID:      id,
 		Result:  result,
 	}
-	data, _ := json.Marshal(res)
-	os.Stdout.Write(data)
-	os.Stdout.Write([]byte("\n"))
+	writeMessage(res)
+}
+
+// writeMessage sends one JSON-RPC message as a single newline-terminated write. A failed write
+// means the MCP client has closed stdout, so there is nobody left to report it to.
+func writeMessage(msg jsonRPCResponse) {
+	data, _ := json.Marshal(msg)
+	_, _ = os.Stdout.Write(append(data, '\n'))
 }
 
 func sendError(id interface{}, code int, message string) {
@@ -570,7 +575,5 @@ func sendError(id interface{}, code int, message string) {
 			Message: message,
 		},
 	}
-	data, _ := json.Marshal(res)
-	os.Stdout.Write(data)
-	os.Stdout.Write([]byte("\n"))
+	writeMessage(res)
 }

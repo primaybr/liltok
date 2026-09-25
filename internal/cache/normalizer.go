@@ -17,11 +17,11 @@ type NormalizationOptions struct {
 
 // NormalizedRequest carries the canonical representation and cacheability verdict.
 type NormalizedRequest struct {
-	Model          string
-	Hash           string
-	CanonicalJSON  string
-	IsCacheable    bool
-	BypassReason   string
+	Model         string
+	Hash          string
+	CanonicalJSON string
+	IsCacheable   bool
+	BypassReason  string
 }
 
 // NormalizePayload canonicalizes incoming JSON payload into deterministic SHA-256 hash.

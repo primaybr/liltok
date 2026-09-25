@@ -152,11 +152,11 @@ func (h *AdminHandler) HandleModerateUpload(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"success":       true,
-		"filename":      header.Filename,
-		"total_parsed":  len(items),
-		"staged_count":  inserted,
-		"duplicates":    duplicates,
+		"success":      true,
+		"filename":     header.Filename,
+		"total_parsed": len(items),
+		"staged_count": inserted,
+		"duplicates":   duplicates,
 	})
 }
 

@@ -621,10 +621,10 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	}
 
 	for k, v := range r.Header {
-		if strings.EqualFold(k, "Authorization") || 
-		   strings.EqualFold(k, "x-api-key") || 
-		   strings.EqualFold(k, "Host") || 
-		   strings.EqualFold(k, "Accept-Encoding") {
+		if strings.EqualFold(k, "Authorization") ||
+			strings.EqualFold(k, "x-api-key") ||
+			strings.EqualFold(k, "Host") ||
+			strings.EqualFold(k, "Accept-Encoding") {
 			continue
 		}
 		upstreamReq.Header[k] = v

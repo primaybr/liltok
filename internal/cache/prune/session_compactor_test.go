@@ -61,13 +61,13 @@ func TestSessionCompactor_AnthropicPayload(t *testing.T) {
 		{"role": "assistant", "content": "Acknowledged step 3."},
 		// Turn 4 (Recent - untouched)
 		{
-			"role": "user",
+			"role":    "user",
 			"content": "Please proceed to step 4.",
 		},
 		{"role": "assistant", "content": "Acknowledged step 4."},
 		// Turn 5 (Recent - untouched)
 		{
-			"role": "user",
+			"role":    "user",
 			"content": "Final instruction.",
 		},
 	}

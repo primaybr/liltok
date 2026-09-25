@@ -23,9 +23,9 @@ type CacheEntry struct {
 
 // CacheStats provides aggregated cache operational metrics.
 type CacheStats struct {
-	TotalEntries int64 `json:"total_entries"`
-	MemoryEntries int  `json:"memory_entries"`
-	TotalHits    int64 `json:"total_hits"`
+	TotalEntries  int64 `json:"total_entries"`
+	MemoryEntries int   `json:"memory_entries"`
+	TotalHits     int64 `json:"total_hits"`
 }
 
 // Store defines the interface for multi-tier cache backends.

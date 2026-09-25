@@ -154,4 +154,3 @@ func TestPricingRegistry_CalculateForRouting(t *testing.T) {
 		t.Errorf("Expected $0.00 cost and saved for openrouter/free direct, got cost=%f saved=%f", costDirect, savedDirect)
 	}
 }
-

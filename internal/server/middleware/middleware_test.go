@@ -53,28 +53,28 @@ func TestRecoveryMiddleware(t *testing.T) {
 
 func TestAuthMiddleware(t *testing.T) {
 	testCases := []struct {
-		name        string
-		headers     map[string]string
-		expectKey   string
-		expectVirt  bool
+		name       string
+		headers    map[string]string
+		expectKey  string
+		expectVirt bool
 	}{
 		{
-			name:        "Standard Bearer Key",
-			headers:     map[string]string{"Authorization": "Bearer sk-openai-12345"},
-			expectKey:   "sk-openai-12345",
-			expectVirt:  false,
+			name:       "Standard Bearer Key",
+			headers:    map[string]string{"Authorization": "Bearer sk-openai-12345"},
+			expectKey:  "sk-openai-12345",
+			expectVirt: false,
 		},
 		{
-			name:        "Anthropic x-api-key",
-			headers:     map[string]string{"x-api-key": "sk-ant-claude-999"},
-			expectKey:   "sk-ant-claude-999",
-			expectVirt:  false,
+			name:       "Anthropic x-api-key",
+			headers:    map[string]string{"x-api-key": "sk-ant-claude-999"},
+			expectKey:  "sk-ant-claude-999",
+			expectVirt: false,
 		},
 		{
-			name:        "Liltok Virtual Key",
-			headers:     map[string]string{"Authorization": "Bearer lt-live-team-key"},
-			expectKey:   "lt-live-team-key",
-			expectVirt:  true,
+			name:       "Liltok Virtual Key",
+			headers:    map[string]string{"Authorization": "Bearer lt-live-team-key"},
+			expectKey:  "lt-live-team-key",
+			expectVirt: true,
 		},
 	}
 

@@ -196,9 +196,6 @@ var (
 	// Matches standard closed <tool_call> JSON blocks (e.g. Qwen / Hermes / Llama)
 	toolCallBlockRegex = regexp.MustCompile(`(?s)<tool_call>\s*(.*?)\s*<\/tool_call>`)
 
-	// Matches unclosed <tool_call> block terminating at end of string
-	unclosedToolCallBlockRegex = regexp.MustCompile(`(?s)<tool_call>\s*(.*)$`)
-
 	// Matches markdown JSON or tool_call code blocks: ```json {...} ``` or unclosed
 	markdownJSONBlockRegex = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*([{\\[].*?)(?:```|$)")
 

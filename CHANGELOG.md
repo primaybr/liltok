@@ -7,8 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CI Workflow:** `.github/workflows/ci.yml` runs on every push to `main` and on pull requests: gofmt check, `go vet`, golangci-lint, and the race-enabled test suite with a coverage floor (63%, the current total; raise it toward the 85% v1.0 target). The same checks run locally through new Makefile targets `fmt`, `fmt-check`, `vet`, `lint`, `cover` and `check`.
+- **Lint Configuration:** `.golangci.yml` (golangci-lint v2, pinned to v2.14.0 in the Makefile) enables the standard linters with staticcheck's bug and simplification checks. Unchecked errors from read-side `Close` calls and in tests are allowed; write-side `Close` errors are checked. The codebase lints clean.
+
 ### Changed
+- **Release Workflow:** the Go version now comes from `go.mod` instead of a hardcoded 1.24 (which only built through automatic toolchain download), and release tests run with the race detector.
+- **Code Formatting:** all Go files are gofmt-clean (28 files reformatted, whitespace and alignment only).
 - **Gemini 3.5 Flash-Lite as Last Resort:** replaces the full exclusion from 0.2.2-beta. Live Claude Code runs showed Flash-Lite stalling, looping and losing track in tool-heavy sessions, but fully excluding it left 30-110 s free-tier turns once the larger Gemini models hit quota. It now stays in the `auto-resilient` and `free-first` chains but is tried only after every other target has failed or been skipped. Two new settings control this for any provider: `routes.last_resort_models` (`LILTOK_LAST_RESORT_MODELS`, default `["gemini-3.5-flash-lite"]`) moves matching targets to the end of the chain, and `routes.excluded_models` (`LILTOK_EXCLUDED_MODELS`, default empty) never uses them; excluded models are also rejected when an auto-routing upstream (`openrouter/free`, `kilo-auto/free`) reports serving one. Entries match ignoring case, provider prefix and `:free`-style suffix. Configs without the keys get the defaults; an empty list clears a default.
+
+### Fixed
+- **Mined Cache Export Could Be Truncated Silently:** `liltok mine --export` ignored the error from closing the output file, so a failed flush left a truncated archive while reporting success. The close error is now returned.
+- **Shutdown Flush Errors:** failures closing the cache store and request ledger on shutdown are logged instead of dropped.
+- **Test Suite Timing Out Under the Race Detector:** every test that opened a temporary database decoded and inserted the 20 MB embedded starter pack, so `go test -race` timed out after 10 minutes in five packages. `LILTOK_SKIP_STARTER_SEED=1` now skips seeding (set by `make cover` and both workflows; the seeding test re-enables it), bringing the race-enabled suite to about 2.5 minutes.
+- **MCP Messages Written in Two Parts:** each JSON-RPC response was written as the message and then a separate newline; it is now a single write per line.
 
 ## [0.2.2-beta] - 2026-09-25
 

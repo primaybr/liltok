@@ -254,10 +254,7 @@ func isFileInspectionTool(toolName string) bool {
 			return true
 		}
 	}
-	if strings.Contains(lower, "file") {
-		return true
-	}
-	return false
+	return strings.Contains(lower, "file")
 }
 
 // looksLikeSourceCode detects code snippets and diffs to prevent accidental compaction.

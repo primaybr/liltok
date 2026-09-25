@@ -488,10 +488,10 @@ func TestAdminQueryAndExportLogs(t *testing.T) {
 	}
 
 	var queryData struct {
-		Page       int                      `json:"page"`
-		TotalCount int64                    `json:"total_count"`
-		Logs       []*ledger.RequestLog     `json:"logs"`
-		Summary    map[string]interface{}   `json:"summary"`
+		Page       int                    `json:"page"`
+		TotalCount int64                  `json:"total_count"`
+		Logs       []*ledger.RequestLog   `json:"logs"`
+		Summary    map[string]interface{} `json:"summary"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &queryData); err != nil {
 		t.Fatalf("failed to decode json: %v", err)
@@ -637,5 +637,3 @@ func TestAdminMinerEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 stopping miner, got %d", recStop.Code)
 	}
 }
-
-

@@ -144,7 +144,7 @@ func LoadPromptsFromFile(filePath string) ([]PromptItem, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open prompts file %s: %w", filePath, err)
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck // read-only
 
 	var items []PromptItem
 	scanner := bufio.NewScanner(file)

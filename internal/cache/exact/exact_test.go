@@ -127,7 +127,7 @@ func TestTTLExpiration(t *testing.T) {
 		Model:            "gpt-4o",
 		NormalizedPrompt: "test",
 		ResponsePayload:  []byte(`{"res":"expired"}`),
-		TTLSeconds:       1, // 1 second TTL
+		TTLSeconds:       1,                                // 1 second TTL
 		CreatedAt:        time.Now().Add(-2 * time.Second), // Already expired
 	}
 
@@ -228,4 +228,3 @@ func TestHitCountSemantics(t *testing.T) {
 		t.Errorf("expected hit_count = 2 after second cache hit, got %d", hitCount)
 	}
 }
-

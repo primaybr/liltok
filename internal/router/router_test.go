@@ -22,8 +22,8 @@ type mockProvider struct {
 	lastModel string
 }
 
-func (m *mockProvider) Name() string { return m.name }
-func (m *mockProvider) Tier() provider.ProviderTier { return m.tier }
+func (m *mockProvider) Name() string                                  { return m.name }
+func (m *mockProvider) Tier() provider.ProviderTier                   { return m.tier }
 func (m *mockProvider) CheckHealth(ctx context.Context) (bool, error) { return !m.fail, nil }
 
 func (m *mockProvider) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
@@ -1509,7 +1509,6 @@ func TestRouter_RepetitionLoopFailover(t *testing.T) {
 		t.Errorf("unexpected content from recovered provider: %s", resp.Content)
 	}
 }
-
 
 func TestRouterThinkingOnlyResponseTriggersFailover(t *testing.T) {
 	r := NewRouter(config.DefaultConfig())

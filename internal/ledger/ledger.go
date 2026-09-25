@@ -12,27 +12,27 @@ import (
 
 // RequestLog represents an immutable record of an inference request in the financial ledger.
 type RequestLog struct {
-	ID               int64     `json:"id,omitempty"`
-	RequestID        string    `json:"request_id"`
-	Timestamp        time.Time `json:"timestamp"`
-	APIKeyID         string    `json:"api_key_id,omitempty"`
-	Model            string    `json:"model"`
-	RequestedModel   string    `json:"requested_model,omitempty"`
-	Provider         string    `json:"provider"`
-	CacheStatus      string    `json:"cache_status"`
-	CacheTier        string    `json:"cache_tier"`
-	PromptTokens     int       `json:"prompt_tokens"`
-	CompletionTokens int       `json:"completion_tokens"`
-	CachedTokens     int       `json:"cached_tokens"`
-	LatencyMs        int64     `json:"latency_ms"`
-	CostUSD          float64   `json:"cost_usd"`
-	PromptCostUSD    float64   `json:"prompt_cost_usd"`
-	CompletionCostUSD float64  `json:"completion_cost_usd"`
-	SavedUSD         float64   `json:"saved_usd"`
-	PrunedBytes      int       `json:"pruned_bytes,omitempty"`
-	PrunedTokens     int       `json:"pruned_tokens,omitempty"`
-	StatusCode       int       `json:"status_code"`
-	ErrorMessage     string    `json:"error_message,omitempty"`
+	ID                int64     `json:"id,omitempty"`
+	RequestID         string    `json:"request_id"`
+	Timestamp         time.Time `json:"timestamp"`
+	APIKeyID          string    `json:"api_key_id,omitempty"`
+	Model             string    `json:"model"`
+	RequestedModel    string    `json:"requested_model,omitempty"`
+	Provider          string    `json:"provider"`
+	CacheStatus       string    `json:"cache_status"`
+	CacheTier         string    `json:"cache_tier"`
+	PromptTokens      int       `json:"prompt_tokens"`
+	CompletionTokens  int       `json:"completion_tokens"`
+	CachedTokens      int       `json:"cached_tokens"`
+	LatencyMs         int64     `json:"latency_ms"`
+	CostUSD           float64   `json:"cost_usd"`
+	PromptCostUSD     float64   `json:"prompt_cost_usd"`
+	CompletionCostUSD float64   `json:"completion_cost_usd"`
+	SavedUSD          float64   `json:"saved_usd"`
+	PrunedBytes       int       `json:"pruned_bytes,omitempty"`
+	PrunedTokens      int       `json:"pruned_tokens,omitempty"`
+	StatusCode        int       `json:"status_code"`
+	ErrorMessage      string    `json:"error_message,omitempty"`
 }
 
 // OverviewStats summarizes gateway performance and monetary savings.

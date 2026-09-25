@@ -133,7 +133,6 @@ func InjectAnthropicCacheControl(payload []byte, minTokens int) ([]byte, bool, e
 					lastTool["cache_control"] = ephemeralControl
 					tools[lastIdx] = lastTool
 					injected = true
-					remainingSlots--
 				}
 			}
 		}

@@ -61,7 +61,7 @@ func TestOpenAIAdapterStreamChat(t *testing.T) {
 	adapter := NewAdapter("openai", provider.TierPremium, mockServer.URL, "test-key")
 
 	req := &provider.UnifiedChatRequest{
-		Model: "gpt-4o",
+		Model:  "gpt-4o",
 		Stream: true,
 		Messages: []provider.UnifiedChatMessage{
 			{Role: "user", Content: "stream test"},
@@ -270,8 +270,8 @@ func TestOpenAIAdapterListModelsNVIDIANIM(t *testing.T) {
 	}
 
 	expected := map[string]int{
-		"deepseek-ai/deepseek-v4-flash-0731":  131072,
-		"google/gemma-4-31b-it":               131072,
+		"deepseek-ai/deepseek-v4-flash-0731":    131072,
+		"google/gemma-4-31b-it":                 131072,
 		"nvidia/nemotron-3.5-lightning-30b-a3b": 131072,
 	}
 
@@ -715,9 +715,9 @@ func TestOpenAIAdapter_BuildPayload_ToolCallsAndToolRole(t *testing.T) {
 
 	var payload struct {
 		Messages []struct {
-			Role       string `json:"role"`
+			Role       string  `json:"role"`
 			Content    *string `json:"content"`
-			ToolCallID string `json:"tool_call_id"`
+			ToolCallID string  `json:"tool_call_id"`
 			ToolCalls  []struct {
 				ID       string `json:"id"`
 				Type     string `json:"type"`
@@ -888,4 +888,3 @@ func TestOpenAIAdapter_BuildPayload_TrailingSystemMessage(t *testing.T) {
 		t.Errorf("expected [System Reminder] prefix in converted user message, got %v", lastMsg.Content)
 	}
 }
-

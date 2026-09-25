@@ -173,5 +173,3 @@ func TestInjectAnthropicCacheControl_PreserveExisting(t *testing.T) {
 		t.Errorf("Payload should remain completely untouched")
 	}
 }
-
-

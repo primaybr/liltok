@@ -608,7 +608,7 @@ type mockFailingProvider struct {
 	name string
 }
 
-func (m *mockFailingProvider) Name() string { return m.name }
+func (m *mockFailingProvider) Name() string                { return m.name }
 func (m *mockFailingProvider) Tier() provider.ProviderTier { return provider.TierFree }
 func (m *mockFailingProvider) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
 	return nil, errors.New("simulated upstream failure")
@@ -673,4 +673,3 @@ func TestProxyFreeFirstBypassesPaidUpstreamFallback(t *testing.T) {
 		t.Errorf("paid direct upstream was contacted despite X-Liltok-Route: free-first")
 	}
 }
-

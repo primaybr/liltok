@@ -21,12 +21,12 @@ type AnthropicStreamCollector struct {
 }
 
 type anthropicCollectedBlock struct {
-	Type     string
-	Text     strings.Builder
-	ID       string
-	Name     string
+	Type      string
+	Text      strings.Builder
+	ID        string
+	Name      string
 	InputJSON strings.Builder
-	Thinking strings.Builder
+	Thinking  strings.Builder
 }
 
 // NewAnthropicStreamCollector creates a new collector for Anthropic streams.
@@ -44,9 +44,9 @@ func (c *AnthropicStreamCollector) FeedLine(data string) {
 	}
 
 	var raw struct {
-		Type         string `json:"type"`
-		Index        int    `json:"index"`
-		Message      struct {
+		Type    string `json:"type"`
+		Index   int    `json:"index"`
+		Message struct {
 			ID    string `json:"id"`
 			Model string `json:"model"`
 			Usage struct {

@@ -90,7 +90,11 @@ and resilient routing.`,
 			if err != nil {
 				return fmt.Errorf("failed to initialize cache store: %w", err)
 			}
-			defer cacheStore.Close()
+			defer func() {
+				if err := cacheStore.Close(); err != nil {
+					log.Warn().Err(err).Msg("Failed to close cache store cleanly")
+				}
+			}()
 
 			// Initialize Tier-3 Semantic Similarity Cache
 			var semCache *semantic.SemanticCache
@@ -108,7 +112,11 @@ and resilient routing.`,
 			km := ledger.NewKeyManager(database)
 			qe := ledger.NewQuotaEnforcer()
 			led := ledger.NewLedger(database, km)
-			defer led.Close()
+			defer func() {
+				if err := led.Close(); err != nil {
+					log.Warn().Err(err).Msg("Failed to flush request ledger on shutdown")
+				}
+			}()
 			pricing := tokens.NewPricingRegistry(database)
 
 			// Initialize Real-time SSE Broadcaster
@@ -289,4 +297,3 @@ func resolveConfigPath(explicit string) string {
 	}
 	return ""
 }
-

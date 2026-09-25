@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"os"
 )
 
 //go:embed starter_cache.json.gz
@@ -27,6 +28,11 @@ type StarterCacheItem struct {
 // it unpacks and inserts the embedded starter cache so that users get instant cache hits on day one.
 func (d *DB) SeedStarterCache() (int, error) {
 	if len(starterCacheGz) == 0 {
+		return 0, nil
+	}
+	// Seeding decodes and inserts the whole embedded pack; test runs that open many temporary
+	// databases set LILTOK_SKIP_STARTER_SEED=1 to avoid doing that on every Open.
+	if os.Getenv("LILTOK_SKIP_STARTER_SEED") == "1" {
 		return 0, nil
 	}
 
@@ -146,4 +152,3 @@ func (d *DB) ForceSeedStarterCache() (int, error) {
 
 	return seeded, nil
 }
-

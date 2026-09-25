@@ -159,4 +159,3 @@ func TestReplayAnthropicSSE_Thinking(t *testing.T) {
 		t.Errorf("expected message_stop event: %s", body)
 	}
 }
-

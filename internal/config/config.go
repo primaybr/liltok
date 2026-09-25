@@ -58,10 +58,10 @@ type ProviderCreds struct {
 
 // ProvidersConfig aggregates upstream provider configurations.
 type ProvidersConfig struct {
-	OpenAI    ProviderCreds `yaml:"openai"`
-	Anthropic ProviderCreds `yaml:"anthropic"`
-	NVIDIANIM ProviderCreds `yaml:"nvidianim"`
-	Groq      ProviderCreds `yaml:"groq"`
+	OpenAI     ProviderCreds `yaml:"openai"`
+	Anthropic  ProviderCreds `yaml:"anthropic"`
+	NVIDIANIM  ProviderCreds `yaml:"nvidianim"`
+	Groq       ProviderCreds `yaml:"groq"`
 	Gemini     ProviderCreds `yaml:"gemini"`
 	OpenRouter ProviderCreds `yaml:"openrouter"`
 	Ollama     ProviderCreds `yaml:"ollama"`

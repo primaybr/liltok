@@ -1,0 +1,31 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  # errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  settings:
+    staticcheck:
+      # Bug (SA) and simplification (S) checks; quick-fix (QF) and style (ST) suggestions are off.
+      checks: ["all", "-QF*", "-ST*"]
+    errcheck:
+      # Closing a read-side resource cannot lose data; write-side Close errors are still checked.
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (*database/sql.DB).Close
+        - (io.ReadCloser).Close
+        - (*compress/gzip.Reader).Close
+        - (io/fs.File).Close
+        - (mime/multipart.File).Close
+  exclusions:
+    rules:
+      # Tests close fixtures and write to recorders without checking; failures surface in assertions.
+      - path: _test\.go
+        linters: [errcheck]
+
+formatters:
+  enable:
+    - gofmt

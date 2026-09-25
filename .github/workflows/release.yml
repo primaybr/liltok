@@ -22,11 +22,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
           cache: true
 
       - name: Run Tests
-        run: go test -v ./...
+        env:
+          LILTOK_SKIP_STARTER_SEED: "1"
+        run: go test -race ./...
 
       - name: Ensure Starter Cache
         run: |

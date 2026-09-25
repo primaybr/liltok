@@ -237,7 +237,6 @@ func TestPackStarterCache(t *testing.T) {
 	}
 }
 
-
 func TestDefaultTargetModels_MatchClientModelIDs(t *testing.T) {
 	models := miner.DefaultTargetModels()
 	want := map[string]bool{"claude-opus-5-5": false, "claude-haiku-4-5-20251001": false}

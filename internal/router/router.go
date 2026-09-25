@@ -114,34 +114,34 @@ var defaultNVIDIANIMActiveModels = []provider.ModelInfo{
 
 // nvidianimDeprecatedModelReplacements maps decommissioned or alias NVIDIA NIM models to active reasoning/chat replacements.
 var nvidianimDeprecatedModelReplacements = map[string]string{
-	"meta/llama-3.3-70b-instruct":             "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"llama-3.3-70b-instruct":                  "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama-3.1-70b-instruct":             "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"llama-3.1-70b-instruct":                  "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama-3.1-8b-instruct":              "meta/llama-3.2-11b-vision-instruct",
-	"llama-3.1-8b-instruct":                   "meta/llama-3.2-11b-vision-instruct",
-	"meta/llama-3.1-405b-instruct":            "nvidia/nemotron-3-ultra-550b-a55b",
-	"llama-3.1-405b-instruct":                 "nvidia/nemotron-3-ultra-550b-a55b",
-	"meta/llama3-70b-instruct":                "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama3-8b-instruct":                 "meta/llama-3.2-11b-vision-instruct",
-	"deepseek-ai/deepseek-r1":                 "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-r1":                             "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-ai/deepseek-v3":                 "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-v3":                             "deepseek-ai/deepseek-v4-flash-0731",
+	"meta/llama-3.3-70b-instruct":              "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"llama-3.3-70b-instruct":                   "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"meta/llama-3.1-70b-instruct":              "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"llama-3.1-70b-instruct":                   "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"meta/llama-3.1-8b-instruct":               "meta/llama-3.2-11b-vision-instruct",
+	"llama-3.1-8b-instruct":                    "meta/llama-3.2-11b-vision-instruct",
+	"meta/llama-3.1-405b-instruct":             "nvidia/nemotron-3-ultra-550b-a55b",
+	"llama-3.1-405b-instruct":                  "nvidia/nemotron-3-ultra-550b-a55b",
+	"meta/llama3-70b-instruct":                 "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"meta/llama3-8b-instruct":                  "meta/llama-3.2-11b-vision-instruct",
+	"deepseek-ai/deepseek-r1":                  "deepseek-ai/deepseek-v4-flash-0731",
+	"deepseek-r1":                              "deepseek-ai/deepseek-v4-flash-0731",
+	"deepseek-ai/deepseek-v3":                  "deepseek-ai/deepseek-v4-flash-0731",
+	"deepseek-v3":                              "deepseek-ai/deepseek-v4-flash-0731",
 	"deepseek-ai/deepseek-coder-6.7b-instruct": "deepseek-ai/deepseek-v4-flash-0731",
-	"nvidia/nemotron-4-340b-instruct":         "nvidia/nemotron-3-ultra-550b-a55b",
-	"nvidia/llama-3.1-nemotron-70b-instruct":  "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"nvidia/llama-3.1-nemotron-51b-instruct":  "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"nvidia/llama-3.1-nemotron-ultra-253b-v1": "nvidia/nemotron-3-ultra-550b-a55b",
-	"meta/muse-glimmer-30b":                   "deepseek-ai/deepseek-v4-flash-0731",
-	"google/gemma-3-12b-it":                   "google/gemma-4-31b-it",
-	"google/gemma-3-4b-it":                    "google/gemma-4-31b-it",
-	"google/gemma-2-9b-it":                    "google/gemma-4-31b-it",
-	"google/codegemma-7b":                     "google/gemma-4-31b-it",
-	"meta/codellama-70b":                      "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"mistralai/mistral-large-2-instruct":      "mistralai/mistral-nemotron",
-	"mistralai/mixtral-8x22b-v0.1":            "nvidia/nemotron-3-super-120b-a12b",
-	"writer/palmyra-creative-122b":            "nvidia/nemotron-3-super-120b-a12b",
+	"nvidia/nemotron-4-340b-instruct":          "nvidia/nemotron-3-ultra-550b-a55b",
+	"nvidia/llama-3.1-nemotron-70b-instruct":   "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"nvidia/llama-3.1-nemotron-51b-instruct":   "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"nvidia/llama-3.1-nemotron-ultra-253b-v1":  "nvidia/nemotron-3-ultra-550b-a55b",
+	"meta/muse-glimmer-30b":                    "deepseek-ai/deepseek-v4-flash-0731",
+	"google/gemma-3-12b-it":                    "google/gemma-4-31b-it",
+	"google/gemma-3-4b-it":                     "google/gemma-4-31b-it",
+	"google/gemma-2-9b-it":                     "google/gemma-4-31b-it",
+	"google/codegemma-7b":                      "google/gemma-4-31b-it",
+	"meta/codellama-70b":                       "nvidia/nemotron-3.5-lightning-30b-a3b",
+	"mistralai/mistral-large-2-instruct":       "mistralai/mistral-nemotron",
+	"mistralai/mixtral-8x22b-v0.1":             "nvidia/nemotron-3-super-120b-a12b",
+	"writer/palmyra-creative-122b":             "nvidia/nemotron-3-super-120b-a12b",
 }
 
 // RemapNVIDIANIMModel translates deprecated NVIDIA NIM model names to active replacement model IDs.
@@ -320,21 +320,21 @@ var defaultClineActiveModels = []provider.ModelInfo{
 // clineDeprecatedModelReplacements maps decommissioned or alias Cline models to active free replacements.
 var clineDeprecatedModelReplacements = map[string]string{
 	"deepseek/deepseek-v4-flash-0731:free":   "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4-flash-0731:free":          "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4-flash-0731":       "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4-flash-0731":                "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4:free":             "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4:free":                      "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4":                  "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4":                           "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-r1:free":             "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-r1:free":                      "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-r1":                  "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-r1":                           "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-chat:free":           "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-chat:free":                    "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-chat":                "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-chat":                         "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4-flash-0731:free":            "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4-flash-0731":        "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4-flash-0731":                 "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4:free":              "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4:free":                       "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-v4":                   "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-v4":                            "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-r1:free":              "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-r1:free":                       "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-r1":                   "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-r1":                            "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-chat:free":            "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-chat:free":                     "nvidia/nemotron-3.5-lightning:free",
+	"deepseek/deepseek-chat":                 "nvidia/nemotron-3.5-lightning:free",
+	"deepseek-chat":                          "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.1-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
 	"meta-llama/llama-3.1-8b-instruct:free":  "qwen/qwen3.8-27b:free",
@@ -360,11 +360,6 @@ func RemapClineModel(model string) (string, bool) {
 		}
 	}
 	return model, false
-}
-
-func isDeprecatedCline(model string) bool {
-	_, ok := RemapClineModel(model)
-	return ok
 }
 
 // Route defines an ordered fallback sequence of provider targets.

@@ -396,7 +396,7 @@ With --encrypt, the pack is encrypted with the maintainer public key using X2551
 			if err != nil {
 				return fmt.Errorf("failed to open cache pack %s: %w", filePath, err)
 			}
-			defer f.Close()
+			defer f.Close() //nolint:errcheck // read-only
 
 			dbPath := resolveDBPath()
 			database, err := db.Open(dbPath)

@@ -34,9 +34,9 @@ func NewAdapter(baseURL, apiKey string) *Adapter {
 	keys := parseKeys(apiKey)
 
 	return &Adapter{
-		baseURL:    baseURL,
-		apiKey:     apiKey,
-		apiKeys:    keys,
+		baseURL: baseURL,
+		apiKey:  apiKey,
+		apiKeys: keys,
 		httpClient: &http.Client{
 			Timeout: 120 * time.Second,
 		},
@@ -245,13 +245,13 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		}
 
 		// If rate limit (429), temporary service unavailable (503), unauthorized/disabled account (401), or quota/state error, try next available key
-		if resp.StatusCode == http.StatusTooManyRequests || 
-		   resp.StatusCode == http.StatusServiceUnavailable || 
-		   resp.StatusCode == http.StatusUnauthorized || 
-		   strings.Contains(string(respBytes), "RESOURCE_EXHAUSTED") || 
-		   strings.Contains(string(respBytes), "UNAVAILABLE") || 
-		   strings.Contains(string(respBytes), "ACCOUNT_STATE_INVALID") || 
-		   strings.Contains(string(respBytes), "API_KEY_INVALID") {
+		if resp.StatusCode == http.StatusTooManyRequests ||
+			resp.StatusCode == http.StatusServiceUnavailable ||
+			resp.StatusCode == http.StatusUnauthorized ||
+			strings.Contains(string(respBytes), "RESOURCE_EXHAUSTED") ||
+			strings.Contains(string(respBytes), "UNAVAILABLE") ||
+			strings.Contains(string(respBytes), "ACCOUNT_STATE_INVALID") ||
+			strings.Contains(string(respBytes), "API_KEY_INVALID") {
 			lastErr = fmt.Errorf("gemini key %d unavailable (status %d): %s", i+1, resp.StatusCode, string(respBytes))
 			continue
 		}

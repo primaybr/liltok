@@ -54,6 +54,7 @@ func TestOpenFileDB(t *testing.T) {
 }
 
 func TestStarterCacheSeeding(t *testing.T) {
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "") // this test checks the seeding itself
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "seeded.db")
 
@@ -82,4 +83,3 @@ func TestStarterCacheSeeding(t *testing.T) {
 		t.Errorf("expected 0 reseeded entries on non-empty db, got %d", reseeded)
 	}
 }
-

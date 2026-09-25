@@ -175,11 +175,15 @@ compiler/runtime errors, algorithms, and workspace-specific libraries at $0.00 c
 				if err != nil {
 					return fmt.Errorf("failed to create export file %s: %w", exportFlag, err)
 				}
-				defer outFile.Close()
+				defer outFile.Close() //nolint:errcheck // closed and checked explicitly on success
 
 				exported, err := miner.ExportCacheToGz(database, outFile)
 				if err != nil {
 					return fmt.Errorf("failed to export cache: %w", err)
+				}
+				// Close flushes the file; an error here means the export may be truncated.
+				if err := outFile.Close(); err != nil {
+					return fmt.Errorf("failed to write export file %s: %w", exportFlag, err)
 				}
 				fmt.Printf("Successfully exported %d cache entries to %s\n", exported, exportFlag)
 			}

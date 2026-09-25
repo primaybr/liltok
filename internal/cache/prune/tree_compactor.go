@@ -144,7 +144,7 @@ func collapsePaths(paths []string) []string {
 	for _, p := range paths {
 		idx := strings.LastIndex(p, "/")
 		if idx == -1 {
-			dirGroups[""] = append(dirGroups[""] , p)
+			dirGroups[""] = append(dirGroups[""], p)
 		} else {
 			dir := p[:idx]
 			file := p[idx+1:]
@@ -170,7 +170,7 @@ func collapsePaths(paths []string) []string {
 		if len(files) == 1 {
 			result = append(result, d+"/"+files[0])
 		} else {
-			result = append(result, d+"/{" + strings.Join(files, ", ") + "}")
+			result = append(result, d+"/{"+strings.Join(files, ", ")+"}")
 		}
 	}
 

@@ -134,4 +134,3 @@ func TestCorpusFileBudget(t *testing.T) {
 		t.Fatalf("failed to walk corpus: %v", err)
 	}
 }
-
