@@ -5,6 +5,22 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Route Strategies (M8.1):** a route's `strategy` now decides the order its targets are tried in; every strategy still fails over through the whole list. `fallback` and `free_first` keep the listed order (unchanged behaviour), `round_robin` starts each request one target further along the list, and `least_cost` tries the cheapest targets first using the pricing table (free-tier providers cost $0; equal costs keep the listed order). Strategies apply to named routes (selected by `X-Liltok-Route` or a route name as the model); models resolved by name keep their fixed order.
+- **Route Editing API (M8.2):** `PUT /api/v1/routes` creates or replaces a route (`id`, `description`, `strategy`, and `targets` as `{provider, model}` pairs); edits are validated (known strategy, registered providers, 1-100 targets) and stored in the `provider_routes` and `route_targets` tables, so they survive restarts. Saving a built-in route ID (`auto-resilient`, `free-first`, `premium-only`) overrides it; `DELETE /api/v1/routes/{id}` restores a built-in route or deletes a custom one. Saved routes that name a provider that no longer exists are skipped at startup with a warning. The dashboard shows each route's strategy and marks custom and edited routes.
+
+### Changed
+- **Test Coverage Raised to 83%:** new tests cover the CLI commands and MCP server (0% to 93%), config, middleware, the provider adapters, the miner, cache sync and the database layer (each now 92-100%), and CI's coverage floor rises from 63% to 80%. `main` now only runs `newRootCommand()`, so the command tree can be built in tests.
+
+### Fixed
+- **Switching Strategy Could Corrupt liltok.yaml:** when the config had a `routes:` section without `default_strategy`, saving a strategy appended a second `routes:` block, and the next start failed with a duplicate-key YAML error. The key is now inserted into the existing section.
+- **MCP Cache Search Crashed on Short Hashes:** the local SQLite fallback of `liltok_cache_search` sliced every hash to 12 characters, so a cache row with a shorter hash (possible in imported packs) panicked and stopped the MCP server.
+- **Data Races and Nil Panics:** the OpenAI-compatible adapter's `StreamChat` read its base URL and API key without the adapter lock; miner progress events read shared counters after releasing their lock; the miner's semantic-cache store dereferenced a nil request when normalization failed; and a cache sync that downloaded a pack with no database attached panicked instead of returning an error.
+- **Starter Seed Count Included Skipped Rows:** reseeding a database with fewer than five entries reported ignored duplicates as inserted.
+- **Routes Endpoint Showed Stale Chains:** `GET /api/v1/routes` returned a hand-written copy of the routes that had drifted from the ones the router uses (it listed models no route contained and a different free-tier order), so the dashboard and `liltok route` showed chains that were not in effect. It now lists the router's live routes, adding `strategy`, structured `target_specs`, `built_in` and `customized` to each; the existing `targets` strings are unchanged. Route names, descriptions and models are HTML-escaped in the dashboard.
+
 ## [0.2.3-beta] - 2026-09-25
 
 ### Added

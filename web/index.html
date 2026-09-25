@@ -3568,22 +3568,26 @@
         const routesContainer = document.getElementById('routes-container');
         routesContainer.innerHTML = data.routes.map(r => {
           const isActive = r.id === data.default_strategy;
+          const id = escapeHTML(r.id);
+          const strategy = escapeHTML(r.strategy || 'fallback');
+          const tags = (r.built_in ? '' : '<span class="badge">CUSTOM</span>') + (r.customized ? '<span class="badge">EDITED</span>' : '');
           return `
           <div style="padding: 16px; margin-bottom: 12px; background: var(--bg); border: 1px solid ${isActive ? '#10b981' : 'var(--border)'}; border-radius: 8px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 700; font-size: 15px;">${r.id}</span>
+                <span style="font-weight: 700; font-size: 15px;">${id}</span>
+                <span class="badge">${strategy}</span>${tags}
                 ${isActive ? '<span class="badge" style="background:#10b981; color:#000; font-weight:700;">ACTIVE STRATEGY</span>' : ''}
               </div>
               <div>
-                ${isActive 
+                ${isActive
                   ? '<span style="font-size: 12px; color: #34d399; font-weight: 600;">Currently Active</span>'
-                  : `<button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="changeRouteStrategy('${r.id}')">Activate Strategy</button>`
+                  : (r.built_in ? `<button class="btn btn-secondary" style="padding: 4px 12px; font-size: 12px;" onclick="changeRouteStrategy('${id}')">Activate Strategy</button>` : '')
                 }
               </div>
             </div>
-            <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">${r.description}</div>
-            <div style="font-family: var(--mono); font-size: 12px; color: var(--accent);">Target Chain: ${r.targets.join(' -> ')}</div>
+            <div style="font-size: 13px; color: var(--muted); margin-bottom: 8px;">${escapeHTML(r.description || '')}</div>
+            <div style="font-family: var(--mono); font-size: 12px; color: var(--accent);">Target Chain: ${r.targets.map(escapeHTML).join(' -&gt; ')}</div>
           </div>
         `}).join('');
       } catch (e) {}

@@ -137,10 +137,14 @@ var catalogedProviders = map[string]bool{"groq": true, "nvidianim": true, "openr
 
 // Route defines an ordered fallback sequence of provider targets.
 type Route struct {
-	ID       string
-	Strategy string
-	Targets  []TargetSpec
+	ID          string
+	Strategy    string
+	Description string
+	Targets     []TargetSpec
 }
+
+// builtInRouteOrder lists the routes liltok ships with, in display order.
+var builtInRouteOrder = []string{"auto-resilient", "free-first", "premium-only"}
 
 // Router orchestrates multi-provider dispatching, circuit breaking, and resilient fallbacks.
 type Router struct {
@@ -160,6 +164,14 @@ type Router struct {
 	lastResort map[string]bool
 	// catalog holds model health learned from upstream "model not found" replies.
 	catalog *ModelCatalog
+	// targetCost prices targets for least_cost routes; nil uses provider tiers.
+	targetCost TargetCostFunc
+	// roundRobin maps a round_robin route ID to its *atomic.Uint64 request counter.
+	roundRobin sync.Map
+	// builtInRoutes keeps the shipped route definitions so an edited built-in route can be reset.
+	builtInRoutes map[string]Route
+	// routeStore persists routes edited at runtime; nil keeps edits in memory only.
+	routeStore RouteStore
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -255,8 +267,9 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 func (r *Router) initDefaultRoutes() {
 	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6; 3.5-lite as last resort) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
 	r.routes["auto-resilient"] = Route{
-		ID:       "auto-resilient",
-		Strategy: "fallback",
+		ID:          "auto-resilient",
+		Strategy:    StrategyFallback,
+		Description: "Claude Sonnet 5 first, then the free tiers: Groq, Gemini (3.5 Flash-Lite as last resort), NVIDIA NIM, OpenRouter, Kilo and Cline",
 		Targets: []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: "claude-sonnet-5"},
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
@@ -291,8 +304,9 @@ func (r *Router) initDefaultRoutes() {
 
 	// 2. free-first: Groq -> Gemini Free (3 Keys) -> NVIDIA NIM -> OpenRouter Free -> Kilo Free -> Cline Free
 	r.routes["free-first"] = Route{
-		ID:       "free-first",
-		Strategy: "free_first",
+		ID:          "free-first",
+		Strategy:    StrategyFreeFirst,
+		Description: "Free tiers only: Groq, Gemini (3.5 Flash-Lite as last resort), NVIDIA NIM, OpenRouter, Kilo and Cline",
 		Targets: []TargetSpec{
 			{ProviderName: "groq", UpstreamModel: "qwen/qwen3.8-27b"},
 			{ProviderName: "groq", UpstreamModel: "openai/gpt-oss-120b"},
@@ -326,12 +340,18 @@ func (r *Router) initDefaultRoutes() {
 
 	// 3. premium-only: Direct Frontier API
 	r.routes["premium-only"] = Route{
-		ID:       "premium-only",
-		Strategy: "fallback",
+		ID:          "premium-only",
+		Strategy:    StrategyFallback,
+		Description: "Paid frontier models: Claude Opus 5.5, then GPT-4o",
 		Targets: []TargetSpec{
 			{ProviderName: "anthropic", UpstreamModel: "claude-opus-5-5"},
 			{ProviderName: "openai", UpstreamModel: "gpt-4o"},
 		},
+	}
+
+	r.builtInRoutes = make(map[string]Route, len(r.routes))
+	for id, route := range r.routes {
+		r.builtInRoutes[id] = copyRoute(route)
 	}
 
 	// Initialize target-level circuit breakers for all targets in routes
@@ -645,7 +665,8 @@ func (r *Router) getTargetBreaker(providerName, upstreamModel string) *CircuitBr
 
 // DispatchChat executes non-streaming chat with automatic failover across target specifications.
 func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequest, routeAlias string) (*provider.UnifiedChatResponse, string, error) {
-	targets := r.ResolveTargets(req.Model, routeAlias)
+	targets, routeID, strategy := r.resolveRoute(req.Model, routeAlias)
+	targets = r.orderTargets(routeID, strategy, targets)
 	approxTokens := len(req.RawPayload) / 4
 	if approxTokens == 0 {
 		promptChars := len(req.SystemPrompt)

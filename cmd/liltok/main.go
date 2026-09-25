@@ -119,6 +119,10 @@ and resilient routing.`,
 			if err := rtr.Catalog().SetStore(context.Background(), router.NewSQLCatalogStore(database.DB)); err != nil {
 				log.Warn().Err(err).Msg("Failed to load model catalog; model health will not persist")
 			}
+			// Load routes edited through the admin API over the built-in ones.
+			if err := rtr.SetRouteStore(context.Background(), router.NewSQLRouteStore(database.DB)); err != nil {
+				log.Warn().Err(err).Msg("Failed to load saved routes; route edits will not persist")
+			}
 
 			// Initialize Virtual Key Manager, Quota Enforcer, and Persistent Financial Ledger
 			km := ledger.NewKeyManager(database)
@@ -130,6 +134,10 @@ and resilient routing.`,
 				}
 			}()
 			pricing := tokens.NewPricingRegistry(database)
+			// least_cost routes order targets by input plus output price per million tokens.
+			rtr.SetTargetCost(func(providerName, model string) float64 {
+				return pricing.CalculateDetailedForRouting(model, providerName, 1_000_000, 1_000_000, 0, "MISS", "NONE").TotalCostUSD
+			})
 
 			// Initialize Real-time SSE Broadcaster
 			broadcaster := admin.NewBroadcaster()

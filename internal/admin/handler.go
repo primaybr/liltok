@@ -95,6 +95,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/cache/purge", h.HandlePurgeCache)
 		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
+		r.Put("/routes", h.HandleUpsertRoute)
+		r.Delete("/routes/{id}", h.HandleResetRoute)
 		r.Post("/routes/strategy", h.HandleSetRouteStrategy)
 		r.Post("/routes/reset-breakers", h.HandleResetCircuitBreakers)
 		r.Get("/providers", h.HandleListProviders)
@@ -1367,69 +1369,11 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	routes := []map[string]interface{}{
-		{
-			"id":          "auto-resilient",
-			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6, 3.5-lite last resort), Kilo Gateway, Cline Free, NVIDIA NIM, and OpenRouter Free",
-			"targets": []string{
-				"anthropic/claude-sonnet-5",
-				"groq/qwen/qwen3.8-27b",
-				"groq/openai/gpt-oss-120b",
-				"groq/openai/gpt-oss-20b",
-				"gemini/gemini-3.8-flash",
-				"gemini/gemini-3.7-flash",
-				"gemini/gemini-3.6-flash",
-				"gemini/gemini-3.5-flash-lite",
-				"kilo/kilo-auto/free",
-				"kilo/deepseek/deepseek-v4-flash-0731:free",
-				"cline/nvidia/nemotron-3.5-lightning:free",
-				"cline/google/gemma-4-31b-it:free",
-				"cline/qwen/qwen3.8-27b:free",
-				"nvidianim/meta/llama-3.2-11b-vision-instruct",
-				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
-				"nvidianim/poolside/laguna-xs-2.1",
-				"nvidianim/google/diffusiongemma-26b-a4b-it",
-				"nvidianim/nvidia/nemotron-3-super-120b-a12b",
-				"nvidianim/openai/gpt-oss-20b",
-				"nvidianim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-				"nvidianim/meta/muse-glimmer-30b",
-				"nvidianim/nvidia/nemotron-3-ultra-550b-a55b",
-				"openrouter/openrouter/free",
-			},
-		},
-		{
-			"id":          "free-first",
-			"description": "Rolling multi-model free tier sequence: Groq (300ms) -> Gemini 1M Context -> Kilo Gateway -> Cline Free -> NVIDIA NIM -> OpenRouter Free for $0.00 spend",
-			"targets": []string{
-				"groq/qwen/qwen3.8-27b",
-				"groq/openai/gpt-oss-120b",
-				"groq/openai/gpt-oss-20b",
-				"gemini/gemini-3.8-flash",
-				"gemini/gemini-3.7-flash",
-				"gemini/gemini-3.6-flash",
-				"gemini/gemini-3.5-flash-lite",
-				"kilo/kilo-auto/free",
-				"kilo/deepseek/deepseek-v4-flash-0731:free",
-				"cline/nvidia/nemotron-3.5-lightning:free",
-				"cline/google/gemma-4-31b-it:free",
-				"cline/qwen/qwen3.8-27b:free",
-				"nvidianim/meta/llama-3.2-11b-vision-instruct",
-				"nvidianim/nvidia/nemotron-3.5-lightning-30b-a3b",
-				"nvidianim/poolside/laguna-xs-2.1",
-				"nvidianim/google/diffusiongemma-26b-a4b-it",
-				"nvidianim/nvidia/nemotron-3-super-120b-a12b",
-				"nvidianim/openai/gpt-oss-20b",
-				"nvidianim/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
-				"nvidianim/meta/muse-glimmer-30b",
-				"nvidianim/nvidia/nemotron-3-ultra-550b-a55b",
-				"openrouter/openrouter/free",
-			},
-		},
-		{
-			"id":          "premium-only",
-			"description": "Frontier intelligence models (Claude Opus 5.5, GPT-4o) with prompt caching",
-			"targets":     []string{"anthropic/claude-opus-5-5", "openai/gpt-4o"},
-		},
+	routes := []routeResponse{}
+	if h.router != nil {
+		for _, info := range h.router.Routes() {
+			routes = append(routes, newRouteResponse(info))
+		}
 	}
 
 	defaultStrategy := "auto-resilient"
@@ -1443,6 +1387,101 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		"default_strategy": defaultStrategy,
 		"routes":           routes,
 		"circuit_breakers": breakers,
+	})
+}
+
+type routeTarget struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+}
+
+type routeResponse struct {
+	ID          string        `json:"id"`
+	Description string        `json:"description"`
+	Strategy    string        `json:"strategy"`
+	Targets     []string      `json:"targets"` // "provider/model", kept for existing clients
+	TargetSpecs []routeTarget `json:"target_specs"`
+	BuiltIn     bool          `json:"built_in"`
+	Customized  bool          `json:"customized"`
+}
+
+func newRouteResponse(info router.RouteInfo) routeResponse {
+	resp := routeResponse{
+		ID:          info.ID,
+		Description: info.Description,
+		Strategy:    info.Strategy,
+		Targets:     make([]string, 0, len(info.Targets)),
+		TargetSpecs: make([]routeTarget, 0, len(info.Targets)),
+		BuiltIn:     info.BuiltIn,
+		Customized:  info.Customized,
+	}
+	if resp.Strategy == "" {
+		resp.Strategy = router.StrategyFallback
+	}
+	for _, t := range info.Targets {
+		resp.Targets = append(resp.Targets, t.ProviderName+"/"+t.UpstreamModel)
+		resp.TargetSpecs = append(resp.TargetSpecs, routeTarget{Provider: t.ProviderName, Model: t.UpstreamModel})
+	}
+	return resp
+}
+
+// HandleUpsertRoute creates or replaces a route and persists it. Body:
+// {"id": "my-route", "description": "...", "strategy": "least_cost",
+//
+//	"targets": [{"provider": "groq", "model": "qwen/qwen3.8-27b"}, ...]}
+//
+// Saving a built-in route ID (auto-resilient, free-first, premium-only) overrides it until reset.
+func (h *AdminHandler) HandleUpsertRoute(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ID          string        `json:"id"`
+		Description string        `json:"description"`
+		Strategy    string        `json:"strategy"`
+		Targets     []routeTarget `json:"targets"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		return
+	}
+	if h.router == nil {
+		writeError(w, http.StatusServiceUnavailable, "router is not available")
+		return
+	}
+	route := router.Route{ID: body.ID, Description: body.Description, Strategy: body.Strategy}
+	for _, t := range body.Targets {
+		route.Targets = append(route.Targets, router.TargetSpec{ProviderName: t.Provider, UpstreamModel: t.Model})
+	}
+	if err := h.router.UpsertRoute(r.Context(), route); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	for _, info := range h.router.Routes() {
+		if info.ID == strings.TrimSpace(body.ID) {
+			writeJSON(w, http.StatusOK, newRouteResponse(info))
+			return
+		}
+	}
+	writeError(w, http.StatusInternalServerError, "route was saved but is not listed")
+}
+
+// HandleResetRoute deletes a custom route, or restores a built-in route to its shipped definition.
+func (h *AdminHandler) HandleResetRoute(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if h.router == nil {
+		writeError(w, http.StatusServiceUnavailable, "router is not available")
+		return
+	}
+	found, err := h.router.ResetRoute(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("route %q does not exist", id))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": fmt.Sprintf("route %s reset", id),
 	})
 }
 

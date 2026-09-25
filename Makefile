@@ -10,7 +10,7 @@ LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.da
 
 GOLANGCI_LINT_VERSION ?= v2.14.0
 # Floor for total statement coverage; raise it as coverage improves (target 85%, see docs/ROADMAP.md M10).
-COVERAGE_MIN ?= 63
+COVERAGE_MIN ?= 80
 
 .PHONY: all build test clean run fmt fmt-check vet lint cover check
 

@@ -679,3 +679,82 @@ func TestAdminModelCatalog(t *testing.T) {
 		t.Fatalf("reactivate without a model returned %d, want 400", code)
 	}
 }
+
+func TestAdminRouteEditing(t *testing.T) {
+	r, database, _ := setupAdminTest(t)
+	defer database.Close()
+
+	do := func(method, path, body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(method, path, strings.NewReader(body)))
+		return rec
+	}
+	type route struct {
+		ID          string   `json:"id"`
+		Strategy    string   `json:"strategy"`
+		Targets     []string `json:"targets"`
+		BuiltIn     bool     `json:"built_in"`
+		Customized  bool     `json:"customized"`
+		TargetSpecs []struct {
+			Provider string `json:"provider"`
+			Model    string `json:"model"`
+		} `json:"target_specs"`
+	}
+	list := func() map[string]route {
+		rec := do("GET", "/api/v1/routes", "")
+		var data struct {
+			Routes []route `json:"routes"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &data); err != nil {
+			t.Fatalf("routes: %v (%s)", err, rec.Body.String())
+		}
+		out := map[string]route{}
+		for _, rt := range data.Routes {
+			out[rt.ID] = rt
+		}
+		return out
+	}
+
+	// GET reflects the router's live routes, not a hand-written copy.
+	before := list()
+	if len(before) != 3 || !before["premium-only"].BuiltIn || before["premium-only"].Targets[0] != "anthropic/claude-opus-5-5" {
+		t.Fatalf("initial routes = %+v", before)
+	}
+
+	rec := do("PUT", "/api/v1/routes", `{"id":"spread","description":"spread load","strategy":"round_robin","targets":[{"provider":"groq","model":"qwen/qwen3.8-27b"},{"provider":"gemini","model":"gemini-3.8-flash"}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT returned %d: %s", rec.Code, rec.Body.String())
+	}
+	got := list()["spread"]
+	if got.BuiltIn || got.Strategy != "round_robin" || len(got.TargetSpecs) != 2 || got.TargetSpecs[1].Model != "gemini-3.8-flash" {
+		t.Fatalf("saved route = %+v", got)
+	}
+
+	if rec := do("PUT", "/api/v1/routes", `{"id":"bad","strategy":"random","targets":[{"provider":"groq","model":"m"}]}`); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "unknown strategy") {
+		t.Fatalf("invalid strategy returned %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := do("PUT", "/api/v1/routes", `not json`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid JSON returned %d", rec.Code)
+	}
+
+	if rec := do("PUT", "/api/v1/routes", `{"id":"premium-only","targets":[{"provider":"openai","model":"gpt-4o"}]}`); rec.Code != http.StatusOK {
+		t.Fatalf("overriding premium-only returned %d: %s", rec.Code, rec.Body.String())
+	}
+	if p := list()["premium-only"]; !p.Customized || len(p.Targets) != 1 {
+		t.Fatalf("premium-only after override = %+v", p)
+	}
+
+	if rec := do("DELETE", "/api/v1/routes/premium-only", ""); rec.Code != http.StatusOK {
+		t.Fatalf("reset premium-only returned %d", rec.Code)
+	}
+	if rec := do("DELETE", "/api/v1/routes/spread", ""); rec.Code != http.StatusOK {
+		t.Fatalf("delete spread returned %d", rec.Code)
+	}
+	if rec := do("DELETE", "/api/v1/routes/spread", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("deleting a missing route returned %d, want 404", rec.Code)
+	}
+	after := list()
+	if _, exists := after["spread"]; exists || after["premium-only"].Customized || len(after["premium-only"].Targets) != 2 {
+		t.Fatalf("routes after reset = %+v", after)
+	}
+}
