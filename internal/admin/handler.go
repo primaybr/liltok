@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -102,6 +103,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/providers/stats", h.HandleProviderStats)
 		r.Post("/providers/{name}/sync-models", h.HandleSyncProviderModels)
 		r.Get("/models", h.HandleModels)
+		r.Get("/models/catalog", h.HandleModelCatalog)
+		r.Post("/models/catalog/reactivate", h.HandleReactivateModel)
 		r.Get("/keys", h.HandleListKeys)
 		r.Post("/keys", h.HandleCreateKey)
 		r.Delete("/keys/{id}", h.HandleRevokeKey)
@@ -1514,6 +1517,43 @@ func (h *AdminHandler) HandleResetCircuitBreakers(w http.ResponseWriter, r *http
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"status":  "success",
 		"message": msg,
+	})
+}
+
+// HandleModelCatalog lists model health learned from upstream replies: models marked inactive
+// after a "not found" or "decommissioned" answer, with the reason and next recheck time.
+func (h *AdminHandler) HandleModelCatalog(w http.ResponseWriter, r *http.Request) {
+	entries := []router.CatalogEntry{}
+	if h.router != nil {
+		entries = h.router.Catalog().Entries()
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		if entries[i].Provider != entries[j].Provider {
+			return entries[i].Provider < entries[j].Provider
+		}
+		return entries[i].Model < entries[j].Model
+	})
+	writeJSON(w, http.StatusOK, entries)
+}
+
+// HandleReactivateModel clears an inactive mark so the model is tried again immediately.
+// Body: {"provider": "groq", "model": "openai/gpt-oss-120b"}.
+func (h *AdminHandler) HandleReactivateModel(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Provider == "" || body.Model == "" {
+		writeError(w, http.StatusBadRequest, "provider and model are required")
+		return
+	}
+	if h.router == nil || !h.router.Catalog().Reactivate(body.Provider, body.Model) {
+		writeError(w, http.StatusNotFound, fmt.Sprintf("%s/%s is not marked inactive", body.Provider, body.Model))
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "success",
+		"message": fmt.Sprintf("%s/%s reactivated", body.Provider, body.Model),
 	})
 }
 

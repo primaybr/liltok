@@ -265,14 +265,17 @@ func TestOpenAIAdapterListModelsNVIDIANIM(t *testing.T) {
 		t.Fatalf("ListModels failed: %v", err)
 	}
 
-	if len(models) != 3 {
-		t.Fatalf("expected 3 valid chat/reasoning models, got %d", len(models))
+	// Embedding and detector models are filtered out. A listed model that answers 404 (such as a
+	// retired Llama) is kept here and learned by the router's model catalog on its first 404.
+	if len(models) != 4 {
+		t.Fatalf("expected 4 chat/reasoning models, got %d", len(models))
 	}
 
 	expected := map[string]int{
 		"deepseek-ai/deepseek-v4-flash-0731":    131072,
 		"google/gemma-4-31b-it":                 131072,
 		"nvidia/nemotron-3.5-lightning-30b-a3b": 131072,
+		"meta/llama-3.1-70b-instruct":           32768,
 	}
 
 	for _, m := range models {

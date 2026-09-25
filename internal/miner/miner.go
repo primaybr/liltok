@@ -145,7 +145,7 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		cfg.TargetModels = DefaultTargetModels()
 	}
 
-	// Resolve provider defaults and apply remapping for deprecated models
+	// Resolve provider defaults and shorthand model names
 	switch strings.ToLower(cfg.Provider) {
 	case "openrouter":
 		if cfg.BaseURL == "" {
@@ -153,8 +153,8 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "openrouter/free"
-		} else if repl, ok := router.RemapOpenRouterModel(cfg.Model); ok {
-			cfg.Model = repl
+		} else if actual, ok := router.ResolveModelAlias("openrouter", cfg.Model); ok {
+			cfg.Model = actual
 		}
 	case "nvidianim":
 		if cfg.BaseURL == "" {
@@ -162,8 +162,6 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "deepseek-ai/deepseek-v4-flash-0731"
-		} else if repl, ok := router.RemapNVIDIANIMModel(cfg.Model); ok {
-			cfg.Model = repl
 		}
 	case "kilo":
 		if cfg.BaseURL == "" {
@@ -171,6 +169,8 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "kilo-auto/free"
+		} else if actual, ok := router.ResolveModelAlias("kilo", cfg.Model); ok {
+			cfg.Model = actual
 		}
 	case "cline":
 		if cfg.BaseURL == "" {
@@ -178,8 +178,6 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "nvidia/nemotron-3.5-lightning:free"
-		} else if repl, ok := router.RemapClineModel(cfg.Model); ok {
-			cfg.Model = repl
 		}
 	case "ollama":
 		if cfg.BaseURL == "" {
@@ -195,8 +193,6 @@ func NewCacheMiner(cfg MinerConfig, database *db.DB, semCache *semantic.Semantic
 		}
 		if cfg.Model == "" {
 			cfg.Model = "qwen/qwen3.8-27b"
-		} else if repl, ok := router.RemapGroqModel(cfg.Model); ok {
-			cfg.Model = repl
 		}
 	}
 

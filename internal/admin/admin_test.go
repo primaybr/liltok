@@ -637,3 +637,45 @@ func TestAdminMinerEndpoints(t *testing.T) {
 		t.Fatalf("expected 200 stopping miner, got %d", recStop.Code)
 	}
 }
+
+func TestAdminModelCatalog(t *testing.T) {
+	database, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	rtr := router.NewRouter(config.DefaultConfig())
+	handler := admin.NewAdminHandler(config.DefaultConfig(), database, nil, nil, rtr, nil, admin.NewBroadcaster())
+	r := chi.NewRouter()
+	handler.RegisterRoutes(r)
+
+	rtr.Catalog().MarkInactive("groq", "retired-model", "status 404: does not exist")
+
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/catalog", nil))
+	var entries []router.CatalogEntry
+	if err := json.Unmarshal(rec.Body.Bytes(), &entries); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("catalog: %d %s (%v)", rec.Code, rec.Body.String(), err)
+	}
+	if len(entries) != 1 || entries[0].Status != router.CatalogInactive || entries[0].RecheckAt.IsZero() {
+		t.Fatalf("catalog entries = %+v, want one inactive entry with a recheck time", entries)
+	}
+
+	reactivate := func(body string) int {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest("POST", "/api/v1/models/catalog/reactivate", strings.NewReader(body)))
+		return rec.Code
+	}
+	if code := reactivate(`{"provider":"groq","model":"retired-model"}`); code != http.StatusOK {
+		t.Fatalf("reactivate returned %d, want 200", code)
+	}
+	if !rtr.Catalog().Usable("groq", "retired-model") {
+		t.Fatal("model must be usable after reactivation")
+	}
+	if code := reactivate(`{"provider":"groq","model":"retired-model"}`); code != http.StatusNotFound {
+		t.Fatalf("reactivating an active model returned %d, want 404", code)
+	}
+	if code := reactivate(`{"provider":"groq"}`); code != http.StatusBadRequest {
+		t.Fatalf("reactivate without a model returned %d, want 400", code)
+	}
+}

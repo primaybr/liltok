@@ -261,7 +261,8 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 			continue
 		}
 
-		// NVIDIA NIM filtering: exclude non-chat/embeddings and known decommissioned/404 models
+		// NVIDIA NIM filtering: exclude non-chat and embedding models. Models that are listed but answer
+		// 404 are learned by the router's model catalog.
 		if name == "nvidianim" && !isNVIDIANIMChatModel(item.ID) {
 			continue
 		}
@@ -311,60 +312,6 @@ func (a *Adapter) ListModels(ctx context.Context) ([]provider.ModelInfo, error) 
 	return results, nil
 }
 
-// nvidianimDecommissionedModels lists known 404 or decommissioned endpoints on NVIDIA NIM.
-var nvidianimDecommissionedModels = map[string]bool{
-	"01-ai/yi-large":                              true,
-	"adept/fuyu-8b":                               true,
-	"ai21labs/jamba-1.5-large-instruct":           true,
-	"aisingapore/sea-lion-7b-instruct":            true,
-	"bigcode/starcoder2-15b":                      true,
-	"databricks/dbrx-instruct":                    true,
-	"deepseek-ai/deepseek-coder-6.7b-instruct":    true,
-	"google/codegemma-1.1-7b":                     true,
-	"google/codegemma-7b":                         true,
-	"google/deplot":                               true,
-	"google/gemma-2b":                             true,
-	"google/gemma-3-12b-it":                       true,
-	"google/gemma-3-4b-it":                        true,
-	"google/recurrentgemma-2b":                    true,
-	"ibm/granite-3.0-3b-a800m-instruct":           true,
-	"ibm/granite-3.0-8b-instruct":                 true,
-	"ibm/granite-34b-code-instruct":               true,
-	"ibm/granite-8b-code-instruct":                true,
-	"meta/codellama-70b":                          true,
-	"meta/llama-3.1-70b-instruct":                 true,
-	"meta/llama-3.1-8b-instruct":                  true,
-	"meta/llama-3.1-405b-instruct":                true,
-	"meta/llama2-70b":                             true,
-	"meta/muse-glimmer-30b":                       true,
-	"microsoft/kosmos-2":                          true,
-	"microsoft/phi-3-vision-128k-instruct":        true,
-	"microsoft/phi-3.5-moe-instruct":              true,
-	"mistralai/codestral-22b-instruct-v0.1":       true,
-	"mistralai/mistral-7b-instruct-v0.3":          true,
-	"mistralai/mistral-large":                     true,
-	"mistralai/mistral-large-2-instruct":          true,
-	"mistralai/mixtral-8x22b-v0.1":                true,
-	"moonshotai/kimi-k2.6":                        true,
-	"nv-mistralai/mistral-nemo-12b-instruct":      true,
-	"nvidia/ai-synthetic-video-detector":          true,
-	"nvidia/cosmos-reason2-8b":                    true,
-	"nvidia/llama-3.1-nemotron-51b-instruct":      true,
-	"nvidia/llama-3.1-nemotron-70b-instruct":      true,
-	"nvidia/llama-3.1-nemotron-ultra-253b-v1":     true,
-	"nvidia/llama3-chatqa-1.5-70b":                true,
-	"nvidia/mistral-nemo-minitron-8b-8k-instruct": true,
-	"nvidia/nemotron-4-340b-instruct":             true,
-	"nvidia/nemotron-nano-3-30b-a3b":              true,
-	"nvidia/neva-22b":                             true,
-	"nvidia/vila":                                 true,
-	"writer/palmyra-creative-122b":                true,
-	"writer/palmyra-fin-70b-32k":                  true,
-	"writer/palmyra-med-70b":                      true,
-	"writer/palmyra-med-70b-32k":                  true,
-	"zyphra/zamba2-7b-instruct":                   true,
-}
-
 // isNVIDIANIMChatModel validates that a model on NVIDIA NIM is an active chat/reasoning model.
 func isNVIDIANIMChatModel(modelID string) bool {
 	lower := strings.ToLower(strings.TrimSpace(modelID))
@@ -379,11 +326,6 @@ func isNVIDIANIMChatModel(modelID string) bool {
 		strings.Contains(lower, "-reward") ||
 		strings.Contains(lower, "nemotron-parse") ||
 		strings.Contains(lower, "riva-translate") {
-		return false
-	}
-
-	// Exclude known decommissioned / 404 endpoints
-	if nvidianimDecommissionedModels[lower] {
 		return false
 	}
 

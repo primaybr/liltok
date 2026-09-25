@@ -84,6 +84,9 @@ type RouteConfig struct {
 	// LastResortModels lists upstream models tried only after every other target in the chain has
 	// failed or been skipped. Entries match like ExcludedModels.
 	LastResortModels []string `yaml:"last_resort_models"`
+	// ModelRecheckHours is how long a model that answered "model not found" or "decommissioned"
+	// stays out of fallback chains before one request is allowed to re-check it. 0 uses 24.
+	ModelRecheckHours int `yaml:"model_recheck_hours"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -225,6 +228,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("LILTOK_ATTEMPT_TIMEOUT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Routes.AttemptTimeoutSeconds = n
+		}
+	}
+	if v := os.Getenv("LILTOK_MODEL_RECHECK_HOURS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Routes.ModelRecheckHours = n
 		}
 	}
 	if v, ok := os.LookupEnv("LILTOK_EXCLUDED_MODELS"); ok {

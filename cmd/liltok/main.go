@@ -107,6 +107,10 @@ and resilient routing.`,
 
 			// Initialize Router with Fallback Chains and Circuit Breakers
 			rtr := router.NewRouter(cfg)
+			// Persist model health so models that answered "not found" stay skipped across restarts.
+			if err := rtr.Catalog().SetStore(context.Background(), router.NewSQLCatalogStore(database.DB)); err != nil {
+				log.Warn().Err(err).Msg("Failed to load model catalog; model health will not persist")
+			}
 
 			// Initialize Virtual Key Manager, Quota Enforcer, and Persistent Financial Ledger
 			km := ledger.NewKeyManager(database)

@@ -37,6 +37,7 @@ var migrations = []migration{
 	{version: 3, name: "backfill_routed_models", file: "003_backfill_routed_models.sql"},
 	{version: 4, name: "backfill_cost_breakdown", file: "004_backfill_cost_breakdown.sql"},
 	{version: 5, name: "sync_metadata", file: "005_sync_metadata.sql"},
+	{version: 6, name: "model_catalog", file: "006_model_catalog.sql"},
 }
 
 type columnDef struct {

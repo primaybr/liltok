@@ -42,57 +42,6 @@ var defaultGroqActiveModels = []provider.ModelInfo{
 	{ID: "whisper-large-v3-turbo", Provider: "groq", Active: true, ContextWindow: 448, OwnedBy: "openai"},
 }
 
-// groqDeprecatedModelReplacements maps decommissioned Groq models to recommended active replacements.
-var groqDeprecatedModelReplacements = map[string]string{
-	"llama-3.3-70b-versatile":                       "openai/gpt-oss-120b",
-	"llama-3.1-8b-instant":                          "openai/gpt-oss-20b",
-	"llama3-70b-8192":                               "openai/gpt-oss-120b",
-	"llama3-8b-8192":                                "openai/gpt-oss-20b",
-	"mixtral-8x7b-32768":                            "openai/gpt-oss-120b",
-	"gemma2-9b-it":                                  "openai/gpt-oss-20b",
-	"gemma-7b-it":                                   "openai/gpt-oss-20b",
-	"deepseek-r1-distill-llama-70b":                 "openai/gpt-oss-120b",
-	"deepseek-r1-distill-llama-70b-specdec":         "openai/gpt-oss-120b",
-	"deepseek-r1-distill-qwen-32b":                  "openai/gpt-oss-120b",
-	"qwen/qwen3-32b":                                "openai/gpt-oss-120b",
-	"qwen-qwq-32b":                                  "openai/gpt-oss-120b",
-	"qwen-2.5-32b":                                  "openai/gpt-oss-120b",
-	"qwen-2.5-coder-32b":                            "openai/gpt-oss-120b",
-	"meta-llama/llama-guard-4-12b":                  "openai/gpt-oss-safeguard-20b",
-	"llama-guard-3-8b":                              "openai/gpt-oss-safeguard-20b",
-	"meta-llama/llama-4-scout-17b-16e-instruct":     "openai/gpt-oss-120b",
-	"meta-llama/llama-4-maverick-17b-128e-instruct": "openai/gpt-oss-120b",
-	"playai-tts":                                    "canopylabs/orpheus-v1-english",
-	"playai-tts-arabic":                             "canopylabs/orpheus-arabic-saudi",
-	"distil-whisper-large-v3-en":                    "whisper-large-v3-turbo",
-}
-
-// RemapGroqModel translates deprecated Groq model names to active replacement model IDs.
-func RemapGroqModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "groq/")
-	if strings.HasSuffix(lower, ":free") {
-		return model, false
-	}
-	if repl, ok := groqDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range groqDeprecatedModelReplacements {
-		if strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
-
-func isDeprecatedGroq(model string) bool {
-	if strings.HasSuffix(strings.ToLower(model), ":free") {
-		return false
-	}
-	_, ok := RemapGroqModel(model)
-	return ok
-}
-
 // defaultNVIDIANIMActiveModels provides the verified baseline active free reasoning and chat models from build.nvidia.com
 var defaultNVIDIANIMActiveModels = []provider.ModelInfo{
 	{ID: "deepseek-ai/deepseek-v4-flash-0731", Provider: "nvidianim", Active: true, ContextWindow: 131072, OwnedBy: "deepseek-ai"},
@@ -110,64 +59,6 @@ var defaultNVIDIANIMActiveModels = []provider.ModelInfo{
 	{ID: "z-ai/glm-5.3-flash", Provider: "nvidianim", Active: true, ContextWindow: 131072, OwnedBy: "z-ai"},
 	{ID: "z-ai/glm-5.3", Provider: "nvidianim", Active: true, ContextWindow: 131072, OwnedBy: "z-ai"},
 	{ID: "moonshotai/kimi-k3", Provider: "nvidianim", Active: true, ContextWindow: 32768, OwnedBy: "moonshotai"},
-}
-
-// nvidianimDeprecatedModelReplacements maps decommissioned or alias NVIDIA NIM models to active reasoning/chat replacements.
-var nvidianimDeprecatedModelReplacements = map[string]string{
-	"meta/llama-3.3-70b-instruct":              "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"llama-3.3-70b-instruct":                   "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama-3.1-70b-instruct":              "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"llama-3.1-70b-instruct":                   "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama-3.1-8b-instruct":               "meta/llama-3.2-11b-vision-instruct",
-	"llama-3.1-8b-instruct":                    "meta/llama-3.2-11b-vision-instruct",
-	"meta/llama-3.1-405b-instruct":             "nvidia/nemotron-3-ultra-550b-a55b",
-	"llama-3.1-405b-instruct":                  "nvidia/nemotron-3-ultra-550b-a55b",
-	"meta/llama3-70b-instruct":                 "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"meta/llama3-8b-instruct":                  "meta/llama-3.2-11b-vision-instruct",
-	"deepseek-ai/deepseek-r1":                  "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-r1":                              "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-ai/deepseek-v3":                  "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-v3":                              "deepseek-ai/deepseek-v4-flash-0731",
-	"deepseek-ai/deepseek-coder-6.7b-instruct": "deepseek-ai/deepseek-v4-flash-0731",
-	"nvidia/nemotron-4-340b-instruct":          "nvidia/nemotron-3-ultra-550b-a55b",
-	"nvidia/llama-3.1-nemotron-70b-instruct":   "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"nvidia/llama-3.1-nemotron-51b-instruct":   "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"nvidia/llama-3.1-nemotron-ultra-253b-v1":  "nvidia/nemotron-3-ultra-550b-a55b",
-	"meta/muse-glimmer-30b":                    "deepseek-ai/deepseek-v4-flash-0731",
-	"google/gemma-3-12b-it":                    "google/gemma-4-31b-it",
-	"google/gemma-3-4b-it":                     "google/gemma-4-31b-it",
-	"google/gemma-2-9b-it":                     "google/gemma-4-31b-it",
-	"google/codegemma-7b":                      "google/gemma-4-31b-it",
-	"meta/codellama-70b":                       "nvidia/nemotron-3.5-lightning-30b-a3b",
-	"mistralai/mistral-large-2-instruct":       "mistralai/mistral-nemotron",
-	"mistralai/mixtral-8x22b-v0.1":             "nvidia/nemotron-3-super-120b-a12b",
-	"writer/palmyra-creative-122b":             "nvidia/nemotron-3-super-120b-a12b",
-}
-
-// RemapNVIDIANIMModel translates deprecated NVIDIA NIM model names to active replacement model IDs.
-func RemapNVIDIANIMModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "nvidianim/")
-	if strings.HasSuffix(lower, ":free") {
-		return model, false
-	}
-	if repl, ok := nvidianimDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range nvidianimDeprecatedModelReplacements {
-		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
-
-func isDeprecatedNVIDIANIM(model string) bool {
-	if strings.HasSuffix(strings.ToLower(model), ":free") {
-		return false
-	}
-	_, ok := RemapNVIDIANIMModel(model)
-	return ok
 }
 
 // defaultOpenRouterActiveModels provides the verified baseline active free reasoning and chat models from openrouter.ai/models
@@ -196,50 +87,6 @@ var defaultOpenRouterActiveModels = []provider.ModelInfo{
 	{ID: "openrouter/free", Provider: "openrouter", Active: true, ContextWindow: 200000, OwnedBy: "openrouter"},
 }
 
-// openrouterDeprecatedModelReplacements maps decommissioned or alias OpenRouter models to active free replacements.
-var openrouterDeprecatedModelReplacements = map[string]string{
-	"openrouter/auto":                        "openrouter/free",
-	"auto":                                   "openrouter/free",
-	"deepseek/deepseek-r1:free":              "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-r1:free":                       "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-r1":                   "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-r1":                            "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-chat:free":            "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-chat:free":                     "deepseek/deepseek-v4-flash-0731:free",
-	"meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
-	"meta-llama/llama-3.1-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
-	"meta-llama/llama-3.1-8b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"meta-llama/llama-3.2-1b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"meta-llama/llama-3.2-3b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"mistralai/mistral-7b-instruct:free":     "qwen/qwen3.8-27b:free",
-	"mistralai/mistral-nemo:free":            "qwen/qwen3.8-27b:free",
-	"google/gemma-2-9b-it:free":              "google/gemma-4-31b-it:free",
-	"google/gemma-3-12b-it:free":             "google/gemma-4-31b-it:free",
-	"google/gemma-3-4b-it:free":              "google/gemma-4-31b-it:free",
-	"qwen/qwen-2.5-72b-instruct:free":        "qwen/qwen3.8-27b:free",
-	"qwen/qwen-2.5-coder-32b-instruct:free":  "qwen/qwen3.8-27b:free",
-}
-
-// RemapOpenRouterModel translates deprecated OpenRouter model names to active replacement model IDs.
-func RemapOpenRouterModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "openrouter/")
-	if repl, ok := openrouterDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range openrouterDeprecatedModelReplacements {
-		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
-
-func isDeprecatedOpenRouter(model string) bool {
-	_, ok := RemapOpenRouterModel(model)
-	return ok
-}
-
 // defaultKiloActiveModels provides the verified baseline active free models from api.kilo.ai/api/gateway/models
 var defaultKiloActiveModels = []provider.ModelInfo{
 	{ID: "kilo-auto/free", Provider: "kilo", Active: true, ContextWindow: 256000, OwnedBy: "kilo"},
@@ -257,39 +104,6 @@ var defaultKiloActiveModels = []provider.ModelInfo{
 	{ID: "nex-agi/nex-n2.5-mini:free", Provider: "kilo", Active: true, ContextWindow: 262144, OwnedBy: "nex-agi"},
 	{ID: "inclusionai/ling-3.0-flash-vl:free", Provider: "kilo", Active: true, ContextWindow: 262144, OwnedBy: "inclusionai"},
 	{ID: "openrouter/free", Provider: "kilo", Active: true, ContextWindow: 200000, OwnedBy: "openrouter"},
-}
-
-// kiloDeprecatedModelReplacements maps shorthand or alias Kilo model names to active free models.
-var kiloDeprecatedModelReplacements = map[string]string{
-	"kilo/auto":                 "kilo-auto/free",
-	"auto":                      "kilo-auto/free",
-	"kilo-auto":                 "kilo-auto/free",
-	"free":                      "kilo-auto/free",
-	"kilo/free":                 "kilo-auto/free",
-	"deepseek-r1":               "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek-r1:free":          "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-r1":      "deepseek/deepseek-v4-flash-0731:free",
-	"deepseek/deepseek-r1:free": "deepseek/deepseek-v4-flash-0731:free",
-}
-
-// RemapKiloModel translates shorthand Kilo model names to active free model IDs.
-func RemapKiloModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "kilo/")
-	if repl, ok := kiloDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range kiloDeprecatedModelReplacements {
-		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
-
-func isDeprecatedKilo(model string) bool {
-	_, ok := RemapKiloModel(model)
-	return ok
 }
 
 // defaultClineActiveModels provides the verified baseline active free reasoning and chat models from api.cline.bot/api/v1/models
@@ -317,50 +131,9 @@ var defaultClineActiveModels = []provider.ModelInfo{
 	{ID: "deepseek/deepseek-v4-flash-0731:free", Provider: "cline", Active: false, ContextWindow: 1048576, OwnedBy: "deepseek"},
 }
 
-// clineDeprecatedModelReplacements maps decommissioned or alias Cline models to active free replacements.
-var clineDeprecatedModelReplacements = map[string]string{
-	"deepseek/deepseek-v4-flash-0731:free":   "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4-flash-0731:free":            "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4-flash-0731":        "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4-flash-0731":                 "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4:free":              "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4:free":                       "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-v4":                   "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-v4":                            "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-r1:free":              "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-r1:free":                       "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-r1":                   "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-r1":                            "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-chat:free":            "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-chat:free":                     "nvidia/nemotron-3.5-lightning:free",
-	"deepseek/deepseek-chat":                 "nvidia/nemotron-3.5-lightning:free",
-	"deepseek-chat":                          "nvidia/nemotron-3.5-lightning:free",
-	"meta-llama/llama-3.3-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
-	"meta-llama/llama-3.1-70b-instruct:free": "nvidia/nemotron-3.5-lightning:free",
-	"meta-llama/llama-3.1-8b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"meta-llama/llama-3.2-1b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"meta-llama/llama-3.2-3b-instruct:free":  "qwen/qwen3.8-27b:free",
-	"google/gemma-2-9b-it:free":              "google/gemma-4-31b-it:free",
-	"google/gemma-3-12b-it:free":             "google/gemma-4-31b-it:free",
-	"google/gemma-3-4b-it:free":              "google/gemma-4-31b-it:free",
-	"qwen/qwen-2.5-72b-instruct:free":        "qwen/qwen3.8-27b:free",
-	"qwen/qwen-2.5-coder-32b-instruct:free":  "qwen/qwen3.8-27b:free",
-}
-
-// RemapClineModel translates deprecated Cline model names to active replacement model IDs.
-func RemapClineModel(model string) (string, bool) {
-	lower := strings.ToLower(strings.TrimSpace(model))
-	lower = strings.TrimPrefix(lower, "cline/")
-	if repl, ok := clineDeprecatedModelReplacements[lower]; ok {
-		return repl, true
-	}
-	for dep, repl := range clineDeprecatedModelReplacements {
-		if strings.HasSuffix(dep, lower) || strings.HasPrefix(lower, dep) {
-			return repl, true
-		}
-	}
-	return model, false
-}
+// catalogedProviders list their models; targets on them are dispatched only for models the
+// listing reports as active.
+var catalogedProviders = map[string]bool{"groq": true, "nvidianim": true, "openrouter": true, "kilo": true, "cline": true}
 
 // Route defines an ordered fallback sequence of provider targets.
 type Route struct {
@@ -385,6 +158,8 @@ type Router struct {
 	// excluded and lastResort hold normalized routes.excluded_models and routes.last_resort_models entries.
 	excluded   map[string]bool
 	lastResort map[string]bool
+	// catalog holds model health learned from upstream "model not found" replies.
+	catalog *ModelCatalog
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -401,6 +176,11 @@ func NewRouter(cfg *config.Config) *Router {
 		r.attemptTimeout = time.Duration(cfg.Routes.AttemptTimeoutSeconds) * time.Second
 	}
 	r.excluded, r.lastResort = make(map[string]bool), make(map[string]bool)
+	recheck := time.Duration(0)
+	if cfg != nil && cfg.Routes.ModelRecheckHours > 0 {
+		recheck = time.Duration(cfg.Routes.ModelRecheckHours) * time.Hour
+	}
+	r.catalog = NewModelCatalog(recheck)
 	if cfg != nil {
 		for _, m := range cfg.Routes.ExcludedModels {
 			if n := normalizeModelID(m); n != "" {
@@ -615,7 +395,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 	lowerModel := strings.ToLower(requestedModel)
 
 	// 3. Explicit provider prefix matching (e.g. "groq/...", "nvidianim/...", "openrouter/...")
-	if strings.HasPrefix(lowerModel, "groq/") || isDeprecatedGroq(requestedModel) {
+	if strings.HasPrefix(lowerModel, "groq/") {
 		actualModel := requestedModel
 		if strings.HasPrefix(lowerModel, "groq/") {
 			candidate := strings.TrimPrefix(requestedModel, "groq/")
@@ -625,9 +405,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 					break
 				}
 			}
-		}
-		if repl, isDep := RemapGroqModel(actualModel); isDep {
-			actualModel = repl
 		}
 		targets := []TargetSpec{
 			{ProviderName: "groq", UpstreamModel: actualModel},
@@ -641,7 +418,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return targets
 	}
 
-	if strings.HasPrefix(lowerModel, "nvidianim/") || isDeprecatedNVIDIANIM(requestedModel) {
+	if strings.HasPrefix(lowerModel, "nvidianim/") {
 		actualModel := requestedModel
 		if strings.HasPrefix(lowerModel, "nvidianim/") {
 			candidate := strings.TrimPrefix(requestedModel, "nvidianim/")
@@ -651,9 +428,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 					break
 				}
 			}
-		}
-		if repl, isDep := RemapNVIDIANIMModel(actualModel); isDep {
-			actualModel = repl
 		}
 		targets := []TargetSpec{
 			{ProviderName: "nvidianim", UpstreamModel: actualModel},
@@ -676,9 +450,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 				break
 			}
 		}
-		if repl, isDep := RemapClineModel(actualModel); isDep {
-			actualModel = repl
-		}
 		targets := []TargetSpec{
 			{ProviderName: "cline", UpstreamModel: actualModel},
 		}
@@ -691,7 +462,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return targets
 	}
 
-	if strings.HasPrefix(lowerModel, "openrouter/") || strings.HasSuffix(lowerModel, ":free") || isDeprecatedOpenRouter(requestedModel) {
+	if strings.HasPrefix(lowerModel, "openrouter/") || strings.HasSuffix(lowerModel, ":free") || isModelAlias("openrouter", requestedModel) {
 		actualModel := requestedModel
 		if strings.HasPrefix(lowerModel, "openrouter/") {
 			candidate := strings.TrimPrefix(requestedModel, "openrouter/")
@@ -702,7 +473,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 				}
 			}
 		}
-		if repl, isDep := RemapOpenRouterModel(actualModel); isDep {
+		if repl, isAlias := ResolveModelAlias("openrouter", actualModel); isAlias {
 			actualModel = repl
 		}
 		targets := []TargetSpec{
@@ -717,7 +488,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 		return targets
 	}
 
-	if strings.HasPrefix(lowerModel, "kilo/") || lowerModel == "kilo-auto/free" || isDeprecatedKilo(requestedModel) {
+	if strings.HasPrefix(lowerModel, "kilo/") || lowerModel == "kilo-auto/free" || isModelAlias("kilo", requestedModel) {
 		actualModel := requestedModel
 		if strings.HasPrefix(lowerModel, "kilo/") {
 			candidate := strings.TrimPrefix(requestedModel, "kilo/")
@@ -728,7 +499,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 				}
 			}
 		}
-		if repl, isDep := RemapKiloModel(actualModel); isDep {
+		if repl, isAlias := ResolveModelAlias("kilo", actualModel); isAlias {
 			actualModel = repl
 		}
 		targets := []TargetSpec{
@@ -791,7 +562,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 
 	if r.IsActiveModel("openrouter", requestedModel) {
 		actualModel := requestedModel
-		if repl, isDep := RemapOpenRouterModel(actualModel); isDep {
+		if repl, isAlias := ResolveModelAlias("openrouter", actualModel); isAlias {
 			actualModel = repl
 		}
 		targets := []TargetSpec{
@@ -808,7 +579,7 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 
 	if r.IsActiveModel("kilo", requestedModel) {
 		actualModel := requestedModel
-		if repl, isDep := RemapKiloModel(actualModel); isDep {
+		if repl, isAlias := ResolveModelAlias("kilo", actualModel); isAlias {
 			actualModel = repl
 		}
 		targets := []TargetSpec{
@@ -825,9 +596,6 @@ func (r *Router) ResolveTargets(requestedModel, routeAlias string) []TargetSpec 
 
 	if r.IsActiveModel("cline", requestedModel) {
 		actualModel := requestedModel
-		if repl, isDep := RemapClineModel(actualModel); isDep {
-			actualModel = repl
-		}
 		targets := []TargetSpec{
 			{ProviderName: "cline", UpstreamModel: actualModel},
 		}
@@ -967,94 +735,27 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			continue
 		}
 
-		// Strictly ensure only active models are dispatched to Groq
-		if target.ProviderName == "groq" {
-			if repl, isDep := RemapGroqModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated Groq model to active replacement")
-				target.UpstreamModel = repl
+		// Providers with a model listing: resolve shorthand names, then dispatch only models the
+		// listing (or the seed list, when the listing is unavailable) reports as active.
+		if catalogedProviders[target.ProviderName] {
+			if actual, ok := ResolveModelAlias(target.ProviderName, target.UpstreamModel); ok {
+				target.UpstreamModel = actual
 			}
-			if !r.IsActiveModel("groq", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "groq").
+			if !r.IsActiveModel(target.ProviderName, target.UpstreamModel) {
+				telemetry.Log.Debug().
+					Str("provider", target.ProviderName).
 					Str("model", target.UpstreamModel).
-					Msg("Groq model is not in active models catalog, skipping target")
+					Msg("Model is not in the provider's active models, skipping target")
 				continue
 			}
 		}
 
-		// Strictly ensure only active models are dispatched to NVIDIA NIM
-		if target.ProviderName == "nvidianim" {
-			if repl, isDep := RemapNVIDIANIMModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated NVIDIA NIM model to active replacement")
-				target.UpstreamModel = repl
-			}
-			if !r.IsActiveModel("nvidianim", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "nvidianim").
-					Str("model", target.UpstreamModel).
-					Msg("NVIDIA NIM model is not in active models catalog, skipping target")
-				continue
-			}
-		}
-
-		// Strictly ensure only active models are dispatched to OpenRouter
-		if target.ProviderName == "openrouter" {
-			if repl, isDep := RemapOpenRouterModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated OpenRouter model to active replacement")
-				target.UpstreamModel = repl
-			}
-			if !r.IsActiveModel("openrouter", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "openrouter").
-					Str("model", target.UpstreamModel).
-					Msg("OpenRouter model is not in active models catalog, skipping target")
-				continue
-			}
-		}
-
-		// Strictly ensure only active models are dispatched to Kilo
-		if target.ProviderName == "kilo" {
-			if repl, isDep := RemapKiloModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated Kilo model to active replacement")
-				target.UpstreamModel = repl
-			}
-			if !r.IsActiveModel("kilo", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "kilo").
-					Str("model", target.UpstreamModel).
-					Msg("Kilo model is not in active models catalog, skipping target")
-				continue
-			}
-		}
-
-		// Strictly ensure only active models are dispatched to Cline
-		if target.ProviderName == "cline" {
-			if repl, isDep := RemapClineModel(target.UpstreamModel); isDep {
-				telemetry.Log.Info().
-					Str("deprecated_model", target.UpstreamModel).
-					Str("replacement_model", repl).
-					Msg("Remapping deprecated Cline model to active replacement")
-				target.UpstreamModel = repl
-			}
-			if !r.IsActiveModel("cline", target.UpstreamModel) {
-				telemetry.Log.Warn().
-					Str("provider", "cline").
-					Str("model", target.UpstreamModel).
-					Msg("Cline model is not in active models catalog, skipping target")
-				continue
-			}
+		if !r.catalog.Usable(target.ProviderName, target.UpstreamModel) {
+			telemetry.Log.Debug().
+				Str("provider", target.ProviderName).
+				Str("model", target.UpstreamModel).
+				Msg("Model was reported unavailable by its provider, skipping target until recheck")
+			continue
 		}
 
 		if r.isExcludedModel(target.UpstreamModel) {
@@ -1178,7 +879,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 
 		if err == nil {
 			cb.RecordSuccess()
+			r.catalog.MarkActive(target.ProviderName, target.UpstreamModel)
 			return resp, target.ProviderName, nil
+		}
+		if reason, gone := modelGoneReason(err); gone {
+			r.catalog.MarkInactive(target.ProviderName, target.UpstreamModel, reason)
 		}
 
 		if isCircuitBreakerError(err) {
@@ -1613,6 +1318,11 @@ func (r *Router) TestProvider(ctx context.Context, name string) (bool, int64, er
 	}
 
 	return false, latencyMs, err
+}
+
+// Catalog returns the model health catalog.
+func (r *Router) Catalog() *ModelCatalog {
+	return r.catalog
 }
 
 // Translator returns the cross-protocol translator instance.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -425,25 +426,21 @@ func TestRouterOpenRouterResolutionAndDispatch(t *testing.T) {
 	}
 }
 
-func TestRouterGroqActiveModelResolutionAndRemapping(t *testing.T) {
+func TestRouterGroqActiveModelResolution(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
 
-	// 1. Test deprecated model remapping in ResolveTargets
+	// 1. Retired model IDs are not rewritten to a hand-picked replacement: a bare retired ID falls
+	// through to the free-first chain, and a groq/-prefixed one keeps its name and is skipped at
+	// dispatch because it is not an active Groq model.
 	targets := r.ResolveTargets("llama-3.3-70b-versatile", "")
-	if len(targets) == 0 {
-		t.Fatalf("expected targets for deprecated llama-3.3-70b-versatile")
-	}
-	if targets[0].ProviderName != "groq" || targets[0].UpstreamModel != "openai/gpt-oss-120b" {
-		t.Errorf("expected llama-3.3-70b-versatile to remap to groq/openai/gpt-oss-120b, got %v", targets[0])
+	if !reflect.DeepEqual(targets, r.routes["free-first"].Targets) {
+		t.Errorf("expected retired llama-3.3-70b-versatile to use the free-first chain, got %v", targets)
 	}
 
 	targets8b := r.ResolveTargets("groq/llama-3.1-8b-instant", "")
-	if len(targets8b) == 0 {
-		t.Fatalf("expected targets for deprecated groq/llama-3.1-8b-instant")
-	}
-	if targets8b[0].ProviderName != "groq" || targets8b[0].UpstreamModel != "openai/gpt-oss-20b" {
-		t.Errorf("expected groq/llama-3.1-8b-instant to remap to groq/openai/gpt-oss-20b, got %v", targets8b[0])
+	if len(targets8b) == 0 || targets8b[0].ProviderName != "groq" || targets8b[0].UpstreamModel != "groq/llama-3.1-8b-instant" {
+		t.Errorf("expected groq/llama-3.1-8b-instant to stay unrewritten on groq, got %v", targets8b)
 	}
 
 	// 2. Test active model resolution directly
@@ -480,33 +477,20 @@ func TestRouterGroqActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 }
 
-func TestRouterNVIDIANIMActiveModelResolutionAndRemapping(t *testing.T) {
+func TestRouterNVIDIANIMActiveModelResolution(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
 
-	// 1. Test deprecated model remapping in ResolveTargets
-	targetsLlama33 := r.ResolveTargets("meta/llama-3.3-70b-instruct", "")
-	if len(targetsLlama33) == 0 {
-		t.Fatalf("expected targets for deprecated meta/llama-3.3-70b-instruct")
-	}
-	if targetsLlama33[0].ProviderName != "nvidianim" || targetsLlama33[0].UpstreamModel != "nvidia/nemotron-3.5-lightning-30b-a3b" {
-		t.Errorf("expected meta/llama-3.3-70b-instruct to remap to nvidia/nemotron-3.5-lightning-30b-a3b, got %v", targetsLlama33[0])
-	}
-
-	targets70b := r.ResolveTargets("meta/llama-3.1-70b-instruct", "")
-	if len(targets70b) == 0 {
-		t.Fatalf("expected targets for deprecated meta/llama-3.1-70b-instruct")
-	}
-	if targets70b[0].ProviderName != "nvidianim" || targets70b[0].UpstreamModel != "nvidia/nemotron-3.5-lightning-30b-a3b" {
-		t.Errorf("expected meta/llama-3.1-70b-instruct to remap to nvidia/nemotron-3.5-lightning-30b-a3b, got %v", targets70b[0])
+	// 1. Retired model IDs are not rewritten: they use the free-first chain or the default target.
+	for _, retired := range []string{"meta/llama-3.3-70b-instruct", "meta/llama-3.1-70b-instruct"} {
+		if targets := r.ResolveTargets(retired, ""); !reflect.DeepEqual(targets, r.routes["free-first"].Targets) {
+			t.Errorf("expected retired %s to use the free-first chain, got %v", retired, targets)
+		}
 	}
 
 	targetsR1 := r.ResolveTargets("deepseek-r1", "")
-	if len(targetsR1) == 0 {
-		t.Fatalf("expected targets for deepseek-r1")
-	}
-	if targetsR1[0].ProviderName != "nvidianim" || targetsR1[0].UpstreamModel != "deepseek-ai/deepseek-v4-flash-0731" {
-		t.Errorf("expected deepseek-r1 to remap to deepseek-ai/deepseek-v4-flash-0731, got %v", targetsR1[0])
+	if len(targetsR1) == 0 || targetsR1[0].ProviderName != "openai" || targetsR1[0].UpstreamModel != "deepseek-r1" {
+		t.Errorf("expected unknown deepseek-r1 to use the default OpenAI target unrewritten, got %v", targetsR1)
 	}
 
 	// 2. Test active model resolution directly
@@ -552,25 +536,17 @@ func TestRouterNVIDIANIMActiveModelResolutionAndRemapping(t *testing.T) {
 	}
 }
 
-func TestRouterOpenRouterActiveModelResolutionAndRemapping(t *testing.T) {
+func TestRouterOpenRouterActiveModelResolution(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
 
-	// 1. Test deprecated/shorthand alias remapping in ResolveTargets
-	targetsR1 := r.ResolveTargets("deepseek-r1:free", "")
-	if len(targetsR1) == 0 {
-		t.Fatalf("expected targets for deepseek-r1:free")
-	}
-	if targetsR1[0].ProviderName != "openrouter" || targetsR1[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
-		t.Errorf("expected deepseek-r1:free to remap to deepseek/deepseek-v4-flash-0731:free, got %v", targetsR1[0])
-	}
-
-	targetsLlama := r.ResolveTargets("meta-llama/llama-3.3-70b-instruct:free", "")
-	if len(targetsLlama) == 0 {
-		t.Fatalf("expected targets for meta-llama/llama-3.3-70b-instruct:free")
-	}
-	if targetsLlama[0].ProviderName != "openrouter" || targetsLlama[0].UpstreamModel != "nvidia/nemotron-3.5-lightning:free" {
-		t.Errorf("expected meta-llama/llama-3.3-70b-instruct:free to remap to nvidia/nemotron-3.5-lightning:free, got %v", targetsLlama[0])
+	// 1. Retired :free IDs keep their name (dispatch skips them as inactive); the auto shorthand
+	// still resolves to openrouter/free.
+	for _, retired := range []string{"deepseek-r1:free", "meta-llama/llama-3.3-70b-instruct:free"} {
+		targets := r.ResolveTargets(retired, "")
+		if len(targets) == 0 || targets[0].ProviderName != "openrouter" || targets[0].UpstreamModel != retired {
+			t.Errorf("expected %s to stay unrewritten on openrouter, got %v", retired, targets)
+		}
 	}
 
 	targetsAuto := r.ResolveTargets("openrouter/auto", "")
@@ -631,7 +607,7 @@ func TestRouterOpenRouterActiveModelResolutionAndRemapping(t *testing.T) {
 		t.Errorf("expected openrouter/google/gemma-4-31b-it:free in GetAllActiveModels")
 	}
 
-	// 5. Test DispatchChat auto-remaps deprecated model
+	// 5. DispatchChat resolves the auto shorthand before calling the provider
 	mockOR := &mockProvider{
 		name: "openrouter",
 		fail: false,
@@ -644,7 +620,7 @@ func TestRouterOpenRouterActiveModelResolutionAndRemapping(t *testing.T) {
 	r.SetProvider("openrouter", mockOR)
 
 	req := &provider.UnifiedChatRequest{
-		Model: "openrouter/deepseek-r1:free",
+		Model: "openrouter/auto",
 		Messages: []provider.UnifiedChatMessage{
 			{Role: "user", Content: "hello"},
 		},
@@ -659,16 +635,16 @@ func TestRouterOpenRouterActiveModelResolutionAndRemapping(t *testing.T) {
 	if resp.Content != "remapped openrouter response" {
 		t.Errorf("expected content 'remapped openrouter response', got %s", resp.Content)
 	}
-	if mockOR.lastModel != "deepseek/deepseek-v4-flash-0731:free" {
-		t.Errorf("expected provider to receive remapped model deepseek/deepseek-v4-flash-0731:free, got %s", mockOR.lastModel)
+	if mockOR.lastModel != "openrouter/free" {
+		t.Errorf("expected provider to receive resolved model openrouter/free, got %s", mockOR.lastModel)
 	}
 }
 
-func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
+func TestRouterKiloActiveModelResolution(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
 
-	// 1. Test RemapKiloModel
+	// 1. Kilo shorthands resolve to kilo-auto/free; other IDs, including retired ones, are unchanged
 	tests := []struct {
 		input    string
 		expected string
@@ -676,15 +652,15 @@ func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
 		{"kilo/free", "kilo-auto/free"},
 		{"free", "kilo-auto/free"},
 		{"kilo-auto", "kilo-auto/free"},
-		{"kilo/deepseek-r1", "deepseek/deepseek-v4-flash-0731:free"},
+		{"kilo/deepseek-r1", "kilo/deepseek-r1"},
 		{"deepseek/deepseek-v4-flash-0731:free", "deepseek/deepseek-v4-flash-0731:free"},
 		{"qwen/qwen3.8-27b:free", "qwen/qwen3.8-27b:free"},
 	}
 
 	for _, tc := range tests {
-		got, _ := RemapKiloModel(tc.input)
+		got, _ := ResolveModelAlias("kilo", tc.input)
 		if got != tc.expected {
-			t.Errorf("RemapKiloModel(%q) = %q, expected %q", tc.input, got, tc.expected)
+			t.Errorf("ResolveModelAlias(kilo, %q) = %q, expected %q", tc.input, got, tc.expected)
 		}
 	}
 
@@ -738,7 +714,7 @@ func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
 		t.Errorf("expected kilo/kilo-auto/free in GetAllActiveModels")
 	}
 
-	// 5. Test DispatchChat auto-remaps deprecated/alias model
+	// 5. DispatchChat resolves the shorthand before calling the provider
 	mockKilo := &mockProvider{
 		name: "kilo",
 		fail: false,
@@ -767,55 +743,25 @@ func TestRouterKiloActiveModelResolutionAndRemapping(t *testing.T) {
 		t.Errorf("expected content 'kilo free response', got %s", resp.Content)
 	}
 	if mockKilo.lastModel != "kilo-auto/free" {
-		t.Errorf("expected provider to receive remapped model kilo-auto/free, got %s", mockKilo.lastModel)
+		t.Errorf("expected provider to receive resolved model kilo-auto/free, got %s", mockKilo.lastModel)
 	}
 }
 
-func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
+func TestRouterClineActiveModelResolution(t *testing.T) {
 	cfg := config.DefaultConfig()
 	r := NewRouter(cfg)
 
-	// 1. Test RemapClineModel
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"cline/deepseek-r1:free", "nvidia/nemotron-3.5-lightning:free"},
-		{"deepseek-r1:free", "nvidia/nemotron-3.5-lightning:free"},
-		{"meta-llama/llama-3.3-70b-instruct:free", "nvidia/nemotron-3.5-lightning:free"},
-		{"qwen/qwen-2.5-72b-instruct:free", "qwen/qwen3.8-27b:free"},
-		{"deepseek/deepseek-v4-flash-0731:free", "nvidia/nemotron-3.5-lightning:free"},
-		{"deepseek-v4:free", "nvidia/nemotron-3.5-lightning:free"},
-	}
-
-	for _, tc := range tests {
-		got, _ := RemapClineModel(tc.input)
-		if got != tc.expected {
-			t.Errorf("RemapClineModel(%q) = %q, expected %q", tc.input, got, tc.expected)
+	// 1. Cline has no shorthands, and retired IDs are not rewritten
+	for _, id := range []string{"cline/deepseek-r1:free", "deepseek-r1:free", "qwen/qwen-2.5-72b-instruct:free"} {
+		if got, ok := ResolveModelAlias("cline", id); ok || got != id {
+			t.Errorf("ResolveModelAlias(cline, %q) = %q, %v; expected unchanged", id, got, ok)
 		}
 	}
 
-	// 2. Test ResolveTargets with cline prefix and remapping
+	// 2. A listed-but-inactive Cline model keeps its name; dispatch skips it via IsActiveModel
 	targets := r.ResolveTargets("cline/deepseek/deepseek-v4-flash-0731:free", "")
-	if len(targets) == 0 {
-		t.Fatalf("expected at least 1 target for cline/deepseek/deepseek-v4-flash-0731:free")
-	}
-	if targets[0].ProviderName != "cline" {
-		t.Errorf("expected primary provider cline, got %s", targets[0].ProviderName)
-	}
-	if targets[0].UpstreamModel != "nvidia/nemotron-3.5-lightning:free" {
-		t.Errorf("expected model nvidia/nemotron-3.5-lightning:free, got %s", targets[0].UpstreamModel)
-	}
-
-	aliasTargets := r.ResolveTargets("cline/deepseek-r1:free", "")
-	if len(aliasTargets) == 0 {
-		t.Fatalf("expected at least 1 target for cline/deepseek-r1:free")
-	}
-	if aliasTargets[0].ProviderName != "cline" {
-		t.Errorf("expected primary provider cline, got %s", aliasTargets[0].ProviderName)
-	}
-	if aliasTargets[0].UpstreamModel != "nvidia/nemotron-3.5-lightning:free" {
-		t.Errorf("expected remapped model nvidia/nemotron-3.5-lightning:free, got %s", aliasTargets[0].UpstreamModel)
+	if len(targets) == 0 || targets[0].ProviderName != "cline" || targets[0].UpstreamModel != "deepseek/deepseek-v4-flash-0731:free" {
+		t.Errorf("expected cline/deepseek/deepseek-v4-flash-0731:free on cline unrewritten, got %v", targets)
 	}
 
 	// 3. Test IsActiveModel
@@ -845,20 +791,20 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 		t.Errorf("expected cline/nvidia/nemotron-3.5-lightning:free in GetAllActiveModels")
 	}
 
-	// 5. Test DispatchChat auto-remaps alias model
+	// 5. DispatchChat sends a cline/-prefixed active model to Cline without the prefix
 	mockCline := &mockProvider{
 		name: "cline",
 		fail: false,
 		response: &provider.UnifiedChatResponse{
 			ID:      "mock-cline-id",
-			Model:   "nvidia/nemotron-3.5-lightning:free",
+			Model:   "google/gemma-4-31b-it:free",
 			Content: "cline free response",
 		},
 	}
 	r.SetProvider("cline", mockCline)
 
 	req := &provider.UnifiedChatRequest{
-		Model: "cline/deepseek-r1:free",
+		Model: "cline/google/gemma-4-31b-it:free",
 		Messages: []provider.UnifiedChatMessage{
 			{Role: "user", Content: "hello"},
 		},
@@ -873,8 +819,8 @@ func TestRouterClineActiveModelResolutionAndRemapping(t *testing.T) {
 	if resp.Content != "cline free response" {
 		t.Errorf("expected content 'cline free response', got %s", resp.Content)
 	}
-	if mockCline.lastModel != "nvidia/nemotron-3.5-lightning:free" {
-		t.Errorf("expected provider to receive remapped model nvidia/nemotron-3.5-lightning:free, got %s", mockCline.lastModel)
+	if mockCline.lastModel != "google/gemma-4-31b-it:free" {
+		t.Errorf("expected provider to receive google/gemma-4-31b-it:free, got %s", mockCline.lastModel)
 	}
 }
 

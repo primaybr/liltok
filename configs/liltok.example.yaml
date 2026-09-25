@@ -55,3 +55,4 @@ routes:
   # capture_dir: ./captures # debug only: writes a replay fixture (full conversation) per routed /v1/messages request
   excluded_models: [] # never routed to, from any provider (matches google/...:free variants too)
   last_resort_models: ["gemini-3.5-flash-lite"] # tried only after every other target failed or was skipped
+  model_recheck_hours: 24 # a model that answered "not found"/"decommissioned" is skipped this long, then re-checked once
