@@ -5,7 +5,7 @@ All notable changes to Liltok will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.3-beta] - 2026-09-25
 
 ### Added
 - **Model Catalog with Health from Upstream Replies (M8.3):** when a provider answers that a model does not exist or was retired (410, or a 404/400 whose body says the model is not found, does not exist, was decommissioned, or has no endpoints), that provider/model is marked inactive and fallback chains skip it without calling it. After `routes.model_recheck_hours` (`LILTOK_MODEL_RECHECK_HOURS`, default 24) one request re-checks it: success restores it, another "gone" reply restarts the wait. Health is stored in a new `model_catalog` table (migration 006), so it survives restarts. `GET /api/v1/models/catalog` lists inactive models with the reason and next recheck time, and `POST /api/v1/models/catalog/reactivate` restores one immediately. A 404 whose body is not about a model (for example a wrong base URL) and a 400 about the payload do not mark anything inactive.
