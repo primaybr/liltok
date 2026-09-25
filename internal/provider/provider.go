@@ -77,7 +77,9 @@ type UnifiedChatResponse struct {
 
 // UnifiedSSEEvent represents a streaming event chunk.
 type UnifiedSSEEvent struct {
-	Type         string            `json:"type"` // "text_delta", "tool_delta", "finish", "done"
+	// Type is "text_delta" or "thinking_delta" (DeltaText), "tool_call" (one complete call in
+	// ToolCalls), "finish" (FinishReason and, when known, Usage) or "done".
+	Type         string            `json:"type"`
 	DeltaText    string            `json:"delta_text,omitempty"`
 	Role         string            `json:"role,omitempty"`
 	ToolCalls    []UnifiedToolCall `json:"tool_calls,omitempty"`

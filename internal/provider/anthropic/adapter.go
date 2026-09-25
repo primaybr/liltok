@@ -253,8 +253,11 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		return nil, nil, err
 	}
 
-	url := a.baseURL + "/v1/messages"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
+	a.mu.RLock()
+	baseURL := a.baseURL
+	a.mu.RUnlock()
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/v1/messages", bytes.NewReader(payload))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -279,70 +282,174 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		defer resp.Body.Close()
 		defer close(eventChan)
 		defer close(errChan)
-
-		scanner := bufio.NewScanner(resp.Body)
-		buf := make([]byte, 64*1024)
-		scanner.Buffer(buf, 512*1024)
-
-		var currentEvent string
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if strings.HasPrefix(line, "event: ") {
-				currentEvent = strings.TrimPrefix(line, "event: ")
-				continue
-			}
-			if !strings.HasPrefix(line, "data: ") {
-				continue
-			}
-
-			data := strings.TrimPrefix(line, "data: ")
-
-			switch currentEvent {
-			case "content_block_delta":
-				var blockDelta struct {
-					Delta struct {
-						Type string `json:"type"`
-						Text string `json:"text"`
-					} `json:"delta"`
-				}
-				if err := json.Unmarshal([]byte(data), &blockDelta); err == nil {
-					eventChan <- provider.UnifiedSSEEvent{
-						Type:      "text_delta",
-						DeltaText: blockDelta.Delta.Text,
-						RawChunk:  []byte(fmt.Sprintf("event: content_block_delta\ndata: %s\n\n", data)),
-					}
-				}
-			case "message_delta":
-				var msgDelta struct {
-					Delta struct {
-						StopReason string `json:"stop_reason"`
-					} `json:"delta"`
-					Usage struct {
-						OutputTokens int `json:"output_tokens"`
-					} `json:"usage"`
-				}
-				if err := json.Unmarshal([]byte(data), &msgDelta); err == nil {
-					eventChan <- provider.UnifiedSSEEvent{
-						Type:         "finish",
-						FinishReason: msgDelta.Delta.StopReason,
-						RawChunk:     []byte(fmt.Sprintf("event: message_delta\ndata: %s\n\n", data)),
-					}
-				}
-			case "message_stop":
-				eventChan <- provider.UnifiedSSEEvent{
-					Type:     "done",
-					RawChunk: []byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"),
-				}
-				return
-			}
-		}
-
-		if err := scanner.Err(); err != nil && err != io.EOF {
-			errChan <- err
-		}
+		(&streamState{ctx: ctx, events: eventChan, errs: errChan}).run(resp.Body)
 	}()
 
 	return eventChan, errChan, nil
+}
+
+// streamState converts an Anthropic Messages event stream into UnifiedSSEEvents. Text and
+// thinking deltas are forwarded as they arrive; tool_use input arrives as input_json_delta
+// fragments, which are assembled and emitted as one complete tool_call when the block stops.
+type streamState struct {
+	ctx    context.Context
+	events chan<- provider.UnifiedSSEEvent
+	errs   chan<- error
+
+	usage provider.UnifiedUsage
+	tools map[int]*streamTool
+}
+
+type streamTool struct {
+	id, name string
+	input    strings.Builder
+}
+
+// streamEvent is the union of the Anthropic stream event fields this adapter reads.
+type streamEvent struct {
+	Type    string `json:"type"`
+	Index   int    `json:"index"`
+	Message struct {
+		Usage streamUsage `json:"usage"`
+	} `json:"message"`
+	ContentBlock struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"content_block"`
+	Delta struct {
+		Type        string `json:"type"`
+		Text        string `json:"text"`
+		Thinking    string `json:"thinking"`
+		PartialJSON string `json:"partial_json"`
+		StopReason  string `json:"stop_reason"`
+	} `json:"delta"`
+	Usage *streamUsage `json:"usage"`
+	Error struct {
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+type streamUsage struct {
+	InputTokens          int `json:"input_tokens"`
+	OutputTokens         int `json:"output_tokens"`
+	CacheReadInputTokens int `json:"cache_read_input_tokens"`
+}
+
+// emit sends an event unless the caller has gone away; it reports whether to keep reading.
+func (s *streamState) emit(ev provider.UnifiedSSEEvent) bool {
+	select {
+	case s.events <- ev:
+		return true
+	case <-s.ctx.Done():
+		return false
+	}
+}
+
+func (s *streamState) run(body io.Reader) {
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 64*1024), 512*1024)
+
+	var eventName string
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "event:") {
+			eventName = strings.TrimSpace(strings.TrimPrefix(line, "event:"))
+			continue
+		}
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		var ev streamEvent
+		if err := json.Unmarshal([]byte(data), &ev); err != nil {
+			continue
+		}
+		// The data's own type is authoritative; the preceding event: line covers senders that omit it.
+		if ev.Type == "" {
+			ev.Type = eventName
+		}
+		if !s.handle(ev, data) {
+			return
+		}
+	}
+
+	if err := scanner.Err(); err != nil && err != io.EOF {
+		s.errs <- err
+	}
+}
+
+// handle processes one event and reports whether to keep reading the stream.
+func (s *streamState) handle(ev streamEvent, data string) bool {
+	switch ev.Type {
+	case "message_start":
+		s.usage.PromptTokens = ev.Message.Usage.InputTokens
+		s.usage.CompletionTokens = ev.Message.Usage.OutputTokens
+		s.usage.CachedTokens = ev.Message.Usage.CacheReadInputTokens
+	case "content_block_start":
+		if ev.ContentBlock.Type == "tool_use" {
+			if s.tools == nil {
+				s.tools = map[int]*streamTool{}
+			}
+			s.tools[ev.Index] = &streamTool{id: ev.ContentBlock.ID, name: ev.ContentBlock.Name}
+		}
+	case "content_block_delta":
+		raw := []byte(fmt.Sprintf("event: content_block_delta\ndata: %s\n\n", data))
+		switch ev.Delta.Type {
+		case "text_delta", "": // untyped deltas carrying text are treated as text
+			if ev.Delta.Type == "" && ev.Delta.Text == "" {
+				return true
+			}
+			return s.emit(provider.UnifiedSSEEvent{Type: "text_delta", DeltaText: ev.Delta.Text, RawChunk: raw})
+		case "thinking_delta":
+			return s.emit(provider.UnifiedSSEEvent{Type: "thinking_delta", DeltaText: ev.Delta.Thinking, RawChunk: raw})
+		case "input_json_delta":
+			if tool := s.tools[ev.Index]; tool != nil {
+				tool.input.WriteString(ev.Delta.PartialJSON)
+			}
+		}
+	case "content_block_stop":
+		tool := s.tools[ev.Index]
+		if tool == nil {
+			return true
+		}
+		delete(s.tools, ev.Index)
+		args := tool.input.String()
+		if strings.TrimSpace(args) == "" {
+			args = "{}"
+		}
+		var call provider.UnifiedToolCall
+		call.ID, call.Type = tool.id, "function"
+		call.Function.Name, call.Function.Arguments = tool.name, args
+		return s.emit(provider.UnifiedSSEEvent{Type: "tool_call", ToolCalls: []provider.UnifiedToolCall{call}})
+	case "message_delta":
+		if ev.Usage != nil {
+			// message_delta usage is cumulative; input counts appear here only on newer API versions.
+			if ev.Usage.InputTokens > 0 {
+				s.usage.PromptTokens = ev.Usage.InputTokens
+			}
+			s.usage.CompletionTokens = ev.Usage.OutputTokens
+		}
+		usage := s.usage
+		usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+		return s.emit(provider.UnifiedSSEEvent{
+			Type:         "finish",
+			FinishReason: ev.Delta.StopReason,
+			Usage:        &usage,
+			RawChunk:     []byte(fmt.Sprintf("event: message_delta\ndata: %s\n\n", data)),
+		})
+	case "message_stop":
+		s.emit(provider.UnifiedSSEEvent{
+			Type:     "done",
+			RawChunk: []byte("event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"),
+		})
+		return false
+	case "error":
+		s.errs <- fmt.Errorf("anthropic stream error (%s): %s", ev.Error.Type, ev.Error.Message)
+		return false
+	}
+	return true
 }
 
 func (a *Adapter) setHeaders(r *http.Request) {
