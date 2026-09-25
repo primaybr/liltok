@@ -35,6 +35,14 @@ var (
 )
 
 func main() {
+	if err := newRootCommand().Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+// newRootCommand builds the full liltok command tree. It is separate from main so tests can
+// drive every subcommand through cobra without exiting the process.
+func newRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "liltok",
 		Short: "liltok: The Open-Source Local AI Gateway & Router",
@@ -271,10 +279,7 @@ routes:
 	}
 
 	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand(), newRouteCommand())
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return rootCmd
 }
 
 // resolveConfigPath finds the active configuration file:

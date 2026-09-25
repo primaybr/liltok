@@ -466,7 +466,12 @@ func searchLiltokCache(gatewayURL, query string) toolCallResult {
 			respText = respText[:300] + "..."
 		}
 
-		sb.WriteString(fmt.Sprintf("### Match %d: Hash %s (Hits: %d | Model: %s)\n", count, hash[:12], hits, model))
+		// Imported packs can carry hashes shorter than the preview length; slicing them would panic.
+		hashShort := hash
+		if len(hashShort) > 12 {
+			hashShort = hashShort[:12]
+		}
+		sb.WriteString(fmt.Sprintf("### Match %d: Hash %s (Hits: %d | Model: %s)\n", count, hashShort, hits, model))
 		sb.WriteString(fmt.Sprintf("**Prompt Preview:** %s\n\n", previewPrompt))
 		sb.WriteString(fmt.Sprintf("**Response Preview:** %s\n\n---\n", respText))
 	}
