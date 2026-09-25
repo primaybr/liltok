@@ -628,15 +628,20 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		return nil, nil, err
 	}
 
-	url := a.baseURL + "/chat/completions"
+	a.mu.RLock()
+	baseURL := a.baseURL
+	apiKey := a.apiKey
+	a.mu.RUnlock()
+
+	url := baseURL + "/chat/completions"
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(payload))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	if a.apiKey != "" {
-		httpReq.Header.Set("Authorization", "Bearer "+a.apiKey)
+	if apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	if a.name == "openrouter" {
 		httpReq.Header.Set("HTTP-Referer", "https://github.com/primaybr/liltok")

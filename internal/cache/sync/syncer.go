@@ -102,6 +102,9 @@ func (s *CacheSyncer) Sync(ctx context.Context, force bool) (SyncResult, error) 
 	}
 
 	// 4. Downloaded new payload (HTTP 200)
+	if s.database == nil {
+		return res, fmt.Errorf("cannot import the downloaded cache pack: no database")
+	}
 	inserted, err := miner.ImportCacheFromGz(s.database, resp.Body)
 	if err != nil {
 		return res, fmt.Errorf("failed to ingest downloaded cache pack: %w", err)

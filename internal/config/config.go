@@ -286,11 +286,13 @@ func PersistDefaultStrategy(configPath, strategy string) error {
 	lines := strings.Split(string(data), "\n")
 	found := false
 	inRoutes := false
+	routesIdx := -1
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "routes:" {
 			inRoutes = true
+			routesIdx = i
 			continue
 		}
 		if inRoutes && strings.HasPrefix(trimmed, "default_strategy:") {
@@ -304,7 +306,14 @@ func PersistDefaultStrategy(configPath, strategy string) error {
 		}
 	}
 
-	if !found {
+	switch {
+	case found:
+	case routesIdx >= 0:
+		// A routes section without the key: insert it there. Appending a second "routes:"
+		// block would make the file invalid YAML (duplicate mapping key).
+		entry := fmt.Sprintf("  default_strategy: %q", strategy)
+		lines = append(lines[:routesIdx+1], append([]string{entry}, lines[routesIdx+1:]...)...)
+	default:
 		lines = append(lines, fmt.Sprintf("routes:\n  default_strategy: %q", strategy))
 	}
 

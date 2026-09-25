@@ -491,8 +491,8 @@ func (m *CacheMiner) storeSynthesizedEntry(ctx context.Context, targetModel stri
 		m.insertDBEntry(ctx, normAnth.Hash, targetModel, normAnth.CanonicalJSON, anthResp, pTokens, cTokens)
 	}
 
-	// 3. Store into Tier-3 Semantic Similarity Cache
-	if m.semCache != nil {
+	// 3. Store into Tier-3 Semantic Similarity Cache (keyed by the OpenAI entry's hash)
+	if m.semCache != nil && normOpenAI != nil {
 		respBytes, _ := json.Marshal(map[string]interface{}{
 			"id":      fmt.Sprintf("chatcmpl-mined-%s", item.ID),
 			"model":   targetModel,
@@ -1011,8 +1011,9 @@ func (mm *MiningManager) Start(cfg MinerConfig, category string, prompts []Promp
 					mm.stats.CacheEntries += int64(newEntries)
 					mm.stats.TokensGenerated += int64(tokens)
 				}
+				done, total := mm.stats.Completed, mm.stats.TotalPrompts
 				mm.mu.Unlock()
-				mm.emitEvent("miner_progress", fmt.Sprintf("Progress: %d/%d prompts", mm.stats.Completed, mm.stats.TotalPrompts))
+				mm.emitEvent("miner_progress", fmt.Sprintf("Progress: %d/%d prompts", done, total))
 			},
 		)
 

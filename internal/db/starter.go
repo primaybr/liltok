@@ -82,8 +82,12 @@ func (d *DB) SeedStarterCache() (int, error) {
 		if item.IsSemantic {
 			isSemInt = 1
 		}
-		_, err := stmt.Exec(item.Hash, item.Model, item.NormalizedPrompt, []byte(item.ResponsePayload), item.PromptTokens, item.CompletionTokens, item.TTLSeconds, isSemInt)
-		if err == nil {
+		res, err := stmt.Exec(item.Hash, item.Model, item.NormalizedPrompt, []byte(item.ResponsePayload), item.PromptTokens, item.CompletionTokens, item.TTLSeconds, isSemInt)
+		if err != nil {
+			continue
+		}
+		// INSERT OR IGNORE skips rows already present; count only rows actually added.
+		if n, err := res.RowsAffected(); err == nil && n > 0 {
 			inserted++
 		}
 	}
