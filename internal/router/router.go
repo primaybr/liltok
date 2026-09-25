@@ -387,6 +387,8 @@ type Router struct {
 
 	// attemptTimeout bounds each non-premium upstream attempt; 0 means no per-attempt limit.
 	attemptTimeout time.Duration
+	// excluded holds normalized routes.excluded_models entries.
+	excluded map[string]bool
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -401,6 +403,14 @@ func NewRouter(cfg *config.Config) *Router {
 	}
 	if cfg != nil && cfg.Routes.AttemptTimeoutSeconds > 0 {
 		r.attemptTimeout = time.Duration(cfg.Routes.AttemptTimeoutSeconds) * time.Second
+	}
+	r.excluded = make(map[string]bool)
+	if cfg != nil {
+		for _, m := range cfg.Routes.ExcludedModels {
+			if n := normalizeModelID(m); n != "" {
+				r.excluded[n] = true
+			}
+		}
 	}
 
 	// Register Standard Providers
@@ -462,7 +472,7 @@ func (r *Router) registerProvider(client provider.ProviderClient) {
 }
 
 func (r *Router) initDefaultRoutes() {
-	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6 -> 3.5-lite) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
+	// 1. auto-resilient: Claude -> Groq (Qwen -> GPT-120B -> GPT-20B) -> Gemini (3.8 -> 3.7 -> 3.6) -> NVIDIA NIM (Llama-11B -> Nemotron 30B/120B -> Poolside -> GPT-20B -> Nemotron Omni/550B) -> OpenRouter -> Kilo
 	r.routes["auto-resilient"] = Route{
 		ID:       "auto-resilient",
 		Strategy: "fallback",
@@ -474,7 +484,6 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "deepseek-ai/deepseek-v4-flash-0731"},
 			{ProviderName: "nvidianim", UpstreamModel: "google/gemma-4-31b-it"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
@@ -509,7 +518,6 @@ func (r *Router) initDefaultRoutes() {
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.8-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.7-flash"},
 			{ProviderName: "gemini", UpstreamModel: "gemini-3.6-flash"},
-			{ProviderName: "gemini", UpstreamModel: "gemini-3.5-flash-lite"},
 			{ProviderName: "nvidianim", UpstreamModel: "deepseek-ai/deepseek-v4-flash-0731"},
 			{ProviderName: "nvidianim", UpstreamModel: "google/gemma-4-31b-it"},
 			{ProviderName: "nvidianim", UpstreamModel: "nvidia/nemotron-3.5-lightning-30b-a3b"},
@@ -1045,6 +1053,14 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			}
 		}
 
+		if r.isExcludedModel(target.UpstreamModel) {
+			telemetry.Log.Debug().
+				Str("provider", target.ProviderName).
+				Str("model", target.UpstreamModel).
+				Msg("Model is in routes.excluded_models, skipping target")
+			continue
+		}
+
 		p, exists := r.providers[target.ProviderName]
 		if !exists {
 			continue
@@ -1081,6 +1097,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			err = fmt.Errorf("upstream provider %s model %s did not respond within %s: %w", target.ProviderName, target.UpstreamModel, r.attemptTimeout, err)
 		}
 		raw := snapshotResponse(resp)
+		// Auto-routing upstreams (openrouter/free, kilo-auto/free) pick the model themselves;
+		// reject replies that report an excluded model.
+		if err == nil && resp != nil && r.isExcludedModel(resp.Model) {
+			err = fmt.Errorf("upstream provider %s routed to excluded model %s", target.ProviderName, resp.Model)
+		}
 		if err == nil {
 			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
 			if len(resp.ToolCalls) == 0 && resp.Content != "" {
@@ -1403,6 +1424,24 @@ func snapshotResponse(resp *provider.UnifiedChatResponse) *provider.UnifiedChatR
 	snapshot := *resp
 	snapshot.ToolCalls = append([]provider.UnifiedToolCall(nil), resp.ToolCalls...)
 	return &snapshot
+}
+
+// normalizeModelID reduces a model ID to its bare name for exclusion matching:
+// "google/gemini-3.5-flash-lite:free" and "models/gemini-3.5-flash-lite" become "gemini-3.5-flash-lite".
+func normalizeModelID(id string) string {
+	id = strings.ToLower(strings.TrimSpace(id))
+	if i := strings.LastIndex(id, "/"); i >= 0 {
+		id = id[i+1:]
+	}
+	if i := strings.Index(id, ":"); i >= 0 {
+		id = id[:i]
+	}
+	return id
+}
+
+// isExcludedModel reports whether routes.excluded_models covers the model.
+func (r *Router) isExcludedModel(model string) bool {
+	return len(r.excluded) > 0 && r.excluded[normalizeModelID(model)]
 }
 
 // SetRoute registers or replaces a named route. Requests select it by model name or X-Liltok-Route.

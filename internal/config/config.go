@@ -78,6 +78,9 @@ type RouteConfig struct {
 	// CaptureDir, when set, receives a replay fixture for every routed /v1/messages request.
 	// Fixtures hold the full conversation, so leave it empty outside debugging sessions.
 	CaptureDir string `yaml:"capture_dir"`
+	// ExcludedModels lists upstream models never used, from any provider. Entries match ignoring
+	// case, a provider prefix ("google/") and a variant suffix (":free").
+	ExcludedModels []string `yaml:"excluded_models"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -219,6 +222,14 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("LILTOK_ATTEMPT_TIMEOUT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Routes.AttemptTimeoutSeconds = n
+		}
+	}
+	if v, ok := os.LookupEnv("LILTOK_EXCLUDED_MODELS"); ok {
+		cfg.Routes.ExcludedModels = nil
+		for _, m := range strings.Split(v, ",") {
+			if m = strings.TrimSpace(m); m != "" {
+				cfg.Routes.ExcludedModels = append(cfg.Routes.ExcludedModels, m)
+			}
 		}
 	}
 	if v := os.Getenv("LILTOK_CAPTURE_DIR"); v != "" {

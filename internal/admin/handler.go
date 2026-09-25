@@ -1367,7 +1367,7 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 	routes := []map[string]interface{}{
 		{
 			"id":          "auto-resilient",
-			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6/3.5-lite), Kilo Gateway, Cline Free, NVIDIA NIM, and OpenRouter Free",
+			"description": "Frontier Claude with rolling failover across Groq (Qwen/GPT), Gemini 1M (3.8/3.7/3.6), Kilo Gateway, Cline Free, NVIDIA NIM, and OpenRouter Free",
 			"targets": []string{
 				"anthropic/claude-sonnet-5",
 				"groq/qwen/qwen3.8-27b",
@@ -1376,7 +1376,6 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"gemini/gemini-3.8-flash",
 				"gemini/gemini-3.7-flash",
 				"gemini/gemini-3.6-flash",
-				"gemini/gemini-3.5-flash-lite",
 				"kilo/kilo-auto/free",
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"cline/nvidia/nemotron-3.5-lightning:free",
@@ -1404,7 +1403,6 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 				"gemini/gemini-3.8-flash",
 				"gemini/gemini-3.7-flash",
 				"gemini/gemini-3.6-flash",
-				"gemini/gemini-3.5-flash-lite",
 				"kilo/kilo-auto/free",
 				"kilo/deepseek/deepseek-v4-flash-0731:free",
 				"cline/nvidia/nemotron-3.5-lightning:free",

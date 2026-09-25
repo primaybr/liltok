@@ -66,6 +66,8 @@ func DefaultConfig() *Config {
 		Routes: RouteConfig{
 			DefaultStrategy:       "auto-resilient",
 			AttemptTimeoutSeconds: 45,
+			// Too weak for agent work: it stalls, loops and loses its way in tool-heavy sessions.
+			ExcludedModels: []string{"gemini-3.5-flash-lite"},
 		},
 		Maintainer: MaintainerConfig{
 			Enabled:        false,
