@@ -31,15 +31,17 @@ type PricingRegistry struct {
 // DefaultPricingRules provides fallback pricing when database entries are unavailable.
 func DefaultPricingRules() []ModelPricing {
 	raw := []ModelPricing{
-		{ModelPattern: `^claude-fable-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
-		{ModelPattern: `^claude-opus-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 15.00, CachedInputCostPerM: 1.50, OutputCostPerM: 75.00},
-		{ModelPattern: `^claude-sonnet-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
-		{ModelPattern: `^claude-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
+		// Anthropic list prices per million tokens (input / cache read / output), checked 2026-09-25.
+		// FindPricing returns the first match, so more specific patterns come first.
+		{ModelPattern: `^claude-fable-5-1.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 10.00, CachedInputCostPerM: 0.25, OutputCostPerM: 50.00},
+		{ModelPattern: `^claude-fable-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 10.00, CachedInputCostPerM: 1.00, OutputCostPerM: 50.00},
+		{ModelPattern: `^claude-opus-5-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 4.00, CachedInputCostPerM: 0.20, OutputCostPerM: 20.00},
+		{ModelPattern: `^claude-opus-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 5.00, CachedInputCostPerM: 0.50, OutputCostPerM: 25.00},
+		{ModelPattern: `^claude-sonnet-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 2.00, CachedInputCostPerM: 0.20, OutputCostPerM: 10.00},
+		{ModelPattern: `^claude-opus-4-[5-8].*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 5.00, CachedInputCostPerM: 0.50, OutputCostPerM: 25.00},
 		{ModelPattern: `^claude-opus-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 15.00, CachedInputCostPerM: 1.50, OutputCostPerM: 75.00},
-		{ModelPattern: `^claude-sonnet-4-5.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-sonnet-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-haiku-4-5.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 1.00, CachedInputCostPerM: 0.10, OutputCostPerM: 5.00},
-		{ModelPattern: `^claude-4.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-5-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-7-sonnet.*`, Provider: "anthropic", Tier: "premium", InputCostPerM: 3.00, CachedInputCostPerM: 0.30, OutputCostPerM: 15.00},
 		{ModelPattern: `^claude-3-5-haiku.*`, Provider: "anthropic", Tier: "budget", InputCostPerM: 0.80, CachedInputCostPerM: 0.08, OutputCostPerM: 4.00},
@@ -93,7 +95,10 @@ func NewPricingRegistry(database *db.DB) *PricingRegistry {
 	return r
 }
 
-// LoadFromDB refreshes rates from the SQLite model_pricing table.
+// LoadFromDB refreshes rates from the SQLite model_pricing table. Table rows take precedence,
+// longest pattern first so a specific rule (claude-opus-5-5) beats a general one (claude-opus-5);
+// the built-in rules follow, so models the table does not list still get their real price
+// instead of the generic fallback.
 func (pr *PricingRegistry) LoadFromDB() error {
 	if pr.db == nil {
 		return nil
@@ -102,6 +107,7 @@ func (pr *PricingRegistry) LoadFromDB() error {
 	rows, err := pr.db.Query(`
 		SELECT model_pattern, provider, tier, input_cost_per_m, cached_input_cost_per_m, output_cost_per_m
 		FROM model_pricing
+		ORDER BY length(model_pattern) DESC, id
 	`)
 	if err != nil {
 		return err
@@ -117,9 +123,12 @@ func (pr *PricingRegistry) LoadFromDB() error {
 		}
 	}
 
+	if err := rows.Err(); err != nil {
+		return err
+	}
 	if len(loaded) > 0 {
 		pr.mu.Lock()
-		pr.rules = loaded
+		pr.rules = append(loaded, DefaultPricingRules()...)
 		pr.mu.Unlock()
 	}
 

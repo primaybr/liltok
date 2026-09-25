@@ -1330,6 +1330,12 @@ func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Req
 	if targetPath == "" {
 		targetPath = filepath.Join("internal", "db", "starter_cache.json.gz")
 	}
+	// The admin API has no authentication and a browser can reach localhost, so the output path is
+	// limited to a .json.gz file under the working directory rather than anywhere on disk.
+	if !filepath.IsLocal(targetPath) || !strings.HasSuffix(strings.ToLower(targetPath), ".json.gz") {
+		writeError(w, http.StatusBadRequest, "target_path must be a relative path inside the working directory ending in .json.gz")
+		return
+	}
 
 	res, err := miner.PackStarterCache(h.database, targetPath, miner.PackOptions{
 		MinHits:        req.MinHits,

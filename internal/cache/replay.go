@@ -21,7 +21,13 @@ func ReplayCacheHitWithTier(w http.ResponseWriter, entry *CacheEntry, stream boo
 	w.Header().Set("X-Liltok-Cache-Tier", tier)
 	w.Header().Set("X-Liltok-Provider", "cache-local")
 	w.Header().Set("X-Liltok-Latency-Saved-Ms", fmt.Sprintf("%d", latencySavedMs))
+	return ReplayResponse(w, entry, stream, isAnthropic)
+}
 
+// ReplayResponse writes a completed response as JSON or, when stream is set, as synthetic SSE,
+// without touching the X-Liltok-* cache headers. Callers replaying an upstream reply (a cache
+// miss) use it directly so their MISS headers are not overwritten.
+func ReplayResponse(w http.ResponseWriter, entry *CacheEntry, stream bool, isAnthropic bool) error {
 	if !stream {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

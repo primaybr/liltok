@@ -154,7 +154,7 @@ func TestMigrateLegacyDatabase(t *testing.T) {
 func TestMigrateRunsOnce(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "once.db")
 	d := openFileDB(t, path)
-	if _, err := d.Exec("UPDATE model_pricing SET input_cost_per_m = 99 WHERE model_pattern = 'gpt-4o'"); err != nil {
+	if _, err := d.Exec("UPDATE model_pricing SET input_cost_per_m = 99 WHERE model_pattern = 'gpt-4o-mini'"); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.Close(); err != nil {
@@ -167,11 +167,11 @@ func TestMigrateRunsOnce(t *testing.T) {
 		t.Fatalf("second Migrate: %v", err)
 	}
 	var cost float64
-	if err := d.QueryRow("SELECT input_cost_per_m FROM model_pricing WHERE model_pattern = 'gpt-4o'").Scan(&cost); err != nil {
+	if err := d.QueryRow("SELECT input_cost_per_m FROM model_pricing WHERE model_pattern = 'gpt-4o-mini'").Scan(&cost); err != nil {
 		t.Fatal(err)
 	}
 	if cost != 99 {
-		t.Errorf("gpt-4o input cost = %v after reopening, want the edited 99", cost)
+		t.Errorf("gpt-4o-mini input cost = %v after reopening, want the edited 99", cost)
 	}
 	var n int
 	if err := d.QueryRow("SELECT COUNT(*) FROM schema_migrations").Scan(&n); err != nil {
@@ -179,5 +179,38 @@ func TestMigrateRunsOnce(t *testing.T) {
 	}
 	if n != len(migrations) {
 		t.Errorf("schema_migrations has %d rows, want %d", n, len(migrations))
+	}
+}
+
+// TestPricingRefreshKeepsEditedRates reruns migration 007 against a seeded row a user edited and
+// one still at its seed value: only the unedited row is corrected.
+func TestPricingRefreshKeepsEditedRates(t *testing.T) {
+	d := openFileDB(t, filepath.Join(t.TempDir(), "pricing.db"))
+	defer d.Close()
+	for _, stmt := range []string{
+		`DELETE FROM schema_migrations WHERE version = 7`,
+		`UPDATE model_pricing SET input_cost_per_m = 12.00, cached_input_cost_per_m = 1.20, output_cost_per_m = 60.00 WHERE model_pattern = 'claude-opus-5.*'`,
+		`UPDATE model_pricing SET input_cost_per_m = 3.00, cached_input_cost_per_m = 0.30, output_cost_per_m = 15.00 WHERE model_pattern = 'claude-sonnet-5.*'`,
+	} {
+		if _, err := d.Exec(stmt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := d.Migrate(); err != nil {
+		t.Fatal(err)
+	}
+	var opus, sonnet float64
+	if err := d.QueryRow(`SELECT input_cost_per_m FROM model_pricing WHERE model_pattern = 'claude-opus-5.*'`).Scan(&opus); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.QueryRow(`SELECT input_cost_per_m FROM model_pricing WHERE model_pattern = 'claude-sonnet-5.*'`).Scan(&sonnet); err != nil {
+		t.Fatal(err)
+	}
+	if opus != 12.00 || sonnet != 2.00 {
+		t.Fatalf("after 007: opus-5 = %v (edited, want 12), sonnet-5 = %v (seed value, want 2)", opus, sonnet)
+	}
+	var n int
+	if err := d.QueryRow(`SELECT COUNT(*) FROM model_pricing WHERE model_pattern IN ('gpt-4o', 'claude-haiku-5.*')`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("stale rows remaining = %d (err %v), want 0", n, err)
 	}
 }

@@ -508,7 +508,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					if normReq != nil {
 						entry.Hash = normReq.Hash
 					}
-					_ = cache.ReplayCacheHitWithTier(w, entry, true, targetProvider == "anthropic", "NONE", 0)
+					_ = cache.ReplayResponse(w, entry, true, targetProvider == "anthropic")
 				} else {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
@@ -704,7 +704,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 							Model:           unifiedReq.Model,
 							ResponsePayload: finalBytes,
 						}
-						_ = cache.ReplayCacheHitWithTier(w, entry, true, true, "NONE", 0)
+						_ = cache.ReplayResponse(w, entry, true, true)
 					} else {
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusOK)

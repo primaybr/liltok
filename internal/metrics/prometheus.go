@@ -51,25 +51,27 @@ func (pe *PrometheusExporter) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		b.WriteString("# TYPE liltok_cache_entries_total gauge\n")
 		b.WriteString(fmt.Sprintf("liltok_cache_entries_total %d\n\n", cacheEntries))
 
-		// Requests total by model, cache_status, and cache_tier
+		// Requests total by model, cache_status, cache_tier, and HTTP status
 		b.WriteString("# HELP liltok_requests_total Total number of chat requests processed.\n")
 		b.WriteString("# TYPE liltok_requests_total counter\n")
 		rows, err := pe.database.QueryContext(ctx, `
-			SELECT model, cache_status, cache_tier, COUNT(*)
+			SELECT model, cache_status, cache_tier, status_code, COUNT(*)
 			FROM request_logs
-			GROUP BY model, cache_status, cache_tier
+			GROUP BY model, cache_status, cache_tier, status_code
 		`)
 		if err == nil {
 			for rows.Next() {
-				var model, status, tier string
-				var count int64
-				if err := rows.Scan(&model, &status, &tier, &count); err == nil {
-					b.WriteString(fmt.Sprintf("liltok_requests_total{model=%q,cache_status=%q,cache_tier=%q} %d\n", model, status, tier, count))
+				var model, cacheStatus, tier string
+				var statusCode, count int64
+				if err := rows.Scan(&model, &cacheStatus, &tier, &statusCode, &count); err == nil {
+					b.WriteString(fmt.Sprintf("liltok_requests_total{model=%q,cache_status=%q,cache_tier=%q,status=\"%d\"} %d\n", model, cacheStatus, tier, statusCode, count))
 				}
 			}
 			rows.Close()
 		}
 		b.WriteString("\n")
+
+		pe.writeDurationHistogram(ctx, &b)
 
 		// Tokens total by model and type
 		b.WriteString("# HELP liltok_tokens_total Total tokens processed broken down by type.\n")
@@ -169,4 +171,50 @@ func (pe *PrometheusExporter) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(b.String()))
+}
+
+// durationBucketsMs are the histogram upper bounds in milliseconds: cache hits land in the first
+// few, routed upstream replies in the seconds range.
+var durationBucketsMs = []int64{5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 30000, 60000, 120000}
+
+// writeDurationHistogram writes liltok_request_duration_seconds by model and cache_status, built
+// from the latency recorded for each request in request_logs.
+func (pe *PrometheusExporter) writeDurationHistogram(ctx context.Context, b *strings.Builder) {
+	var cols strings.Builder
+	for _, le := range durationBucketsMs {
+		fmt.Fprintf(&cols, "SUM(CASE WHEN latency_ms <= %d THEN 1 ELSE 0 END), ", le)
+	}
+	rows, err := pe.database.QueryContext(ctx, `
+		SELECT model, cache_status, `+cols.String()+`COUNT(*), COALESCE(SUM(latency_ms), 0)
+		FROM request_logs
+		GROUP BY model, cache_status
+	`)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	b.WriteString("# HELP liltok_request_duration_seconds Time from request received to reply, by model and cache status.\n")
+	b.WriteString("# TYPE liltok_request_duration_seconds histogram\n")
+	for rows.Next() {
+		var model, cacheStatus string
+		counts := make([]int64, len(durationBucketsMs))
+		var total, sumMs int64
+		dest := []any{&model, &cacheStatus}
+		for i := range counts {
+			dest = append(dest, &counts[i])
+		}
+		dest = append(dest, &total, &sumMs)
+		if err := rows.Scan(dest...); err != nil {
+			continue
+		}
+		labels := fmt.Sprintf("model=%q,cache_status=%q", model, cacheStatus)
+		for i, le := range durationBucketsMs {
+			fmt.Fprintf(b, "liltok_request_duration_seconds_bucket{%s,le=\"%g\"} %d\n", labels, float64(le)/1000, counts[i])
+		}
+		fmt.Fprintf(b, "liltok_request_duration_seconds_bucket{%s,le=\"+Inf\"} %d\n", labels, total)
+		fmt.Fprintf(b, "liltok_request_duration_seconds_sum{%s} %.3f\n", labels, float64(sumMs)/1000)
+		fmt.Fprintf(b, "liltok_request_duration_seconds_count{%s} %d\n", labels, total)
+	}
+	b.WriteString("\n")
 }

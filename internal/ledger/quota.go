@@ -12,7 +12,12 @@ type tokenBucket struct {
 	lastRefill time.Time
 }
 
+// newTokenBucket returns a bucket refilled at capacityPerMin per minute, or nil (no limit) when
+// capacityPerMin <= 0.
 func newTokenBucket(capacityPerMin int) *tokenBucket {
+	if capacityPerMin <= 0 {
+		return nil
+	}
 	capF := float64(capacityPerMin)
 	return &tokenBucket{
 		capacity:   capF,
@@ -22,49 +27,53 @@ func newTokenBucket(capacityPerMin int) *tokenBucket {
 	}
 }
 
-func (tb *tokenBucket) consume(amount float64) bool {
-	now := time.Now()
-	elapsed := now.Sub(tb.lastRefill).Seconds()
+func (tb *tokenBucket) refill(now time.Time) {
+	tb.tokens += now.Sub(tb.lastRefill).Seconds() * tb.refillRate
 	tb.lastRefill = now
-
-	// Refill
-	tb.tokens += elapsed * tb.refillRate
 	if tb.tokens > tb.capacity {
 		tb.tokens = tb.capacity
 	}
+}
 
-	if tb.tokens >= amount {
-		tb.tokens -= amount
-		return true
+// cost caps amount at the bucket's capacity, so a request larger than the whole per-minute budget
+// is admitted when the bucket is full (and drains it) instead of never fitting.
+func (tb *tokenBucket) cost(amount float64) float64 {
+	if amount > tb.capacity {
+		return tb.capacity
 	}
-	return false
+	return amount
 }
 
 type keyLimiter struct {
-	rpmBucket *tokenBucket
-	tpmBucket *tokenBucket
+	rpmBucket *tokenBucket // nil when the key has no RPM limit
+	tpmBucket *tokenBucket // nil when the key has no TPM limit
 }
 
 // QuotaEnforcer manages rate limiting (RPM/TPM) and monthly dollar budget enforcement.
 type QuotaEnforcer struct {
 	mu       sync.Mutex
 	limiters map[string]*keyLimiter
+	now      func() time.Time
 }
 
 // NewQuotaEnforcer creates a new QuotaEnforcer.
 func NewQuotaEnforcer() *QuotaEnforcer {
 	return &QuotaEnforcer{
 		limiters: make(map[string]*keyLimiter),
+		now:      time.Now,
 	}
 }
 
-// CheckRateLimit verifies if a request conforms to the key's RPM and TPM limits.
+// CheckRateLimit verifies that a request with estimatedTokens prompt tokens fits the key's RPM and
+// TPM limits. Both buckets are checked before either is charged, so a request rejected for TPM
+// does not use up RPM. A limit of 0 or less means no limit.
 func (qe *QuotaEnforcer) CheckRateLimit(key *APIKey, estimatedTokens int) (bool, string) {
 	if key == nil {
 		return true, ""
 	}
 
 	qe.mu.Lock()
+	defer qe.mu.Unlock()
 	limiter, exists := qe.limiters[key.ID]
 	if !exists {
 		limiter = &keyLimiter{
@@ -73,22 +82,32 @@ func (qe *QuotaEnforcer) CheckRateLimit(key *APIKey, estimatedTokens int) (bool,
 		}
 		qe.limiters[key.ID] = limiter
 	}
-	qe.mu.Unlock()
 
-	// Check RPM
-	if !limiter.rpmBucket.consume(1.0) {
-		return false, "RPM (requests per minute) limit exceeded"
-	}
-
-	// Check TPM
+	now := qe.now()
 	tokenCost := float64(estimatedTokens)
 	if tokenCost < 1.0 {
 		tokenCost = 1.0
 	}
-	if !limiter.tpmBucket.consume(tokenCost) {
-		return false, "TPM (tokens per minute) limit exceeded"
+	if rpm := limiter.rpmBucket; rpm != nil {
+		rpm.refill(now)
+		if rpm.tokens < 1.0 {
+			return false, "RPM (requests per minute) limit exceeded"
+		}
+	}
+	if tpm := limiter.tpmBucket; tpm != nil {
+		tpm.refill(now)
+		tokenCost = tpm.cost(tokenCost)
+		if tpm.tokens < tokenCost {
+			return false, "TPM (tokens per minute) limit exceeded"
+		}
 	}
 
+	if limiter.rpmBucket != nil {
+		limiter.rpmBucket.tokens--
+	}
+	if limiter.tpmBucket != nil {
+		limiter.tpmBucket.tokens -= tokenCost
+	}
 	return true, ""
 }
 

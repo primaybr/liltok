@@ -435,7 +435,8 @@ func TestAdminHandlersWithoutBackends(t *testing.T) {
 func TestAdminPackStarterCache(t *testing.T) {
 	env := newAdminEnv(t)
 	insertCacheEntry(t, env.db, "pack-1", "gpt-4o", 5)
-	target := filepath.Join(t.TempDir(), "starter.json.gz")
+	t.Chdir(t.TempDir()) // pack targets must be relative to the working directory
+	target := "starter.json.gz"
 
 	rec, out := do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": target, "sanitize": false, "min_hits": 1})
 	if rec.Code != http.StatusOK || out["target_path"] != target || out["merged_from_db"].(float64) < 1 {
@@ -446,9 +447,21 @@ func TestAdminPackStarterCache(t *testing.T) {
 	}
 
 	// A directory cannot be written as the pack file.
-	rec, _ = do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": t.TempDir()})
+	if err := os.Mkdir("taken.json.gz", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rec, _ = do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": "taken.json.gz"})
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("pack onto a directory = %d, want 500", rec.Code)
+	}
+
+	// The admin API is unauthenticated and reachable from a browser, so paths outside the working
+	// directory or without the .json.gz suffix are refused before anything is written.
+	for _, bad := range []string{filepath.Join(t.TempDir(), "abs.json.gz"), "../escape.json.gz", "notes.txt", "sub/../../x.json.gz"} {
+		rec, _ = do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": bad})
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("pack to %q = %d, want 400", bad, rec.Code)
+		}
 	}
 }
 

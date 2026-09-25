@@ -55,7 +55,7 @@ func TestPrometheusExporter(t *testing.T) {
 	if !strings.Contains(body, "liltok_cache_entries_total 1") {
 		t.Errorf("expected liltok_cache_entries_total 1 in output: %s", body)
 	}
-	if !strings.Contains(body, `liltok_requests_total{model="gpt-4o",cache_status="HIT",cache_tier="TIER1_EXACT"} 1`) {
+	if !strings.Contains(body, `liltok_requests_total{model="gpt-4o",cache_status="HIT",cache_tier="TIER1_EXACT",status="200"} 1`) {
 		t.Errorf("expected liltok_requests_total metric in output: %s", body)
 	}
 	if !strings.Contains(body, `liltok_tokens_total{model="gpt-4o",type="prompt"} 1500`) {

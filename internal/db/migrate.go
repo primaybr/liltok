@@ -38,6 +38,7 @@ var migrations = []migration{
 	{version: 4, name: "backfill_cost_breakdown", file: "004_backfill_cost_breakdown.sql"},
 	{version: 5, name: "sync_metadata", file: "005_sync_metadata.sql"},
 	{version: 6, name: "model_catalog", file: "006_model_catalog.sql"},
+	{version: 7, name: "pricing_refresh", file: "007_pricing_refresh.sql"},
 }
 
 type columnDef struct {

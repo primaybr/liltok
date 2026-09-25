@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -70,8 +72,8 @@ func NewAuth(km *ledger.KeyManager, qe *ledger.QuotaEnforcer) func(http.Handler)
 				apiKeyID = keyObj.ID
 
 				if qe != nil {
-					// Check Rate limits (RPM/TPM)
-					if allowed, reason := qe.CheckRateLimit(keyObj, 1); !allowed {
+					// Check Rate limits (RPM/TPM), charging TPM with the estimated prompt size
+					if allowed, reason := qe.CheckRateLimit(keyObj, estimateRequestTokens(r)); !allowed {
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusTooManyRequests)
 						_ = json.NewEncoder(w).Encode(ErrorResponse{
@@ -100,6 +102,22 @@ func NewAuth(km *ledger.KeyManager, qe *ledger.QuotaEnforcer) func(http.Handler)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// estimateRequestTokens estimates a request's prompt tokens as body bytes / 4, the same ratio the
+// router uses, and restores the body for the next handler. A tokenizer would be more exact but
+// costs far more per request than the limit check is worth.
+func estimateRequestTokens(r *http.Request) int {
+	if r.Body == nil || r.Body == http.NoBody {
+		return 1
+	}
+	body, err := io.ReadAll(r.Body)
+	_ = r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil {
+		return 1
+	}
+	return len(body)/4 + 1
 }
 
 // GetAuthKey returns the extracted authorization key from context.

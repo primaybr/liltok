@@ -489,10 +489,6 @@ func TestProxyRouterSuccessRawAndStreamed(t *testing.T) {
 }
 
 func TestProxyStreamedRouterMissReportsMissHeaders(t *testing.T) {
-	t.Skip("bug: a streamed router reply (and a streamed emergency failover) is written through cache.ReplayCacheHitWithTier, " +
-		"which overwrites X-Liltok-Cache-Status with HIT and X-Liltok-Provider with cache-local, so clients see a cache hit " +
-		"for an upstream miss; fixing it needs a non-cache SSE writer in internal/cache")
-
 	cfg := offlineConfig(t)
 	r := router.NewRouter(cfg)
 	r.SetProvider("alpha", &extraProvider{name: "alpha", reply: &provider.UnifiedChatResponse{ID: "s", Content: "streamed"}})
