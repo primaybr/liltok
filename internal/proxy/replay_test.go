@@ -33,6 +33,14 @@ import (
 
 const replayRoute = "replay"
 
+// TestMain silences the package logger once, before any test builds a router. NewRouter starts a
+// model-sync goroutine that outlives its test and logs through telemetry.Log, so swapping the logger
+// inside a test would race with those goroutines.
+func TestMain(m *testing.M) {
+	telemetry.Log = zerolog.Nop()
+	os.Exit(m.Run())
+}
+
 // scriptedProvider returns the fixture's attempts in order, one per SendChat call.
 type scriptedProvider struct {
 	mu       sync.Mutex
@@ -100,9 +108,6 @@ func TestReplayFixtures(t *testing.T) {
 	if len(paths) == 0 {
 		t.Fatal("no replay fixtures found in testdata/replay")
 	}
-	prevLog := telemetry.Log
-	telemetry.Log = zerolog.Nop()
-	defer func() { telemetry.Log = prevLog }()
 	for _, path := range paths {
 		raw, err := os.ReadFile(path)
 		if err != nil {
@@ -245,10 +250,6 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 // TestReplayCaptureRoundTrip records a fixture through routes.capture_dir and replays it: a capture
 // must reproduce the raw upstream attempts and pass against the response it snapshotted.
 func TestReplayCaptureRoundTrip(t *testing.T) {
-	prevLog := telemetry.Log
-	telemetry.Log = zerolog.Nop()
-	defer func() { telemetry.Log = prevLog }()
-
 	raw, err := os.ReadFile(filepath.Join("testdata", "replay", "undeclared-tool-fails-over.json"))
 	if err != nil {
 		t.Fatal(err)
