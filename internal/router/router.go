@@ -1069,6 +1069,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if r.attemptTimeout > 0 && p.Tier() != provider.TierPremium {
 			attemptCtx, cancelAttempt = context.WithTimeout(ctx, r.attemptTimeout)
 		}
+		attemptStart := time.Now()
 		resp, err := p.SendChat(attemptCtx, &targetReq)
 		timedOut := err != nil && ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
 		cancelAttempt()
@@ -1079,7 +1080,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if timedOut {
 			err = fmt.Errorf("upstream provider %s model %s did not respond within %s: %w", target.ProviderName, target.UpstreamModel, r.attemptTimeout, err)
 		}
-		observeAttempt(ctx, resp, err)
+		raw := snapshotResponse(resp)
 		if err == nil {
 			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
 			if len(resp.ToolCalls) == 0 && resp.Content != "" {
@@ -1141,6 +1142,14 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				err = fmt.Errorf("upstream provider %s model %s stuck in repetition loop with identical content/tool calls", target.ProviderName, target.UpstreamModel)
 			}
 		}
+
+		observeAttempt(ctx, AttemptResult{
+			Provider: target.ProviderName,
+			Model:    target.UpstreamModel,
+			Response: raw,
+			Err:      err,
+			Latency:  time.Since(attemptStart),
+		})
 
 		if err == nil {
 			cb.RecordSuccess()
@@ -1362,27 +1371,38 @@ func hasPriorIdenticalToolCall(messages []provider.UnifiedChatMessage, targetCal
 
 type attemptObserverKey struct{}
 
-// AttemptObserver receives each upstream attempt's raw result, before failover interceptors
-// repair or reject it. resp is a copy the observer may keep.
-type AttemptObserver func(resp *provider.UnifiedChatResponse, err error)
+// AttemptResult describes one upstream attempt in a fallback chain. Response is a copy of the raw
+// provider reply, taken before failover interceptors repair it; Err is the attempt's final error,
+// including rejections by those interceptors (empty turn, undeclared tool, stall, loop).
+type AttemptResult struct {
+	Provider string
+	Model    string
+	Response *provider.UnifiedChatResponse
+	Err      error
+	Latency  time.Duration
+}
+
+// AttemptObserver receives the result of every upstream attempt.
+type AttemptObserver func(AttemptResult)
 
 // WithAttemptObserver returns a context whose DispatchChat calls report every attempt to obs.
 func WithAttemptObserver(ctx context.Context, obs AttemptObserver) context.Context {
 	return context.WithValue(ctx, attemptObserverKey{}, obs)
 }
 
-func observeAttempt(ctx context.Context, resp *provider.UnifiedChatResponse, err error) {
-	obs, ok := ctx.Value(attemptObserverKey{}).(AttemptObserver)
-	if !ok || obs == nil {
-		return
+func observeAttempt(ctx context.Context, res AttemptResult) {
+	if obs, ok := ctx.Value(attemptObserverKey{}).(AttemptObserver); ok && obs != nil {
+		obs(res)
 	}
+}
+
+func snapshotResponse(resp *provider.UnifiedChatResponse) *provider.UnifiedChatResponse {
 	if resp == nil {
-		obs(nil, err)
-		return
+		return nil
 	}
 	snapshot := *resp
 	snapshot.ToolCalls = append([]provider.UnifiedToolCall(nil), resp.ToolCalls...)
-	obs(&snapshot, err)
+	return &snapshot
 }
 
 // SetRoute registers or replaces a named route. Requests select it by model name or X-Liltok-Route.

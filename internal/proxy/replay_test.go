@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/primaybr/liltok/internal/provider"
 	"github.com/primaybr/liltok/internal/router"
 	"github.com/primaybr/liltok/internal/server/middleware"
@@ -165,6 +166,8 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 
 	body := setStreamFlag(t, fx.Request, stream)
 	p := NewProxy(cfg, nil, nil, rtr, nil, nil)
+	var failovers []*ledger.RequestLog
+	p.onFailover = func(item *ledger.RequestLog) { failovers = append(failovers, item) }
 	handler := middleware.RequestID(http.HandlerFunc(p.HandleAnthropicMessages))
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -183,6 +186,20 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 	if exp.Attempts > 0 && len(scripted.requests) != exp.Attempts {
 		t.Errorf("upstream attempts = %d, want %d", len(scripted.requests), exp.Attempts)
 	}
+	// Every failed attempt is reported to the live feed with its target and error.
+	wantFailovers := len(scripted.requests)
+	if rec.Code == http.StatusOK && !exp.DirectUpstream {
+		wantFailovers--
+	}
+	if len(failovers) != wantFailovers {
+		t.Errorf("failover events = %d, want %d", len(failovers), wantFailovers)
+	}
+	for i, f := range failovers {
+		if f.Provider != replayRoute || f.Model != fmt.Sprintf("replay-model-%d", i+1) || f.ErrorMessage == "" || f.CacheStatus != "FAILOVER" {
+			t.Errorf("failover event %d = %+v", i, f)
+		}
+	}
+
 	directMu.Lock()
 	reachedDirect := directHits > 0
 	directMu.Unlock()

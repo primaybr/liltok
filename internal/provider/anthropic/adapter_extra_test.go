@@ -591,7 +591,7 @@ func TestBuildPayloadTranslatedRequest(t *testing.T) {
 		TopP:         0.9,
 		MaxTokens:    256,
 		Messages: []provider.UnifiedChatMessage{
-			{Role: "system", Content: "dropped system message"},
+			{Role: "system", Content: "mid-conversation system message"},
 			{Role: "user", Content: "first"},
 			{Role: "assistant", Content: "second"},
 			{Role: "user", Content: "third"},
@@ -600,7 +600,7 @@ func TestBuildPayloadTranslatedRequest(t *testing.T) {
 
 	want := map[string]interface{}{
 		"model":       "claude-test",
-		"system":      "be terse",
+		"system":      "be terse\n\nmid-conversation system message",
 		"temperature": 0.3,
 		"top_p":       0.9,
 		"max_tokens":  float64(256),

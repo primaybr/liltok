@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 )
 
@@ -36,17 +37,20 @@ type UnifiedChatMessage struct {
 
 // UnifiedChatRequest represents a normalized chat completion request.
 type UnifiedChatRequest struct {
-	Model             string               `json:"model"`
-	Messages          []UnifiedChatMessage `json:"messages"`
-	SystemPrompt      string               `json:"system_prompt,omitempty"`
-	Temperature       float64              `json:"temperature"`
-	TopP              float64              `json:"top_p"`
-	MaxTokens         int                  `json:"max_tokens,omitempty"`
-	Stream            bool                 `json:"stream"`
-	Tools             []interface{}        `json:"tools,omitempty"`
-	ToolChoice        interface{}          `json:"tool_choice,omitempty"`
-	IsAnthropicSource bool                 `json:"is_anthropic_source"`
-	RawPayload        []byte               `json:"raw_payload,omitempty"`
+	Model        string               `json:"model"`
+	Messages     []UnifiedChatMessage `json:"messages"`
+	SystemPrompt string               `json:"system_prompt,omitempty"`
+	Temperature  float64              `json:"temperature"`
+	TopP         float64              `json:"top_p"`
+	// HasTemperature and HasTopP record that the client set the value, so an explicit 0 is kept.
+	HasTemperature    bool          `json:"has_temperature,omitempty"`
+	HasTopP           bool          `json:"has_top_p,omitempty"`
+	MaxTokens         int           `json:"max_tokens,omitempty"`
+	Stream            bool          `json:"stream"`
+	Tools             []interface{} `json:"tools,omitempty"`
+	ToolChoice        interface{}   `json:"tool_choice,omitempty"`
+	IsAnthropicSource bool          `json:"is_anthropic_source"`
+	RawPayload        []byte        `json:"raw_payload,omitempty"`
 }
 
 // UnifiedUsage details prompt, completion, and cached token consumption.
@@ -125,9 +129,14 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 	}
 	if t, ok := rawMap["temperature"].(float64); ok {
 		req.Temperature = t
+		req.HasTemperature = true
 	}
 	if p, ok := rawMap["top_p"].(float64); ok {
 		req.TopP = p
+		req.HasTopP = true
+	}
+	if tc, ok := rawMap["tool_choice"]; ok && tc != nil {
+		req.ToolChoice = tc
 	}
 	if mt, ok := rawMap["max_tokens"].(float64); ok {
 		req.MaxTokens = int(mt)
@@ -234,18 +243,69 @@ func ParseUnifiedRequest(bodyBytes []byte, isAnthropic bool) (*UnifiedChatReques
 			for _, m := range msgs {
 				if mMap, ok := m.(map[string]interface{}); ok {
 					role, _ := mMap["role"].(string)
-					content, _ := mMap["content"].(string)
+					content := openAIContentText(mMap["content"])
 					if role == "system" && req.SystemPrompt == "" {
 						req.SystemPrompt = content
 					}
-					req.Messages = append(req.Messages, UnifiedChatMessage{
-						Role:    role,
-						Content: content,
-					})
+					msg := UnifiedChatMessage{Role: role, Content: content}
+					msg.Name, _ = mMap["name"].(string)
+					msg.ToolCallID, _ = mMap["tool_call_id"].(string)
+					if calls, ok := mMap["tool_calls"].([]interface{}); ok {
+						msg.ToolCalls = parseOpenAIToolCalls(calls)
+					}
+					req.Messages = append(req.Messages, msg)
 				}
 			}
 		}
 	}
 
 	return req, nil
+}
+
+// openAIContentText returns an OpenAI message's text, from a plain string or from the text parts
+// of a content array. Non-text parts (images, audio) are dropped.
+func openAIContentText(content interface{}) string {
+	switch c := content.(type) {
+	case string:
+		return c
+	case []interface{}:
+		var sb strings.Builder
+		for _, part := range c {
+			if pm, ok := part.(map[string]interface{}); ok {
+				if txt, ok := pm["text"].(string); ok {
+					sb.WriteString(txt)
+				}
+			}
+		}
+		return sb.String()
+	}
+	return ""
+}
+
+// parseOpenAIToolCalls converts an assistant message's OpenAI tool_calls. Arguments sent as a JSON
+// object instead of the usual string are re-encoded as a string.
+func parseOpenAIToolCalls(calls []interface{}) []UnifiedToolCall {
+	var out []UnifiedToolCall
+	for _, c := range calls {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		fn, _ := cm["function"].(map[string]interface{})
+		var tc UnifiedToolCall
+		tc.ID, _ = cm["id"].(string)
+		tc.Type = "function"
+		tc.Function.Name, _ = fn["name"].(string)
+		switch args := fn["arguments"].(type) {
+		case string:
+			tc.Function.Arguments = args
+		case nil:
+			tc.Function.Arguments = "{}"
+		default:
+			b, _ := json.Marshal(args)
+			tc.Function.Arguments = string(b)
+		}
+		out = append(out, tc)
+	}
+	return out
 }

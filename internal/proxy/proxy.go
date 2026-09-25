@@ -37,6 +37,8 @@ type Proxy struct {
 	httpClient      *http.Client
 	broadcaster     *admin.Broadcaster
 	coalescer       *InFlightCoalescer
+	// onFailover, when set (by tests), receives each failed attempt reported to the live feed.
+	onFailover func(*ledger.RequestLog)
 }
 
 // NewProxy creates a new Proxy instance with multi-tier caching, routing, and accounting capabilities.
@@ -104,6 +106,33 @@ func (p *Proxy) recordLog(item *ledger.RequestLog) {
 			Timestamp: item.Timestamp,
 			Data:      item,
 		})
+	}
+}
+
+// broadcastFailover shows a failed fallback attempt in the dashboard's live feed. Attempts are not
+// written to the ledger, so request counts and hit rates keep counting client requests only.
+func (p *Proxy) broadcastFailover(reqID, requestedModel string, res router.AttemptResult) {
+	if p.broadcaster == nil && p.onFailover == nil {
+		return
+	}
+	now := time.Now()
+	item := &ledger.RequestLog{
+		RequestID:      reqID,
+		Timestamp:      now,
+		Model:          res.Model,
+		RequestedModel: requestedModel,
+		Provider:       res.Provider,
+		CacheStatus:    "FAILOVER",
+		CacheTier:      "NONE",
+		LatencyMs:      res.Latency.Milliseconds(),
+		StatusCode:     http.StatusBadGateway,
+		ErrorMessage:   res.Err.Error(),
+	}
+	if p.onFailover != nil {
+		p.onFailover(item)
+	}
+	if p.broadcaster != nil {
+		p.broadcaster.Broadcast(admin.TelemetryEvent{Type: "failover", Timestamp: now, Data: item})
 	}
 }
 
@@ -423,12 +452,19 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 	if p.router != nil && len(bodyBytes) > 0 && shouldRoute {
 		unifiedReq, err := provider.ParseUnifiedRequest(bodyBytes, targetProvider == "anthropic")
 		if err == nil {
-			dispatchCtx := r.Context()
 			var capture *fixtureCapture
 			if p.cfg.Routes.CaptureDir != "" && targetProvider == "anthropic" {
 				capture = &fixtureCapture{}
-				dispatchCtx = router.WithAttemptObserver(dispatchCtx, capture.observe)
 			}
+			requestedModel := unifiedReq.Model
+			dispatchCtx := router.WithAttemptObserver(r.Context(), func(res router.AttemptResult) {
+				if capture != nil {
+					capture.observe(res)
+				}
+				if res.Err != nil {
+					p.broadcastFailover(reqID, requestedModel, res)
+				}
+			})
 			resp, winningProvider, err := p.router.DispatchChat(dispatchCtx, unifiedReq, routeAlias)
 
 			if err == nil {

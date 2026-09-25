@@ -371,45 +371,69 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 
 func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest) ([]byte, error) {
 	contents := make([]map[string]interface{}, 0, len(req.Messages))
+	// Tool results are sent as functionResponse parts, which Gemini matches to its functionCall
+	// parts by name, so remember each call's name by ID. Consecutive turns with the same role
+	// (tool results followed by a client reminder, say) are merged into one content.
+	callNames := map[string]string{}
+	add := func(role string, parts []map[string]interface{}) {
+		if len(parts) == 0 {
+			return
+		}
+		if n := len(contents); n > 0 && contents[n-1]["role"] == role {
+			contents[n-1]["parts"] = append(contents[n-1]["parts"].([]map[string]interface{}), parts...)
+			return
+		}
+		contents = append(contents, map[string]interface{}{"role": role, "parts": parts})
+	}
 
 	for _, m := range req.Messages {
-		if m.Role == "system" {
-			continue
-		}
-		role := "user"
-		if m.Role == "assistant" {
-			role = "model"
-		}
-
 		var parts []map[string]interface{}
-		if m.Content != "" {
-			parts = append(parts, map[string]interface{}{
-				"text": m.Content,
-			})
-		}
-		for _, tc := range m.ToolCalls {
-			var args map[string]interface{}
-			_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
-			if args == nil {
-				args = map[string]interface{}{}
+		switch m.Role {
+		case "system":
+			continue
+		case "assistant":
+			if m.Content != "" {
+				parts = append(parts, map[string]interface{}{"text": m.Content})
 			}
-			parts = append(parts, map[string]interface{}{
-				"functionCall": map[string]interface{}{
-					"name": tc.Function.Name,
-					"args": args,
-				},
-			})
+			for _, tc := range m.ToolCalls {
+				var args map[string]interface{}
+				_ = json.Unmarshal([]byte(tc.Function.Arguments), &args)
+				if args == nil {
+					args = map[string]interface{}{}
+				}
+				if tc.ID != "" {
+					callNames[tc.ID] = tc.Function.Name
+				}
+				// Gemini 3 rejects replayed functionCall parts without the thought signature it issued,
+				// which client histories (Claude Code, OpenAI SDKs) do not carry back. The documented
+				// placeholder marks the call as coming from an external history.
+				parts = append(parts, map[string]interface{}{
+					"functionCall": map[string]interface{}{
+						"name": tc.Function.Name,
+						"args": args,
+					},
+					"thoughtSignature": geminiExternalThoughtSignature,
+				})
+			}
+			add("model", parts)
+		case "tool":
+			if name, ok := callNames[m.ToolCallID]; ok {
+				parts = append(parts, map[string]interface{}{
+					"functionResponse": map[string]interface{}{
+						"name":     name,
+						"response": map[string]interface{}{"content": m.Content},
+					},
+				})
+			} else if m.Content != "" {
+				parts = append(parts, map[string]interface{}{"text": m.Content})
+			}
+			add("user", parts)
+		default:
+			if m.Content != "" {
+				parts = append(parts, map[string]interface{}{"text": m.Content})
+			}
+			add("user", parts)
 		}
-		if len(parts) == 0 {
-			parts = append(parts, map[string]interface{}{
-				"text": "",
-			})
-		}
-
-		contents = append(contents, map[string]interface{}{
-			"role":  role,
-			"parts": parts,
-		})
 	}
 
 	payload := map[string]interface{}{
@@ -425,10 +449,10 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest) ([]byte, error)
 	}
 
 	generationConfig := map[string]interface{}{}
-	if req.Temperature > 0 {
+	if req.HasTemperature || req.Temperature > 0 {
 		generationConfig["temperature"] = req.Temperature
 	}
-	if req.TopP > 0 {
+	if req.HasTopP || req.TopP > 0 {
 		generationConfig["topP"] = req.TopP
 	}
 	if req.MaxTokens > 0 {
@@ -446,6 +470,10 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest) ([]byte, error)
 
 	return json.Marshal(payload)
 }
+
+// geminiExternalThoughtSignature is Gemini's placeholder thought signature for function calls
+// replayed from a history it did not produce.
+const geminiExternalThoughtSignature = "skip_thought_signature_validator"
 
 func convertToolsToGemini(tools []interface{}) []map[string]interface{} {
 	var decls []map[string]interface{}

@@ -78,6 +78,8 @@
     .badge-hit-prefix { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
     .badge-miss { background: rgba(113, 113, 122, 0.15); color: #a1a1aa; border: 1px solid rgba(113, 113, 122, 0.3); }
     .badge-open { background: rgba(244, 63, 94, 0.15); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.3); }
+    .failover-row { opacity: 0.8; }
+    .failover-error { font-size: 11px; color: #fb7185; margin-top: 2px; max-width: 280px; white-space: normal; word-break: break-word; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th { padding: 12px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; border-bottom: 1px solid var(--border); }
     td { padding: 12px; font-size: 13px; border-bottom: 1px solid var(--border); font-family: var(--mono); }
@@ -2963,6 +2965,34 @@
       renderCharts();
     }
 
+    // Failed fallback attempts arrive as 'failover' events. They are shown live only (the gateway
+    // does not store them), so they stay out of the recent-log cache and charts. The error text
+    // comes from upstream providers, so it is inserted as text, never as HTML.
+    function prependFailoverRow(l) {
+      if (!l) return;
+      const tbody = document.getElementById('logs-tbody');
+      if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
+        tbody.innerHTML = '';
+      }
+      const tr = createLogRow(l, false);
+      tr.classList.add('failover-row');
+      const statusCell = tr.children[4];
+      statusCell.textContent = '';
+      const badge = document.createElement('span');
+      badge.className = 'badge badge-open';
+      badge.textContent = 'FAILOVER';
+      badge.title = l.error_message || '';
+      statusCell.appendChild(badge);
+      const err = document.createElement('div');
+      err.className = 'failover-error';
+      err.textContent = (l.error_message || '').slice(0, 160);
+      statusCell.appendChild(err);
+      tbody.prepend(tr);
+      if (tbody.children.length > 100) {
+        tbody.removeChild(tbody.lastChild);
+      }
+    }
+
     let currentCachePage = 1;
     let currentCacheTotalPages = 1;
     let currentCacheItemDetail = null;
@@ -3598,6 +3628,8 @@
               renderProviderBars();
             }
             loadOverview();
+          } else if (ev.type === 'failover') {
+            prependFailoverRow(ev.data);
           } else if (ev.type === 'logs_cleared') {
             const tbody = document.getElementById('logs-tbody');
             if (tbody) {

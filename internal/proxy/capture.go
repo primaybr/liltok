@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/primaybr/liltok/internal/provider"
+	"github.com/primaybr/liltok/internal/router"
 )
 
 // Replay fixtures pair a client /v1/messages request with the raw upstream reply of each fallback
@@ -113,11 +113,14 @@ type fixtureCapture struct {
 	attempts []replayAttempt
 }
 
-func (c *fixtureCapture) observe(resp *provider.UnifiedChatResponse, err error) {
+func (c *fixtureCapture) observe(res router.AttemptResult) {
+	// Keep the raw reply even when an interceptor rejected it, so replaying the fixture
+	// reproduces the rejection; only attempts with no reply are recorded as errors.
 	var a replayAttempt
+	resp := res.Response
 	switch {
-	case err != nil:
-		a.Error = err.Error()
+	case resp == nil && res.Err != nil:
+		a.Error = res.Err.Error()
 	case resp == nil:
 		a.Error = "no response"
 	default:

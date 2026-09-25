@@ -375,17 +375,79 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 		maxTokens = 4096
 	}
 
-	// Translate messages
-	messages := make([]map[string]interface{}, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		role := m.Role
-		if role == "system" {
-			continue // Anthropic uses top-level system parameter
+	// Translate messages. Assistant tool calls become tool_use blocks and role "tool" results become
+	// tool_result blocks in a user turn; consecutive turns with the same role are merged.
+	system := []string{}
+	if req.SystemPrompt != "" {
+		system = append(system, req.SystemPrompt)
+	}
+	type turn struct {
+		role   string
+		blocks []map[string]interface{}
+	}
+	var turns []turn
+	add := func(role string, blocks ...map[string]interface{}) {
+		if len(blocks) == 0 {
+			return
 		}
-		messages = append(messages, map[string]interface{}{
-			"role":    role,
-			"content": m.Content,
-		})
+		if n := len(turns); n > 0 && turns[n-1].role == role {
+			turns[n-1].blocks = append(turns[n-1].blocks, blocks...)
+			return
+		}
+		turns = append(turns, turn{role: role, blocks: blocks})
+	}
+	textBlock := func(text string) map[string]interface{} {
+		return map[string]interface{}{"type": "text", "text": text}
+	}
+
+	for _, m := range req.Messages {
+		switch m.Role {
+		case "system":
+			if m.Content != "" && m.Content != req.SystemPrompt {
+				system = append(system, m.Content)
+			}
+		case "assistant":
+			var blocks []map[string]interface{}
+			if m.Content != "" {
+				blocks = append(blocks, textBlock(m.Content))
+			}
+			for _, tc := range m.ToolCalls {
+				input := map[string]interface{}{}
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &input); err != nil || input == nil {
+					input = map[string]interface{}{}
+				}
+				blocks = append(blocks, map[string]interface{}{
+					"type":  "tool_use",
+					"id":    tc.ID,
+					"name":  tc.Function.Name,
+					"input": input,
+				})
+			}
+			add("assistant", blocks...)
+		case "tool":
+			if m.ToolCallID == "" {
+				add("user", textBlock(m.Content))
+				continue
+			}
+			add("user", map[string]interface{}{
+				"type":        "tool_result",
+				"tool_use_id": m.ToolCallID,
+				"content":     m.Content,
+			})
+		default:
+			if m.Content != "" {
+				add("user", textBlock(m.Content))
+			}
+		}
+	}
+
+	messages := make([]map[string]interface{}, 0, len(turns))
+	for _, t := range turns {
+		var content interface{} = t.blocks
+		if len(t.blocks) == 1 && t.blocks[0]["type"] == "text" {
+			content = t.blocks[0]["text"]
+		}
+		messages = append(messages, map[string]interface{}{"role": t.role, "content": content})
 	}
 
 	payload := map[string]interface{}{
@@ -395,15 +457,72 @@ func (a *Adapter) buildPayload(req *provider.UnifiedChatRequest, stream bool) ([
 		"stream":     stream,
 	}
 
-	if req.SystemPrompt != "" {
-		payload["system"] = req.SystemPrompt
+	if len(system) > 0 {
+		payload["system"] = strings.Join(system, "\n\n")
 	}
-	if req.Temperature > 0 {
+	if req.HasTemperature || req.Temperature > 0 {
 		payload["temperature"] = req.Temperature
 	}
-	if req.TopP > 0 {
+	if req.HasTopP || req.TopP > 0 {
 		payload["top_p"] = req.TopP
+	}
+	if len(req.Tools) > 0 {
+		payload["tools"] = convertToolsToAnthropic(req.Tools)
+	}
+	if choice := convertToolChoiceToAnthropic(req.ToolChoice); choice != nil {
+		payload["tool_choice"] = choice
 	}
 
 	return json.Marshal(payload)
+}
+
+// convertToolsToAnthropic maps OpenAI function tools to Anthropic tool definitions; tools already
+// in Anthropic form pass through.
+func convertToolsToAnthropic(tools []interface{}) []interface{} {
+	out := make([]interface{}, 0, len(tools))
+	for _, t := range tools {
+		tm, ok := t.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		fn, isOpenAI := tm["function"].(map[string]interface{})
+		if !isOpenAI {
+			out = append(out, tm)
+			continue
+		}
+		schema := fn["parameters"]
+		if schema == nil {
+			schema = map[string]interface{}{"type": "object", "properties": map[string]interface{}{}}
+		}
+		def := map[string]interface{}{"name": fn["name"], "input_schema": schema}
+		if desc, ok := fn["description"].(string); ok && desc != "" {
+			def["description"] = desc
+		}
+		out = append(out, def)
+	}
+	return out
+}
+
+// convertToolChoiceToAnthropic maps an OpenAI tool_choice ("auto", "none", "required", or a named
+// function) to Anthropic's form. Anthropic-form choices pass through; nil means leave it unset.
+func convertToolChoiceToAnthropic(choice interface{}) interface{} {
+	switch c := choice.(type) {
+	case string:
+		switch c {
+		case "auto":
+			return map[string]interface{}{"type": "auto"}
+		case "none":
+			return map[string]interface{}{"type": "none"}
+		case "required":
+			return map[string]interface{}{"type": "any"}
+		}
+	case map[string]interface{}:
+		if fn, ok := c["function"].(map[string]interface{}); ok {
+			return map[string]interface{}{"type": "tool", "name": fn["name"]}
+		}
+		if _, ok := c["type"].(string); ok {
+			return c
+		}
+	}
+	return nil
 }
