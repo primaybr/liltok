@@ -43,22 +43,7 @@ func NewCacheSyncer(database *db.DB, syncURL string, client *http.Client) *Cache
 		syncURL:    syncURL,
 		httpClient: client,
 	}
-	cs.ensureMetadataTable()
 	return cs
-}
-
-func (s *CacheSyncer) ensureMetadataTable() {
-	if s.database == nil {
-		return
-	}
-	query := `
-		CREATE TABLE IF NOT EXISTS sync_metadata (
-			key TEXT PRIMARY KEY,
-			value TEXT,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);
-	`
-	_, _ = s.database.Exec(query)
 }
 
 // Sync executes an HTTP conditional GET against the configured remote sync URL.
