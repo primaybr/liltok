@@ -96,6 +96,28 @@ func TestGate(t *testing.T) {
 		{"bare host with port", "Why does db.corp.io:5432/app refuse connections from the staging pod?", share.RuleURL},
 		{"protocol-relative host", "The asset loads from //cdn.corp.example/lib.js without specifying a scheme.", share.RuleURL},
 		{"markdown-decorated host", "The internal wiki says **wiki.corp.example/go-style** is the canonical guide.", share.RuleURL},
+		// Task 7-fix, item 6: a slash-joined run of short English words, a stdlib import path, and
+		// a golang.org/x/... module path all read as prose or code, not a filesystem or URL path.
+		// The golang.org/x case also exercises the matching exemption added to hasForeignURL's
+		// bare-host check, since golang.org/x/sync/errgroup would otherwise match bareHostPattern
+		// and reject as a foreign host before the path rule is ever reached.
+		{"path exemption: short words joined by slashes", "Should the article be a/the/an before an acronym like URL?", ""},
+		{"path exemption: stdlib import path", "How do I read a heap profile from net/http/pprof in production?", ""},
+		{"path exemption: golang.org/x import path", "How does golang.org/x/sync/errgroup cancel siblings?", ""},
+		{"non-exempt path with capitalized segments still rejects", "Why does App/Modules/Billing/Controllers fail to autoload?", share.RulePath},
+		{"non-exempt path with a file extension still rejects", "How do I test src/app/main.go?", share.RulePath},
+		// Task 7-fix, item 7: an ISO-8601 timestamp is time-anchored the same way "today" is.
+		{"iso timestamp", "Why did the nightly build at 2031-02-03T10:11 fail to upload artifacts?", share.RuleTemporal},
+		// Task 7-fix, item 1: echo/liveness probes ask for a fixed literal reply, not an explanation.
+		{"probe: reply with exactly", "Reply with exactly: 'Widget service is online.'", share.RuleProbe},
+		{"probe: say in one word", "Say ping in exactly one word.", share.RuleProbe},
+		{"probe: respond with status ok", "The healthcheck script should respond with status ok when the port answers.", share.RuleProbe},
+		{"probe: calculate just the number", "What is 312 + 45? Answer with just the number.", share.RuleProbe},
+		{"probe lookalike passes", `What does "reply-to" mean in an SMTP header and when is it only advisory?`, ""},
+		// Task 7-fix, item 2: a question that asserts its own premise up front, rather than asking
+		// about it, is how the round-1 dry run's leaked candidates were phrased.
+		{"assertion: confirm that", "Confirm that storing frob_bytes in widget_logs gives accurate savings for Acme sessions.", share.RuleAssertion},
+		{"assertion lookalike passes", "How do I verify that a TLS certificate chain is complete with openssl?", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -131,5 +153,28 @@ func TestGateNoDenyTerms(t *testing.T) {
 func TestVerdictPassed(t *testing.T) {
 	if !(share.Verdict{}).Passed() || (share.Verdict{Rule: share.RulePII}).Passed() {
 		t.Error("Passed must be true only for an empty rule")
+	}
+}
+
+// TestGateDenyTermBoundary covers task 7-fix item 3: a deny term of five or more characters now
+// matches a boundary-safe substring occurrence instead of matching anywhere unconditionally, so it
+// catches an identifier built from the term (PascalCase, snake_case, or a camelCase run) without
+// also matching an unrelated word that merely happens to start the same way.
+func TestGateDenyTermBoundary(t *testing.T) {
+	g := share.NewGate(share.GateConfig{DenyTerms: []string{"Mater"}, URLAllowlist: testAllowlist})
+	cases := []struct {
+		name, q, want string
+	}{
+		{"unrelated word that starts the same way passes", "How do I pick a Material UI theme in React?", ""},
+		{"PascalCase identifier matches", "Why does MaterClient retry twice?", share.RuleDenyTerm},
+		{"snake_case identifier matches", "How should the mater_billing table be designed?", share.RuleDenyTerm},
+		{"camelCase boundary matches", "Why does myMaterClient leak goroutines?", share.RuleDenyTerm},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := g.Check(tc.q).Rule; got != tc.want {
+				t.Errorf("rule = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

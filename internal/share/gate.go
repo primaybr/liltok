@@ -23,16 +23,18 @@ const GateVersion = 1
 // runs, even though it is declared last here. Fail-closed means an unreadable question never
 // reaches a rule that might wave it through.
 const (
-	RuleSize     = "size"
-	RuleSecret   = "secret"
-	RulePII      = "pii"
-	RulePath     = "path"
-	RuleURL      = "url"
-	RuleContext  = "context"
-	RuleDenyTerm = "deny_term"
-	RuleCode     = "code"
-	RuleTemporal = "temporal"
-	RuleError    = "error"
+	RuleSize      = "size"
+	RuleSecret    = "secret"
+	RulePII       = "pii"
+	RulePath      = "path"
+	RuleURL       = "url"
+	RuleContext   = "context"
+	RuleDenyTerm  = "deny_term"
+	RuleCode      = "code"
+	RuleTemporal  = "temporal"
+	RuleProbe     = "probe"
+	RuleAssertion = "assertion"
+	RuleError     = "error"
 )
 
 const (
@@ -77,7 +79,40 @@ var (
 	// trailing markdown emphasis characters before this pattern is tried; see hasForeignURL.
 	bareHostPattern = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}(?::\d+)?/\S*$`)
 	contextPattern  = regexp.MustCompile(`(?i)userEmail|claudeMd|gitStatus|today's date is|working directory|<system-reminder`)
+	// isoTimestampPattern catches an ISO-8601 timestamp (a date, a literal "T", then hour:minute):
+	// a question naming one is anchored to a specific run and never reusable, so it is judged
+	// temporal like "today" or "right now" are.
+	isoTimestampPattern = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}`)
+	// probePattern rejects a liveness or echo prompt: a question that asks for a fixed, literal
+	// reply rather than an explanation. Each alternative is anchored the same way the round-1
+	// dry-run findings described it; matching one is enough on its own.
+	probePattern = regexp.MustCompile(`(?i)^(?:reply|respond|answer)\b.{0,40}\b(?:exactly|only)\b|^say \S+ in (?:one|1|exactly one|exactly 1) word|\brespond with status ok\b|^(?:what is|calculate) [\d\s+\-*/().]+\??.{0,40}\b(?:just|only) the number`)
+	// assertionPattern rejects a question that opens by asserting its own premise rather than
+	// asking about it ("Confirm that ..."), which is how the round-1 dry run's leaked candidates
+	// about the maintainer's own project were phrased.
+	assertionPattern = regexp.MustCompile(`(?i)^(?:confirm|verify|validate) that\b`)
+	// lowerWordPattern is one segment of the path rule's "ordinary English words joined by slashes"
+	// exemption: see isExemptPathToken.
+	lowerWordPattern = regexp.MustCompile(`^[a-z]{1,8}$`)
 )
+
+// stdlibTopLevel is the set of Go standard-library top-level import segments; a token whose first
+// slash-separated segment is one of these (and has no dot, so it is not a domain) reads as an
+// import path, not a filesystem path. See isExemptPathToken.
+var stdlibTopLevel = map[string]bool{
+	"archive": true, "bufio": true, "bytes": true, "compress": true, "container": true, "context": true,
+	"crypto": true, "database": true, "debug": true, "embed": true, "encoding": true, "errors": true,
+	"expvar": true, "flag": true, "fmt": true, "go": true, "hash": true, "html": true, "image": true,
+	"index": true, "io": true, "iter": true, "log": true, "maps": true, "math": true, "mime": true,
+	"net": true, "os": true, "path": true, "plugin": true, "reflect": true, "regexp": true, "runtime": true,
+	"slices": true, "sort": true, "strconv": true, "strings": true, "structs": true, "sync": true,
+	"syscall": true, "testing": true, "text": true, "time": true, "unicode": true, "unique": true, "unsafe": true,
+}
+
+// golangOrgXPrefix is the golang.org/x/... module namespace: an import path from it never has a
+// stdlib-style first segment (golang.org has a dot), so it needs its own exemption in both the path
+// rule and the bare-host check of the url rule.
+const golangOrgXPrefix = "golang.org/x/"
 
 // GateConfig holds the per-machine parts of the rules.
 type GateConfig struct {
@@ -96,16 +131,33 @@ func (v Verdict) Passed() bool { return v.Rule == "" }
 // Gate applies the rules; build one with NewGate and reuse it.
 type Gate struct {
 	allow []string
-	deny  []*regexp.Regexp
+	deny  []denyRule
+}
+
+// denyRule pairs a compiled deny-term pattern with whether a match still needs the boundary check
+// in code. A short term (three or four characters) embeds its word boundary directly in the regex
+// (boundary is false: a plain MatchString is enough). A term of five or more characters is compiled
+// as a bare, boundary-free case-insensitive substring search (boundary is true), because RE2 has no
+// lookaround to express its boundary rule directly; matchesWithBoundary checks it afterwards.
+type denyRule struct {
+	re       *regexp.Regexp
+	boundary bool
 }
 
 // NewGate compiles cfg, case-insensitively. Deny terms shorter than three characters are ignored.
-// A term of five or more characters matches as a substring anywhere, so it also catches an
-// identifier built from it, such as a term "acmehq" inside "AcmeHQClient" or "acmehq_billing". A
-// shorter term (three or four characters) matches only as a whole word, where the boundary is any
-// rune that is not a letter or a digit: notably, unlike a Go identifier boundary, an underscore
-// counts as a boundary, so "dev" matches "dev_tools" but not "developer". The shorter, noisier a
-// term is, the more it needs a word boundary to avoid matching unrelated words that merely contain it.
+// A term of three or four characters matches only as a whole word, where the boundary is any rune
+// that is not a letter or a digit: notably, unlike a Go identifier boundary, an underscore counts
+// as a boundary, so "dev" matches "dev_tools" but not "developer".
+//
+// A term of five or more characters matches as a substring anywhere the occurrence is
+// boundary-safe, so it also catches an identifier built from it, such as a term "acmehq" inside
+// "AcmeHQClient" or "acmehq_billing" - while still letting a term like "Mater" pass over an
+// unrelated word like "Material", because the run of letters continues in lowercase past the match.
+// The left side of the occurrence must be the start of the text, a rune that is not a letter or a
+// digit, or a camelCase boundary (the rune before is lowercase and the first matched rune is
+// uppercase in the text); the right side must be the end of the text or a rune that is not a
+// lowercase letter. RE2 has no lookaround, so these terms are found with a plain
+// `(?i)`+QuoteMeta(term) regex and the boundary runes are checked in code; see matchesWithBoundary.
 func NewGate(cfg GateConfig) *Gate {
 	g := &Gate{}
 	for _, a := range cfg.URLAllowlist {
@@ -123,10 +175,10 @@ func NewGate(cfg GateConfig) *Gate {
 		}
 		seen[key] = true
 		if n >= minSubstringDenyTermLen {
-			g.deny = append(g.deny, regexp.MustCompile(`(?i)`+regexp.QuoteMeta(t)))
+			g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)` + regexp.QuoteMeta(t)), boundary: true})
 			continue
 		}
-		g.deny = append(g.deny, regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])`+regexp.QuoteMeta(t)+`(?:$|[^\p{L}\p{N}])`))
+		g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])` + regexp.QuoteMeta(t) + `(?:$|[^\p{L}\p{N}])`)})
 	}
 	return g
 }
@@ -161,16 +213,28 @@ func (g *Gate) Check(question string) (v Verdict) {
 	if contextPattern.MatchString(q) {
 		return Verdict{Rule: RuleContext}
 	}
-	for _, re := range g.deny {
-		if re.MatchString(q) {
+	for _, dr := range g.deny {
+		if dr.boundary {
+			if matchesWithBoundary(q, dr.re) {
+				return Verdict{Rule: RuleDenyTerm}
+			}
+			continue
+		}
+		if dr.re.MatchString(q) {
 			return Verdict{Rule: RuleDenyTerm}
 		}
 	}
 	if hasCodeDump(q) {
 		return Verdict{Rule: RuleCode}
 	}
-	if !semantic.CheckSemanticEligibility(q).IsEligible {
+	if isoTimestampPattern.MatchString(q) || !semantic.CheckSemanticEligibility(q).IsEligible {
 		return Verdict{Rule: RuleTemporal}
+	}
+	if probePattern.MatchString(q) {
+		return Verdict{Rule: RuleProbe}
+	}
+	if assertionPattern.MatchString(q) {
+		return Verdict{Rule: RuleAssertion}
 	}
 	return Verdict{}
 }
@@ -200,6 +264,44 @@ func tokens(q string) []string {
 	return strings.FieldsFunc(q, func(r rune) bool {
 		return unicode.IsSpace(r) || strings.ContainsRune("\"'`()[]{}<>,;", r)
 	})
+}
+
+// matchesWithBoundary reports whether re has an occurrence in q whose left and right sides are
+// both boundary-safe; see NewGate's doc comment for the exact rule. re itself carries no boundary
+// (it is a bare `(?i)`+QuoteMeta(term) pattern), so every candidate occurrence is checked here.
+func matchesWithBoundary(q string, re *regexp.Regexp) bool {
+	for _, loc := range re.FindAllStringIndex(q, -1) {
+		if leftBoundaryOK(q, loc[0]) && rightBoundaryOK(q, loc[1]) {
+			return true
+		}
+	}
+	return false
+}
+
+// leftBoundaryOK is the left-side check of matchesWithBoundary: the start of the text, a rune that
+// is not a letter or a digit, or a camelCase boundary (the rune before is lowercase and the first
+// matched rune, read from the text rather than the term, is uppercase).
+func leftBoundaryOK(q string, start int) bool {
+	if start == 0 {
+		return true
+	}
+	prev, _ := utf8.DecodeLastRuneInString(q[:start])
+	if !unicode.IsLetter(prev) && !unicode.IsDigit(prev) {
+		return true
+	}
+	first, _ := utf8.DecodeRuneInString(q[start:])
+	return unicode.IsLower(prev) && unicode.IsUpper(first)
+}
+
+// rightBoundaryOK is the right-side check of matchesWithBoundary: the end of the text, or a rune
+// that is not a lowercase letter (an uppercase letter, digit, underscore, hyphen, dot, space or
+// other punctuation all count, since none of them continues the matched word).
+func rightBoundaryOK(q string, end int) bool {
+	if end >= len(q) {
+		return true
+	}
+	next, _ := utf8.DecodeRuneInString(q[end:])
+	return !unicode.IsLower(next)
 }
 
 func hasSecret(q string) bool {
@@ -311,12 +413,39 @@ func hasPath(q string) bool {
 					segments++
 				}
 			}
-			if segments >= 3 {
-				return true
+			if segments < 3 {
+				continue
 			}
+			if sep == "/" && isExemptPathToken(tok) {
+				continue
+			}
+			return true
 		}
 	}
 	return false
+}
+
+// isExemptPathToken reports whether a "/"-separated token with three or more segments should not
+// count as a path after all: a Go standard-library import path or a golang.org/x/... module path
+// (a), or an ordinary run of short lowercase English words joined by slashes, such as "a/the/an"
+// (b). Neither shape is a filesystem or URL path a reader could act on.
+func isExemptPathToken(tok string) bool {
+	if strings.HasPrefix(tok, golangOrgXPrefix) {
+		return true
+	}
+	segs := strings.Split(tok, "/")
+	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] {
+		return true
+	}
+	if strings.HasPrefix(tok, "/") || strings.HasSuffix(tok, "/") || len(segs) > 4 {
+		return false
+	}
+	for _, s := range segs {
+		if !lowerWordPattern.MatchString(s) {
+			return false
+		}
+	}
+	return true
 }
 
 // hasForeignURL reports a URL whose host is not on the allowlist, or whose userinfo names a user
@@ -341,6 +470,9 @@ func (g *Gate) hasForeignURL(q string) bool {
 		// stripped from both ends.
 		tok = strings.TrimLeft(tok, "/*_~")
 		tok = strings.TrimRight(tok, "*_~")
+		if strings.HasPrefix(tok, golangOrgXPrefix) {
+			continue
+		}
 		if !bareHostPattern.MatchString(tok) {
 			continue
 		}
