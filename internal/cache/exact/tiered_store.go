@@ -110,6 +110,12 @@ func (t *TieredStore) Delete(ctx context.Context, hash string) error {
 	return t.l2.Delete(ctx, hash)
 }
 
+// FlushMemory empties the L1 tier. Callers that delete rows from SQLite directly use it so the
+// memory tier cannot keep serving entries that no longer exist on disk.
+func (t *TieredStore) FlushMemory() {
+	t.l1.Purge()
+}
+
 // Purge removes all cached entries (or entries for a specific model) across L1 and L2.
 func (t *TieredStore) Purge(ctx context.Context, model string) (int64, error) {
 	t.l1.Purge()

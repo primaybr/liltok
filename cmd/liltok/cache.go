@@ -3,9 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -114,13 +117,22 @@ func newCacheCommand() *cobra.Command {
 
 	var purgeAll bool
 	var purgeModel string
+	var purgeLargerThan string
+	var purgeGatewayURL string
 
 	purgeCmd := &cobra.Command{
 		Use:   "purge",
 		Short: "Purge entries from the local cache",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if purgeLargerThan != "" {
+				limit, err := parseByteSize(purgeLargerThan)
+				if err != nil {
+					return err
+				}
+				return purgeLargeEntries(purgeGatewayURL, limit)
+			}
 			if !purgeAll && purgeModel == "" {
-				return fmt.Errorf("must specify --all or --model <name>")
+				return fmt.Errorf("must specify --all, --model <name> or --larger-than <size>")
 			}
 
 			dbPath := resolveDBPath()
@@ -152,6 +164,8 @@ func newCacheCommand() *cobra.Command {
 	}
 	purgeCmd.Flags().BoolVar(&purgeAll, "all", false, "Purge all cache entries")
 	purgeCmd.Flags().StringVar(&purgeModel, "model", "", "Purge entries matching specific model name")
+	purgeCmd.Flags().StringVar(&purgeLargerThan, "larger-than", "", "Purge unpinned entries whose prompt is larger than this size (e.g. 256KB, 1MB)")
+	purgeCmd.Flags().StringVar(&purgeGatewayURL, "gateway-url", "http://localhost:8080", "Liltok gateway HTTP endpoint (used for --larger-than)")
 
 	var (
 		syncURLFlag string
@@ -498,4 +512,70 @@ deduplicates against the starter pack, and writes internal/db/starter_cache.json
 
 	cacheCmd.AddCommand(statsCmd, listCmd, purgeCmd, updateCmd, exportCmd, decryptCmd, importCmd, seedCmd, packCmd)
 	return cacheCmd
+}
+
+// parseByteSize parses a size such as 262144, 256KB, 256K, 1MB or 1M (binary units).
+func parseByteSize(v string) (int, error) {
+	t := strings.ToUpper(strings.TrimSpace(v))
+	mult := 1
+	for _, u := range []struct {
+		suffix string
+		mult   int
+	}{{"KB", 1024}, {"MB", 1024 * 1024}, {"K", 1024}, {"M", 1024 * 1024}, {"B", 1}} {
+		if strings.HasSuffix(t, u.suffix) {
+			t, mult = strings.TrimSpace(strings.TrimSuffix(t, u.suffix)), u.mult
+			break
+		}
+	}
+	n, err := strconv.Atoi(t)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("invalid size %q: use a positive number of bytes, KB or MB", v)
+	}
+	return n * mult, nil
+}
+
+// purgeLargeEntries deletes cache entries larger than limit bytes. It goes through the running
+// gateway so its memory tier is flushed too; when the gateway is not running it edits the
+// database directly.
+func purgeLargeEntries(gatewayURL string, limit int) error {
+	client := adminHTTPClient(2 * time.Minute)
+	target := strings.TrimRight(gatewayURL, "/") + "/api/v1/cache/purge?larger_than=" + strconv.Itoa(limit)
+	resp, err := client.Post(target, "application/json", nil)
+	if err == nil {
+		defer resp.Body.Close()
+		var out struct {
+			DeletedCount int64  `json:"deleted_count"`
+			Error        string `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		if resp.StatusCode != http.StatusOK {
+			if out.Error == "" {
+				out.Error = resp.Status
+			}
+			return fmt.Errorf("gateway rejected the purge: %s", out.Error)
+		}
+		fmt.Printf("Purged %d cache entries larger than %d bytes through the gateway.\n", out.DeletedCount, limit)
+		fmt.Println("Run a vacuum (dashboard System tab, or POST /api/v1/system/vacuum) to return the space to the disk.")
+		return nil
+	}
+
+	dbPath := resolveDBPath()
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("gateway not reachable and failed to open database at %s: %w", dbPath, err)
+	}
+	defer database.Close()
+	n, err := database.PurgeCacheLargerThan(context.Background(), limit)
+	if err != nil {
+		return fmt.Errorf("failed to purge cache: %w", err)
+	}
+	fmt.Printf("Purged %d cache entries larger than %d bytes (gateway offline; database edited directly).\n", n, limit)
+	if n > 0 {
+		if _, err := database.ExecContext(context.Background(), "VACUUM"); err != nil {
+			fmt.Printf("Vacuum failed (%v); the space is reclaimed on the next vacuum.\n", err)
+		} else {
+			fmt.Println("Database vacuumed.")
+		}
+	}
+	return nil
 }

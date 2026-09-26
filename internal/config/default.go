@@ -16,6 +16,7 @@ func DefaultConfig() *Config {
 		Cache: CacheConfig{
 			L1MaxEntries:            10000,
 			DefaultTTLSeconds:       604800, // 7 days
+			MaxPromptBytes:          256 * 1024,
 			CacheNonzeroTemperature: false,
 			SemanticCacheEnabled:    false,
 			SemanticThreshold:       0.95,

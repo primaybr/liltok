@@ -4,6 +4,7 @@ server:
   port: 8080
   read_timeout_seconds: 60
   write_timeout_seconds: 300
+  admin_token: "" # when set, required on /api/v1 admin calls (header X-Liltok-Admin-Token or dashboard sign-in)
 
 storage:
   db_path: "~/.liltok/liltok.db"
@@ -16,6 +17,7 @@ cache:
   semantic_cache_enabled: false
   semantic_threshold: 0.95
   prune_diffs: true
+  max_prompt_bytes: 262144 # requests larger than this (agent transcripts) are not cached; 0 = no limit
 
 log:
   level: "info"

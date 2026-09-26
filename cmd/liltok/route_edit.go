@@ -155,7 +155,7 @@ func newRouteSetCommand() *cobra.Command {
 				return fmt.Errorf("build request: %w", err)
 			}
 			req.Header.Set("Content-Type", "application/json")
-			client := &http.Client{Timeout: 5 * time.Second}
+			client := adminHTTPClient(5 * time.Second)
 			resp, err := client.Do(req)
 			if err != nil {
 				return gatewayOfflineError(gatewayURL, err)
@@ -195,7 +195,7 @@ func newRouteResetCommand() *cobra.Command {
 				return fmt.Errorf("route id must not be empty")
 			}
 			gatewayURL = strings.TrimRight(gatewayURL, "/")
-			client := &http.Client{Timeout: 5 * time.Second}
+			client := adminHTTPClient(5 * time.Second)
 
 			// Look the route up first: the DELETE response does not say whether a built-in route
 			// was restored or a custom one removed.

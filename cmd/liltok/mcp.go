@@ -359,7 +359,7 @@ func searchLiltokCache(gatewayURL, query string) toolCallResult {
 	// 1. Try querying the running gateway first via HTTP to avoid SQLite lock contention
 	if gatewayURL != "" {
 		searchURL := fmt.Sprintf("%s/api/v1/cache?q=%s", gatewayURL, url.QueryEscape(query))
-		client := &http.Client{Timeout: 5 * time.Second}
+		client := adminHTTPClient(5 * time.Second)
 		if resp, err := client.Get(searchURL); err == nil {
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
@@ -514,7 +514,7 @@ func searchLiltokCache(gatewayURL, query string) toolCallResult {
 }
 
 func getLiltokStats(gatewayURL string) toolCallResult {
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := adminHTTPClient(5 * time.Second)
 	resp, err := client.Get(gatewayURL + "/api/v1/overview")
 	if err != nil {
 		return toolError(fmt.Sprintf("failed to connect to Liltok at %s: %v", gatewayURL, err))

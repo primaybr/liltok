@@ -58,6 +58,11 @@ func NewServer(sc ServerConfig) *Server {
 		bindHost = sc.Config.Server.Host
 	}
 	r.Use(middleware.LocalGuard(bindHost))
+	adminToken := ""
+	if sc.Config != nil {
+		adminToken = sc.Config.Server.AdminToken
+	}
+	r.Use(middleware.AdminToken(adminToken))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)

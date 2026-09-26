@@ -2,7 +2,6 @@
   "description": "OpenAI ingress: a provider returns a structured tool call. The client must receive it as a tool_call with finish_reason tool_calls, whole and streamed.",
   "origin": "M7.3 OpenAI ingress replay",
   "ingress": "openai",
-  "known_bug": "the json run passes; the sse run fails because the OpenAI SSE replay (cache.replayOpenAISSE) emits only the message content and a hardcoded finish_reason stop, dropping tool_calls",
   "request": {
     "model": "gpt-4o",
     "max_tokens": 1024,

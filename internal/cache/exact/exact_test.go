@@ -267,3 +267,45 @@ func TestTTLExpirationAfterPersistence(t *testing.T) {
 		t.Fatalf("an entry created two hours ago with a 60 s TTL must be a miss from either tier (ok=%v err=%v)", ok, err)
 	}
 }
+
+// TestFlushMemoryDropsDeletedEntries checks that after rows are deleted from SQLite directly
+// (admin purges), FlushMemory stops the memory tier from serving them.
+func TestFlushMemoryDropsDeletedEntries(t *testing.T) {
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+	database, err := db.Open(t.TempDir() + "/flush.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	store, err := NewTieredStore(database, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	ctx := context.Background()
+	if err := store.Set(ctx, &cache.CacheEntry{Hash: "flush-me", Model: "m", NormalizedPrompt: "p", ResponsePayload: []byte(`{}`), TTLSeconds: 600}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var n int
+		_ = database.QueryRow(`SELECT COUNT(*) FROM cache_entries WHERE hash = 'flush-me'`).Scan(&n)
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("entry was not persisted")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if _, err := database.Exec(`DELETE FROM cache_entries WHERE hash = 'flush-me'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := store.Get(ctx, "flush-me"); !ok {
+		t.Fatal("before the flush the memory tier still serves the entry (the reason FlushMemory exists)")
+	}
+	store.FlushMemory()
+	if _, ok, _ := store.Get(ctx, "flush-me"); ok {
+		t.Fatal("after FlushMemory a deleted entry must be a miss")
+	}
+}

@@ -91,3 +91,25 @@ func TestServerRefusesRebindingHost(t *testing.T) {
 		t.Fatalf("rebinding host got %d, want 403", rec.Code)
 	}
 }
+
+// TestServerAdminTokenWiring checks that server.admin_token protects the admin API end to end.
+func TestServerAdminTokenWiring(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.AdminToken = "s3cret"
+	srv := NewServer(ServerConfig{Config: cfg})
+	get := func(header string) int {
+		req := httptest.NewRequest("GET", "http://localhost:8080/api/v1/overview", nil)
+		if header != "" {
+			req.Header.Set("X-Liltok-Admin-Token", header)
+		}
+		rec := httptest.NewRecorder()
+		srv.Router().ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if code := get(""); code != http.StatusUnauthorized {
+		t.Fatalf("without the token = %d, want 401", code)
+	}
+	if code := get("s3cret"); code != http.StatusOK {
+		t.Fatalf("with the token = %d, want 200", code)
+	}
+}

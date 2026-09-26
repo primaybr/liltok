@@ -97,7 +97,7 @@ func TestCachePurge(t *testing.T) {
 	env := newTestEnv(t, "")
 
 	_, err := env.run(t, "cache", "purge")
-	if err == nil || !strings.Contains(err.Error(), "must specify --all or --model") {
+	if err == nil || !strings.Contains(err.Error(), "must specify --all, --model <name> or --larger-than <size>") {
 		t.Fatalf("err = %v, want flag requirement error", err)
 	}
 
@@ -407,5 +407,51 @@ func TestCachePack(t *testing.T) {
 	}
 	if !hashes["base-1"] || !hashes["db-1"] || hashes["db-2"] || hashes["db-3"] {
 		t.Errorf("packed hashes = %v, want base-1 and db-1 only", hashes)
+	}
+}
+
+func TestParseByteSize(t *testing.T) {
+	for in, want := range map[string]int{"262144": 262144, "256KB": 262144, "256k": 262144, "1MB": 1048576, "2m": 2097152, " 512 B ": 512} {
+		if got, err := parseByteSize(in); err != nil || got != want {
+			t.Errorf("parseByteSize(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+	for _, bad := range []string{"", "abc", "-5KB", "0", "1.5MB"} {
+		if _, err := parseByteSize(bad); err == nil {
+			t.Errorf("parseByteSize(%q) should fail", bad)
+		}
+	}
+}
+
+func TestCachePurgeLargerThan(t *testing.T) {
+	env := newTestEnv(t, "")
+
+	// Through a running gateway: the CLI calls the admin API, which also flushes the memory tier.
+	var gotQuery string
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotQuery = r.Method + " " + r.URL.Path + "?" + r.URL.RawQuery
+		_, _ = w.Write([]byte(`{"status":"purged","deleted_count":7}`))
+	}))
+	out, err := env.run(t, "cache", "purge", "--larger-than", "256KB", "--gateway-url", gw.URL)
+	gw.Close()
+	if err != nil || gotQuery != "POST /api/v1/cache/purge?larger_than=262144" {
+		t.Fatalf("gateway purge: err %v, request %q", err, gotQuery)
+	}
+	assertContains(t, out, "Purged 7 cache entries larger than 262144 bytes through the gateway.")
+
+	if _, err := env.run(t, "cache", "purge", "--larger-than", "lots"); err == nil || !strings.Contains(err.Error(), "invalid size") {
+		t.Fatalf("bad size error = %v", err)
+	}
+
+	// Gateway offline: the database is edited directly.
+	env.insertEntry(t, "small", "gpt-4o", "short", "{}", 0, false)
+	env.insertEntry(t, "large", "gpt-4o", strings.Repeat("y", 3000), "{}", 0, false)
+	out, err = env.run(t, "cache", "purge", "--larger-than", "2KB", "--gateway-url", gw.URL)
+	if err != nil {
+		t.Fatalf("offline purge: %v", err)
+	}
+	assertContains(t, out, "Purged 1 cache entries larger than 2048 bytes (gateway offline; database edited directly).")
+	if n := env.countEntries(t, ""); n != 1 {
+		t.Fatalf("remaining entries = %d, want only the small one", n)
 	}
 }

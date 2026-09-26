@@ -17,6 +17,10 @@ type ServerConfig struct {
 	Port                int    `yaml:"port"`
 	ReadTimeoutSeconds  int    `yaml:"read_timeout_seconds"`
 	WriteTimeoutSeconds int    `yaml:"write_timeout_seconds"`
+	// AdminToken, when set, is required on every /api/v1 admin API request (header
+	// X-Liltok-Admin-Token or the dashboard login cookie). Empty leaves the admin API open to local
+	// callers, as before.
+	AdminToken string `yaml:"admin_token"`
 }
 
 // StorageConfig holds persistent SQLite database configurations.
@@ -39,9 +43,13 @@ type CacheConfig struct {
 	CompactorTailBytes      int     `yaml:"compactor_tail_bytes"`
 	CompactorMinSizeBytes   int     `yaml:"compactor_min_size_bytes"`
 	ProtectCodeFiles        bool    `yaml:"protect_code_files"`
-	AutoSync                bool    `yaml:"auto_sync"`
-	SyncURL                 string  `yaml:"sync_url"`
-	SyncIntervalHours       int     `yaml:"sync_interval_hours"`
+	// MaxPromptBytes bounds the canonical request size that is cached; larger requests (agent
+	// session transcripts, which essentially never repeat) skip cache lookup and storage. 0 means
+	// no limit.
+	MaxPromptBytes    int    `yaml:"max_prompt_bytes"`
+	AutoSync          bool   `yaml:"auto_sync"`
+	SyncURL           string `yaml:"sync_url"`
+	SyncIntervalHours int    `yaml:"sync_interval_hours"`
 }
 
 // LogConfig holds structured logging configuration.
@@ -232,6 +240,14 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("LILTOK_ATTEMPT_TIMEOUT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Routes.AttemptTimeoutSeconds = n
+		}
+	}
+	if v := os.Getenv("LILTOK_ADMIN_TOKEN"); v != "" {
+		cfg.Server.AdminToken = v
+	}
+	if v := os.Getenv("LILTOK_CACHE_MAX_PROMPT_BYTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			cfg.Cache.MaxPromptBytes = n
 		}
 	}
 	if v := os.Getenv("LILTOK_LIVE_STREAMING"); v != "" {

@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -458,11 +457,15 @@ func TestProxyRouterSuccessOpenAIEndpoint(t *testing.T) {
 	}
 }
 
-func TestProxyRouterSuccessRawAndStreamed(t *testing.T) {
+// TestProxyRouterSuccessJSONAndStreamed checks an OpenAI-format routed reply: the body is built from
+// the router's result (not the provider's raw bytes, which skip the router's repairs) and streamed
+// replies carry the same content.
+func TestProxyRouterSuccessJSONAndStreamed(t *testing.T) {
 	cfg := offlineConfig(t)
 	r := router.NewRouter(cfg)
 	raw := []byte(`{"id":"raw-1","object":"chat.completion","choices":[{"message":{"role":"assistant","content":"raw body"}}],"usage":{"prompt_tokens":7,"completion_tokens":2}}`)
-	alpha := &extraProvider{name: "alpha", reply: &provider.UnifiedChatResponse{ID: "raw-1", Content: "raw body", RawResponse: raw}}
+	alpha := &extraProvider{name: "alpha", reply: &provider.UnifiedChatResponse{ID: "raw-1", Content: "raw body", RawResponse: raw,
+		Usage: provider.UnifiedUsage{PromptTokens: 7, CompletionTokens: 2}}}
 	r.SetProvider("alpha", alpha)
 	r.SetRoute(router.Route{ID: "alpha-route", Strategy: router.StrategyFallback, Targets: []router.TargetSpec{{ProviderName: "alpha", UpstreamModel: "m"}}})
 	p := NewProxy(cfg, nil, nil, r, nil, nil)
@@ -471,8 +474,22 @@ func TestProxyRouterSuccessRawAndStreamed(t *testing.T) {
 	events := subscribe(t, b)
 
 	rec := serve(p.HandleChatCompletions, http.MethodPost, "/v1/chat/completions", `{"model":"alpha-route","messages":[{"role":"user","content":"q"}]}`, nil)
-	if rec.Code != http.StatusOK || !bytes.Equal(rec.Body.Bytes(), raw) {
-		t.Fatalf("status %d body %s; want the provider's raw response", rec.Code, rec.Body.String())
+	var got struct {
+		ID      string `json:"id"`
+		Object  string `json:"object"`
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens int `json:"prompt_tokens"`
+		} `json:"usage"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || rec.Code != http.StatusOK || got.ID != "raw-1" || got.Object != "chat.completion" ||
+		len(got.Choices) != 1 || got.Choices[0].Message.Content != "raw body" || got.Choices[0].FinishReason != "stop" || got.Usage.PromptTokens != 7 {
+		t.Fatalf("status %d body %s; want an OpenAI completion built from the routed reply", rec.Code, rec.Body.String())
 	}
 	typ, data := nextEvent(t, events)
 	if typ != "request" || data["provider"] != "alpha" || data["prompt_tokens"] != float64(7) || data["completion_tokens"] != float64(2) {

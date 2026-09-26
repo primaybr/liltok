@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/primaybr/liltok/internal/config"
 )
@@ -158,5 +159,34 @@ func TestRouteSwitchErrors(t *testing.T) {
 	_, err = runCLI(t, "--config", filepath.Join(env.home, "no-dir", "missing.yaml"), "route", "switch", "free-first", "--gateway-url", offline)
 	if err == nil || !strings.Contains(err.Error(), "failed to update config") {
 		t.Errorf("offline with unwritable config: err = %v", err)
+	}
+}
+
+// TestAdminClientSendsConfiguredToken checks that CLI admin calls carry the admin token once one
+// is configured, so they keep working against a gateway that requires it.
+func TestAdminClientSendsConfiguredToken(t *testing.T) {
+	env := newTestEnv(t, "")
+	t.Setenv("LILTOK_ADMIN_TOKEN", "s3cret")
+	var got string
+	gw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("X-Liltok-Admin-Token")
+		_, _ = w.Write([]byte(`{"default_strategy":"auto-resilient","routes":[],"circuit_breakers":[]}`))
+	}))
+	defer gw.Close()
+	if _, err := env.run(t, "route", "status", "--gateway-url", gw.URL); err != nil {
+		t.Fatalf("route status: %v", err)
+	}
+	if got != "s3cret" {
+		t.Fatalf("admin token header = %q, want s3cret", got)
+	}
+
+	// Requests outside the admin API never carry it.
+	got = ""
+	resp, err := adminHTTPClient(time.Second).Get(gw.URL + "/v1/models")
+	if err == nil {
+		resp.Body.Close()
+	}
+	if got != "" {
+		t.Fatalf("token leaked to a non-admin path: %q", got)
 	}
 }

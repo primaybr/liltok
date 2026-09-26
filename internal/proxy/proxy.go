@@ -291,6 +291,11 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 		}
 		if n, err := cache.NormalizePayload(bodyBytes, normOpts); err == nil {
 			normReq = n
+			// Requests above cache.max_prompt_bytes are agent transcripts that essentially never
+			// repeat; caching them only grows the database, so they skip lookup and storage.
+			if limit := p.cfg.Cache.MaxPromptBytes; limit > 0 && len(normReq.CanonicalJSON) > limit {
+				normReq.IsCacheable = false
+			}
 			if normReq.IsCacheable && p.cacheStore != nil {
 				if entry, hit, err := p.cacheStore.Get(r.Context(), normReq.Hash); err == nil && hit {
 					telemetry.Log.Info().
@@ -526,16 +531,14 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 							telemetry.Log.Info().Str("request_id", reqID).Str("path", path).Msg("Replay fixture captured")
 						}
 					}
-				} else {
+				} else if targetProvider == "anthropic" {
+					// Anthropic-format client served by Anthropic: its own reply, unchanged.
 					finalBytes = resp.RawResponse
-					if len(finalBytes) == 0 {
-						finalBytes, _ = json.Marshal(map[string]interface{}{
-							"id":      resp.ID,
-							"object":  "chat.completion",
-							"model":   resp.Model,
-							"choices": []map[string]interface{}{{"index": 0, "message": map[string]string{"role": resp.Role, "content": resp.Content}, "finish_reason": resp.FinishReason}},
-						})
-					}
+				} else {
+					// OpenAI-format client: build the reply from the router's result, which has text
+					// tool calls converted, tool names repaired and markup stripped. The raw upstream
+					// reply has none of that, and is not even OpenAI format when Anthropic served it.
+					finalBytes = buildOpenAICompletion(resp)
 				}
 
 				modelName := unifiedReq.Model
@@ -1134,4 +1137,51 @@ func exactHitPromptTokens(entry *cache.CacheEntry, normReq *cache.NormalizedRequ
 		return entry.PromptTokens
 	}
 	return tokens.CountTokens(normReq.Model, normReq.CanonicalJSON)
+}
+
+// buildOpenAICompletion renders a routed reply as an OpenAI chat completion.
+func buildOpenAICompletion(resp *provider.UnifiedChatResponse) []byte {
+	msg := map[string]interface{}{"role": "assistant", "content": resp.Content}
+	if resp.ReasoningContent != "" {
+		msg["reasoning_content"] = resp.ReasoningContent
+	}
+	finish := resp.FinishReason
+	if len(resp.ToolCalls) > 0 {
+		calls := make([]map[string]interface{}, len(resp.ToolCalls))
+		for i, tc := range resp.ToolCalls {
+			args := tc.Function.Arguments
+			if strings.TrimSpace(args) == "" {
+				args = "{}"
+			}
+			calls[i] = map[string]interface{}{
+				"id": tc.ID, "type": "function",
+				"function": map[string]string{"name": tc.Function.Name, "arguments": args},
+			}
+		}
+		msg["tool_calls"] = calls
+		if resp.Content == "" {
+			msg["content"] = nil
+		}
+		finish = "tool_calls"
+	}
+	if finish == "" {
+		finish = "stop"
+	}
+	id := resp.ID
+	if id == "" {
+		id = fmt.Sprintf("chatcmpl-liltok-%x", time.Now().UnixNano())
+	}
+	out, _ := json.Marshal(map[string]interface{}{
+		"id":      id,
+		"object":  "chat.completion",
+		"created": time.Now().Unix(),
+		"model":   resp.Model,
+		"choices": []map[string]interface{}{{"index": 0, "message": msg, "finish_reason": finish}},
+		"usage": map[string]int{
+			"prompt_tokens":     resp.Usage.PromptTokens,
+			"completion_tokens": resp.Usage.CompletionTokens,
+			"total_tokens":      resp.Usage.PromptTokens + resp.Usage.CompletionTokens,
+		},
+	})
+	return out
 }

@@ -383,3 +383,15 @@ func TestSetScalarKeepsExistingStyle(t *testing.T) {
 		t.Errorf("a missing key must return nil without create")
 	}
 }
+
+func TestCacheMaxPromptBytesDefaultAndEnv(t *testing.T) {
+	if got := DefaultConfig().Cache.MaxPromptBytes; got != 256*1024 {
+		t.Fatalf("default max_prompt_bytes = %d, want 262144", got)
+	}
+	t.Setenv("LILTOK_CACHE_MAX_PROMPT_BYTES", "0")
+	cfg := DefaultConfig()
+	applyEnvOverrides(cfg)
+	if cfg.Cache.MaxPromptBytes != 0 {
+		t.Fatalf("env override = %d, want 0 (no limit)", cfg.Cache.MaxPromptBytes)
+	}
+}

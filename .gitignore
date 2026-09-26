@@ -87,3 +87,5 @@ _agent/
 .remember/
 *.transcript.jsonl
 
+# Browser automation artifacts
+.playwright-mcp/

@@ -35,7 +35,7 @@ func newRouteStatusCommand() *cobra.Command {
 		Short: "Show active routing strategy and circuit breaker health",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gatewayURL = strings.TrimRight(gatewayURL, "/")
-			client := &http.Client{Timeout: 5 * time.Second}
+			client := adminHTTPClient(5 * time.Second)
 			resp, err := client.Get(gatewayURL + "/api/v1/routes")
 			if err != nil {
 				cfg, loadErr := config.Load(resolveConfigPath(configPath))
@@ -104,7 +104,7 @@ func newRouteSwitchCommand() *cobra.Command {
 			gatewayURL = strings.TrimRight(gatewayURL, "/")
 			payload, _ := json.Marshal(map[string]string{"strategy": strategy})
 
-			client := &http.Client{Timeout: 5 * time.Second}
+			client := adminHTTPClient(5 * time.Second)
 			resp, err := client.Post(gatewayURL+"/api/v1/routes/strategy", "application/json", bytes.NewReader(payload))
 			if err != nil {
 				targetCfg := resolveConfigPath(configPath)

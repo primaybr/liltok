@@ -21,6 +21,7 @@ import (
 	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/primaybr/liltok/internal/miner"
 	"github.com/primaybr/liltok/internal/router"
+	"github.com/primaybr/liltok/internal/server/middleware"
 	"github.com/primaybr/liltok/internal/tokens"
 )
 
@@ -80,6 +81,9 @@ func (h *AdminHandler) SetConfigPath(path string) {
 // RegisterRoutes registers all admin REST endpoints onto the Chi router.
 func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/api/v1", func(r chi.Router) {
+		r.Get("/auth", h.HandleAuthStatus)
+		r.Post("/auth", h.HandleAuthLogin)
+		r.Delete("/auth", h.HandleAuthLogout)
 		r.Get("/overview", h.HandleOverview)
 		r.Get("/analytics", h.HandleAnalytics)
 		r.Get("/logs", h.HandleLogs)
@@ -1300,7 +1304,13 @@ func (h *AdminHandler) HandleDeleteCacheEntry(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if h.database != nil {
+	// Delete through the cache store when there is one, so the memory tier forgets the entry too.
+	if h.cacheStore != nil {
+		if err := h.cacheStore.Delete(r.Context(), hash); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if h.database != nil {
 		_, _ = h.database.ExecContext(r.Context(), "DELETE FROM cache_entries WHERE hash = ?", hash)
 	}
 
@@ -1315,6 +1325,15 @@ func (h *AdminHandler) HandleDeleteCacheEntry(w http.ResponseWriter, r *http.Req
 func (h *AdminHandler) HandlePurgeCache(w http.ResponseWriter, r *http.Request) {
 	model := r.URL.Query().Get("model")
 	all := r.URL.Query().Get("all") == "true"
+	largerThan := 0
+	if v := r.URL.Query().Get("larger_than"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n <= 0 {
+			writeError(w, http.StatusBadRequest, "larger_than must be a positive number of bytes")
+			return
+		}
+		largerThan = n
+	}
 
 	if h.database == nil {
 		writeError(w, http.StatusInternalServerError, "database unavailable")
@@ -1322,19 +1341,31 @@ func (h *AdminHandler) HandlePurgeCache(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var deletedCount int64
-	if all {
-		res, err := h.database.ExecContext(r.Context(), "DELETE FROM cache_entries")
-		if err == nil {
+	var err error
+	switch {
+	case all:
+		var res sql.Result
+		if res, err = h.database.ExecContext(r.Context(), "DELETE FROM cache_entries"); err == nil {
 			deletedCount, _ = res.RowsAffected()
 		}
-	} else if model != "" {
-		res, err := h.database.ExecContext(r.Context(), "DELETE FROM cache_entries WHERE model = ?", model)
-		if err == nil {
+	case model != "":
+		var res sql.Result
+		if res, err = h.database.ExecContext(r.Context(), "DELETE FROM cache_entries WHERE model = ?", model); err == nil {
 			deletedCount, _ = res.RowsAffected()
 		}
-	} else {
-		writeError(w, http.StatusBadRequest, "must specify ?all=true or ?model=<name>")
+	case largerThan > 0:
+		deletedCount, err = h.database.PurgeCacheLargerThan(r.Context(), largerThan)
+	default:
+		writeError(w, http.StatusBadRequest, "must specify ?all=true, ?model=<name> or ?larger_than=<bytes>")
 		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// The rows were deleted from SQLite directly; drop the memory tier so it cannot keep serving them.
+	if f, ok := h.cacheStore.(interface{ FlushMemory() }); ok && deletedCount > 0 {
+		f.FlushMemory()
 	}
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
@@ -1637,6 +1668,55 @@ func (h *AdminHandler) HandleReactivateModel(w http.ResponseWriter, r *http.Requ
 		"status":  "success",
 		"message": fmt.Sprintf("%s/%s reactivated", body.Provider, body.Model),
 	})
+}
+
+func (h *AdminHandler) adminToken() string {
+	if h.cfg == nil {
+		return ""
+	}
+	return h.cfg.Server.AdminToken
+}
+
+// HandleAuthStatus tells the dashboard whether an admin token is configured and whether this
+// browser is signed in.
+func (h *AdminHandler) HandleAuthStatus(w http.ResponseWriter, r *http.Request) {
+	token := h.adminToken()
+	writeJSON(w, http.StatusOK, map[string]bool{
+		"required":      token != "",
+		"authenticated": middleware.AdminTokenMatches(r, token),
+	})
+}
+
+// HandleAuthLogin checks {"token": "..."} and, when it matches, sets the dashboard login cookie
+// (HttpOnly, SameSite=Strict) that authenticates later API calls and the event stream.
+func (h *AdminHandler) HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
+	token := h.adminToken()
+	var body struct {
+		Token string `json:"token"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if token == "" {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "no admin token configured"})
+		return
+	}
+	check := r.Clone(r.Context())
+	check.Header = http.Header{}
+	check.Header.Set(middleware.AdminTokenHeader, body.Token)
+	if !middleware.AdminTokenMatches(check, token) {
+		writeError(w, http.StatusUnauthorized, "wrong admin token")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name: middleware.AdminTokenCookie, Value: token, Path: "/",
+		HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: 30 * 24 * 3600,
+	})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "signed in"})
+}
+
+// HandleAuthLogout clears the dashboard login cookie.
+func (h *AdminHandler) HandleAuthLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: middleware.AdminTokenCookie, Value: "", Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	writeJSON(w, http.StatusOK, map[string]string{"status": "signed out"})
 }
 
 // HandleListKeys returns all virtual API keys.

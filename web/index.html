@@ -4802,22 +4802,75 @@
       }
     });
 
-    // Initialize
-    const initialTab = location.hash.replace(/^#/, '') || 'overview';
-    switchTab(initialTab, false);
-    loadRoutes();
-    loadProviders();
-    loadProviderStats();
-
-    window.addEventListener('load', () => {
-      setTimeout(initSSE, 200);
-    });
-    setInterval(() => {
-      const activeOverview = document.getElementById('tab-overview');
-      if (activeOverview && activeOverview.classList.contains('active')) {
-        loadOverview();
+    // Admin token: when the gateway sets server.admin_token, sign in once; the login cookie then
+    // authenticates API calls and the event stream.
+    async function ensureAdminAuth() {
+      try {
+        const res = await fetch('/api/v1/auth');
+        const st = await res.json();
+        if (!st.required || st.authenticated) return true;
+      } catch (e) {
+        return true;
       }
-    }, 5000);
+      return new Promise(() => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        const box = document.createElement('form');
+        box.style.cssText = 'background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(360px,90vw);display:flex;flex-direction:column;gap:12px;';
+        const title = document.createElement('div');
+        title.style.cssText = 'font-weight:700;font-size:16px;';
+        title.textContent = 'Admin token required';
+        const hint = document.createElement('div');
+        hint.style.cssText = 'font-size:13px;color:var(--muted);';
+        hint.textContent = 'This gateway sets server.admin_token. Enter it to open the dashboard.';
+        const input = document.createElement('input');
+        input.type = 'password';
+        input.autocomplete = 'current-password';
+        input.style.cssText = 'padding:8px;border-radius:6px;border:1px solid var(--border);background:transparent;color:inherit;';
+        const err = document.createElement('div');
+        err.style.cssText = 'font-size:12px;color:#f87171;min-height:16px;';
+        const btn = document.createElement('button');
+        btn.type = 'submit';
+        btn.className = 'btn';
+        btn.textContent = 'Sign in';
+        box.append(title, hint, input, err, btn);
+        overlay.append(box);
+        document.body.append(overlay);
+        input.focus();
+        box.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          err.textContent = '';
+          const res = await fetch('/api/v1/auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: input.value })
+          });
+          if (res.ok) {
+            location.reload();
+          } else {
+            err.textContent = 'Wrong token.';
+          }
+        });
+      });
+    }
+
+    // Initialize
+    async function startDashboard() {
+      if (!(await ensureAdminAuth())) return;
+      const initialTab = location.hash.replace(/^#/, '') || 'overview';
+      switchTab(initialTab, false);
+      loadRoutes();
+      loadProviders();
+      loadProviderStats();
+      setTimeout(initSSE, 200);
+      setInterval(() => {
+        const activeOverview = document.getElementById('tab-overview');
+        if (activeOverview && activeOverview.classList.contains('active')) {
+          loadOverview();
+        }
+      }, 5000);
+    }
+    startDashboard();
   </script>
 </body>
 </html>

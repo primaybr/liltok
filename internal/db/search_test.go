@@ -141,3 +141,39 @@ func TestRunSearchIndexerIndexesAndStops(t *testing.T) {
 		t.Fatal("indexer did not stop when its context ended")
 	}
 }
+
+func TestPurgeCacheLargerThan(t *testing.T) {
+	d := searchDB(t)
+	ctx := context.Background()
+	big := strings.Repeat("x", 3000)
+	addEntry(t, d, "small", "short question", 1)
+	addEntry(t, d, "large", big, 1)
+	addEntry(t, d, "large-pinned", big, 1)
+	if _, err := d.Exec(`UPDATE cache_entries SET is_pinned = 1 WHERE hash = 'large-pinned'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.IndexCacheSearch(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := d.PurgeCacheLargerThan(ctx, 2048)
+	if err != nil || n != 1 {
+		t.Fatalf("purged %d (%v), want only the unpinned large entry", n, err)
+	}
+	var left []string
+	rows, _ := d.Query(`SELECT hash FROM cache_entries ORDER BY hash`)
+	for rows.Next() {
+		var h string
+		_ = rows.Scan(&h)
+		left = append(left, h)
+	}
+	rows.Close()
+	if !reflect.DeepEqual(left, []string{"large-pinned", "small"}) {
+		t.Fatalf("entries left = %v", left)
+	}
+	var searchRows int
+	_ = d.QueryRow(`SELECT COUNT(*) FROM cache_search WHERE hash = 'large'`).Scan(&searchRows)
+	if searchRows != 0 {
+		t.Error("the purged entry's search row must be removed")
+	}
+}

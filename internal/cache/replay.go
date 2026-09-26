@@ -52,25 +52,43 @@ func ReplayResponse(w http.ResponseWriter, entry *CacheEntry, stream bool, isAnt
 	return replayOpenAISSE(w, flusher, entry)
 }
 
+// openAIToolCall is one tool call in an OpenAI chat completion.
+type openAIToolCall struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	} `json:"function"`
+}
+
+// replayOpenAISSE streams a stored OpenAI chat completion as chat.completion.chunk events: the
+// role, any reasoning_content, the content, the tool calls (each with its index, id, name and full
+// arguments) and the stored finish_reason, then [DONE].
 func replayOpenAISSE(w http.ResponseWriter, flusher http.Flusher, entry *CacheEntry) error {
 	var respObj struct {
 		ID      string `json:"id"`
 		Model   string `json:"model"`
 		Choices []struct {
 			Message struct {
-				Role    string `json:"role"`
-				Content string `json:"content"`
+				Role             string           `json:"role"`
+				Content          string           `json:"content"`
+				ReasoningContent string           `json:"reasoning_content"`
+				ToolCalls        []openAIToolCall `json:"tool_calls"`
 			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 	}
 
-	content := ""
+	content, reasoning, finish := "", "", ""
+	var calls []openAIToolCall
 	id := fmt.Sprintf("chatcmpl-cached-%x", time.Now().UnixMilli())
 	model := entry.Model
 
 	if err := json.Unmarshal(entry.ResponsePayload, &respObj); err == nil {
 		if len(respObj.Choices) > 0 {
-			content = respObj.Choices[0].Message.Content
+			c := respObj.Choices[0]
+			content, reasoning, calls, finish = c.Message.Content, c.Message.ReasoningContent, c.Message.ToolCalls, c.FinishReason
 		}
 		if respObj.ID != "" {
 			id = "cached-" + respObj.ID
@@ -78,38 +96,66 @@ func replayOpenAISSE(w http.ResponseWriter, flusher http.Flusher, entry *CacheEn
 	} else {
 		content = string(entry.ResponsePayload)
 	}
+	if finish == "" {
+		finish = "stop"
+		if len(calls) > 0 {
+			finish = "tool_calls"
+		}
+	}
 
-	// 1. Role Delta
-	chunkRole := fmt.Sprintf(`data: {"id":%q,"object":"chat.completion.chunk","created":%d,"model":%q,"choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}`+"\n\n",
-		id, time.Now().Unix(), model)
-	if _, err := w.Write([]byte(chunkRole)); err != nil {
+	created := time.Now().Unix()
+	send := func(delta map[string]interface{}, finishReason interface{}) error {
+		chunk := map[string]interface{}{
+			"id": id, "object": "chat.completion.chunk", "created": created, "model": model,
+			"choices": []map[string]interface{}{{"index": 0, "delta": delta, "finish_reason": finishReason}},
+		}
+		data, err := json.Marshal(chunk)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+			return err
+		}
+		flusher.Flush()
+		return nil
+	}
+
+	if err := send(map[string]interface{}{"role": "assistant"}, nil); err != nil {
 		return err
 	}
-	flusher.Flush()
-
-	// 2. Content Delta (Burst emit)
-	escapedContent, _ := json.Marshal(content)
-	chunkContent := fmt.Sprintf(`data: {"id":%q,"object":"chat.completion.chunk","created":%d,"model":%q,"choices":[{"index":0,"delta":{"content":%s},"finish_reason":null}]}`+"\n\n",
-		id, time.Now().Unix(), model, string(escapedContent))
-	if _, err := w.Write([]byte(chunkContent)); err != nil {
+	if reasoning != "" {
+		if err := send(map[string]interface{}{"reasoning_content": reasoning}, nil); err != nil {
+			return err
+		}
+	}
+	if content != "" {
+		if err := send(map[string]interface{}{"content": content}, nil); err != nil {
+			return err
+		}
+	}
+	if len(calls) > 0 {
+		deltas := make([]map[string]interface{}, len(calls))
+		for i, c := range calls {
+			typ := c.Type
+			if typ == "" {
+				typ = "function"
+			}
+			deltas[i] = map[string]interface{}{
+				"index": i, "id": c.ID, "type": typ,
+				"function": map[string]string{"name": c.Function.Name, "arguments": c.Function.Arguments},
+			}
+		}
+		if err := send(map[string]interface{}{"tool_calls": deltas}, nil); err != nil {
+			return err
+		}
+	}
+	if err := send(map[string]interface{}{}, finish); err != nil {
 		return err
 	}
-	flusher.Flush()
-
-	// 3. Stop Delta
-	chunkStop := fmt.Sprintf(`data: {"id":%q,"object":"chat.completion.chunk","created":%d,"model":%q,"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\n",
-		id, time.Now().Unix(), model)
-	if _, err := w.Write([]byte(chunkStop)); err != nil {
-		return err
-	}
-	flusher.Flush()
-
-	// 4. DONE marker
 	if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
 		return err
 	}
 	flusher.Flush()
-
 	return nil
 }
 

@@ -2,7 +2,6 @@
   "description": "OpenAI ingress: a provider writes its tool call as DSML text. The client must receive a structured tool_call with finish_reason tool_calls and no DSML markup in the content.",
   "origin": "M7.3 OpenAI ingress replay",
   "ingress": "openai",
-  "known_bug": "routed /v1/chat/completions replies send resp.RawResponse (the upstream reply before the router converts text tool calls), so the DSML markup reaches the client as content with finish_reason stop; the sse replay also drops tool_calls",
   "request": {
     "model": "gpt-4o",
     "max_tokens": 1024,
