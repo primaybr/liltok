@@ -18,6 +18,9 @@ type DenyEnv struct {
 	GitEmail  string
 	RepoOwner string
 	RepoName  string
+	// RepoExtra holds any path segments between the owner and the repo name in the origin remote
+	// URL, such as a GitLab subgroup; see parseRepoURL.
+	RepoExtra []string
 }
 
 // genericNames are account and host names too common to identify anyone; using them as deny terms
@@ -41,7 +44,9 @@ var genericDomains = map[string]bool{
 }
 
 // CurrentDenyEnv reads the OS username, hostname, git identity and, from the current directory's
-// origin remote, the repository's owner and name. Missing or unparsable values stay empty.
+// origin remote, the repository's owner, name and any intermediate subgroup segments. Missing or
+// unparsable values stay empty; this reads the environment, unlike every other rule in this
+// package, which is a pure function of its input.
 func CurrentDenyEnv() DenyEnv {
 	var e DenyEnv
 	if u, err := user.Current(); err == nil {
@@ -50,7 +55,7 @@ func CurrentDenyEnv() DenyEnv {
 	e.Hostname, _ = os.Hostname()
 	e.GitName = gitConfig("user.name")
 	e.GitEmail = gitConfig("user.email")
-	e.RepoOwner, e.RepoName = parseRepoURL(gitConfig("remote.origin.url"))
+	e.RepoOwner, e.RepoName, e.RepoExtra = parseRepoURL(gitConfig("remote.origin.url"))
 	return e
 }
 
@@ -62,36 +67,52 @@ func gitConfig(key string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// parseRepoURL extracts the owner and repository name from a git remote URL, in either the
-// https://host/owner/name(.git) form or the SCP-like git@host:owner/name(.git) form; a trailing
-// slash is tolerated the same way a trailing ".git" is. Anything else, including a URL that does
-// not resolve to exactly two path segments, returns two empty strings.
-func parseRepoURL(raw string) (owner, name string) {
+// parseRepoURL extracts the repository identity from a git remote URL, in either the
+// https://host/owner/.../name(.git) form or the SCP-like user@host:[/]owner/.../name(.git) form (any
+// "user@host:" prefix is accepted, not only "git@"); a trailing slash is tolerated the same way a
+// trailing ".git" is, and an optional leading "/" right after the SCP colon is stripped the same way
+// the URL form's leading "/" is. The first path segment is the owner and the last is the repository
+// name; anything in between - a GitLab-style subgroup - is returned as extra, in path order. Anything
+// that does not resolve to at least two non-empty path segments returns two empty strings and no
+// extra segments.
+func parseRepoURL(raw string) (owner, name string, extra []string) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", ""
+		return "", "", nil
 	}
 	var path string
-	if rest, ok := strings.CutPrefix(raw, "git@"); ok {
-		_, p, ok := strings.Cut(rest, ":")
-		if !ok {
-			return "", ""
+	if !strings.Contains(raw, "://") {
+		at := strings.Index(raw, "@")
+		if at < 0 {
+			return "", "", nil
 		}
-		path = p
+		_, p, ok := strings.Cut(raw[at+1:], ":")
+		if !ok {
+			return "", "", nil
+		}
+		path = strings.TrimPrefix(p, "/")
 	} else {
 		u, err := url.Parse(raw)
 		if err != nil || u.Host == "" {
-			return "", ""
+			return "", "", nil
 		}
 		path = strings.TrimPrefix(u.Path, "/")
 	}
 	path = strings.TrimSuffix(path, "/")
 	path = strings.TrimSuffix(path, ".git")
 	parts := strings.Split(path, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", ""
+	if len(parts) < 2 {
+		return "", "", nil
 	}
-	return parts[0], parts[1]
+	for _, p := range parts {
+		if p == "" {
+			return "", "", nil
+		}
+	}
+	if len(parts) > 2 {
+		extra = append([]string(nil), parts[1:len(parts)-1]...)
+	}
+	return parts[0], parts[len(parts)-1], extra
 }
 
 // AutoDenyTerms returns the identity terms to reject questions on: the username without a domain
@@ -131,24 +152,25 @@ func AutoDenyTerms(e DenyEnv) []string {
 			if utf8.RuneCountInString(local) >= minSubstringDenyTermLen {
 				add(local)
 			}
-			// Fix round 1: a GitHub noreply address such as "12345+jdoe@users.noreply.github.com"
-			// never emitted a usable term, since the numeric id dominates the local part's length
-			// check and the domain is generic. A "+" in the local part usually separates a numeric
-			// id (or a role) from the handle that actually identifies the contributor, so the part
-			// before the first "+" and the part after the last "+" are also added as candidates,
-			// each subject to the same length and generic-name filters as everything else.
-			if strings.Contains(local, "+") {
-				if j := strings.Index(local, "+"); j >= 0 {
-					add(local[:j])
-				}
-				if j := strings.LastIndex(local, "+"); j >= 0 {
-					add(local[j+1:])
-				}
+			// A GitHub noreply address such as "12345+jdoe@users.noreply.github.com" would otherwise
+			// never emit a usable term, since the numeric id dominates the local part's length check
+			// and the domain is generic. A "+" in the local part usually separates a numeric id (or
+			// a role) from the handle that actually identifies the contributor, so the part before
+			// the first "+" and the part after the last "+" are also added as candidates, each
+			// subject to the same length and generic-name filters as everything else.
+			if j := strings.Index(local, "+"); j >= 0 {
+				add(local[:j])
+			}
+			if j := strings.LastIndex(local, "+"); j >= 0 {
+				add(local[j+1:])
 			}
 			add(e.GitEmail[i+1:])
 		}
 	}
 	add(e.RepoOwner)
+	for _, s := range e.RepoExtra {
+		add(s)
+	}
 	add(e.RepoName)
 	return out
 }

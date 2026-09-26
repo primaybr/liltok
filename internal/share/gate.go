@@ -1,5 +1,6 @@
 // Package share turns questions from a user's own cache into candidates for the shared answer pack.
-// Everything here is a pure function of its input: no database, no network.
+// The rules themselves are pure functions of their input: no database, no network. CurrentDenyEnv
+// is the one exception: it reads the OS user and runs git to learn the machine's identity.
 package share
 
 import (
@@ -52,16 +53,15 @@ const (
 	// to a short question, so a longer question that merely discusses answering in one word in
 	// passing is not caught by it.
 	maxOneWordAnswerChars = 80
-	// minPayloadSameLineChars is rule payload's same-line threshold (Task 7-fix2, fix round 1): a
-	// label line's own trailing content counts as pasted payload once it reaches this many
-	// characters; see hasPayload.
+	// minPayloadSameLineChars is rule payload's same-line threshold: a label line's own trailing
+	// content counts as pasted payload once it reaches this many characters; see hasPayload.
 	minPayloadSameLineChars = 12
 )
 
 var (
 	// secretPattern's final alternative catches a dashed UUID (8-4-4-4-12 hex groups): a run or
-	// request ID naming one is not itself a secret token, but the round-2 dry run found it always
-	// identifies one specific private run, so it is judged secret rather than let through as prose.
+	// request ID naming one is not itself a secret token, but it always identifies one specific
+	// private run, so it is judged secret rather than let through as prose.
 	secretPattern = regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_\-]{8,}|\bsk-[A-Za-z0-9_\-]{16,}|\bgsk_[A-Za-z0-9]{16,}|\bnvapi-[A-Za-z0-9_\-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bAIza[0-9A-Za-z_\-]{30,}|\bAKIA[0-9A-Z]{16}\b|\bxox[abp]-[A-Za-z0-9\-]{10,}|\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:\bbearer\s+[A-Za-z0-9._~+/\-]{16,})|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b`)
 	// hexSecretPattern catches a long hex-only run (a hex-encoded key or a UUID used as one):
 	// Shannon entropy tops out at exactly 4.0 for a 16-symbol alphabet, so it can never exceed
@@ -72,8 +72,13 @@ var (
 	// "not a letter or digit" rather than \b, so an underscore still counts as a boundary (an
 	// env-var name like DB_PASSWORD or GITHUB_TOKEN triggers); an optional closing quote is
 	// allowed between the keyword and the separator, so a quoted JSON key like "password": ...
-	// also triggers.
-	credentialPattern = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token)["']?\s*[:=]\s*\S+`)
+	// also triggers. The keyword may carry any number of "_"/"-"-joined word suffixes
+	// (STRIPE_SECRET_KEY, DB_PASS_PROD), so a short or otherwise unremarkable value after it is
+	// still judged a credential; a bare-letter suffix with no separator is not accepted, so
+	// max_tokens: 4096 is not "token" plus a suffix. A lowercase letter immediately before a
+	// capitalized keyword (dbPassword, clientSecret, apiToken) is also a boundary, for a camelCase
+	// name that the non-alphanumeric boundary alone would miss.
+	credentialPattern = regexp.MustCompile(`(?:(?i:(?:^|[^A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token))|[a-z](?:Pass(?:word|wd)?|Pwd|Secret|Api[_-]?Key|Access[_-]?Token|Auth[_-]?Token|Token))(?:[_-][A-Za-z0-9]+)*["']?\s*[:=]\s*\S+`)
 	emailPattern      = regexp.MustCompile(`[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`)
 	// phonePattern uses [ \t] rather than \s so a match cannot span a newline.
 	phonePattern = regexp.MustCompile(`\+?\(?\d[\d \t().\-]{7,}\d`)
@@ -90,20 +95,24 @@ var (
 	// as a full URL. The token is stripped of a leading protocol-relative "//" and leading or
 	// trailing markdown emphasis characters before this pattern is tried; see hasForeignURL.
 	bareHostPattern = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}(?::\d+)?/\S*$`)
-	contextPattern  = regexp.MustCompile(`(?i)userEmail|claudeMd|gitStatus|today's date is|working directory|<system-reminder`)
+	// privateHostSuffixPattern matches a scheme-less, path-less hostname whose final label is a
+	// private-network suffix (internal, corp, local, lan, intranet): a reader still recognizes this
+	// as a private host name even with no path to resolve. "arpa" (reverse-DNS infrastructure, as in
+	// in-addr.arpa) is deliberately excluded, since it names public resolver zones, not a private
+	// host.
+	privateHostSuffixPattern = regexp.MustCompile(`(?i)^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?:internal|corp|local|lan|intranet)$`)
+	contextPattern           = regexp.MustCompile(`(?i)userEmail|claudeMd|gitStatus|today's date is|working directory|<system-reminder`)
 	// isoTimestampPattern catches an ISO-8601 timestamp (a date, a literal "T", then hour:minute):
 	// a question naming one is anchored to a specific run and never reusable, so it is judged
 	// temporal like "today" or "right now" are.
 	isoTimestampPattern = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}`)
-	// payloadLabelPattern is rule payload's label-line shape. Fix round 1 widened this considerably
-	// after the reviewer's own probing found many labels and wrappers the original version missed:
-	// at line start, an optional markdown heading marker, an optional opening "**", one of the
-	// listed "paste your X below" template labels, an optional closing "**", a colon (ASCII or the
-	// fullwidth "：" a CJK input method can produce), and another optional closing "**" (a bold
-	// wrapper can close either before or after the colon: "**Text**:" or "**Text:**"). It matches
-	// only this prefix - what follows is judged separately by hasPayload, so "Content-Type: text/plain"
-	// never matches: "content" is a label, but "-Type" sits directly between it and the colon, and
-	// nothing here allows that gap.
+	// payloadLabelPattern is rule payload's label-line shape: at line start, an optional markdown
+	// heading marker, an optional opening "**", one of the listed "paste your X below" template
+	// labels, an optional closing "**", a colon (ASCII or the fullwidth "：" a CJK input method can
+	// produce), and another optional closing "**" (a bold wrapper can close either before or after
+	// the colon: "**Text**:" or "**Text:**"). It matches only this prefix - what follows is judged
+	// separately by hasPayload, so "Content-Type: text/plain" never matches: "content" is a label,
+	// but "-Type" sits directly between it and the colon, and nothing here allows that gap.
 	payloadLabelPattern = regexp.MustCompile(`(?i)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:here is the log|here is the text|here is the input|here are the notes|here is the transcript|session log|session notes|text|input|content|logs|log|transcript|document|data|notes|paste)(?:\*\*)?(?::|：)(?:\*\*)?`)
 	// tagWrappedPayloadPattern is rule payload's tag-wrapped shape: an opening tag such as "<text>"
 	// or "<log>" around pasted material. Extraction already drops unknown tags on its own; this is
@@ -115,25 +124,23 @@ var (
 	bracketTimestampPattern = regexp.MustCompile(`(?m)^\[\d{1,2}:\d{2}(?::\d{2})?\]`)
 	// timestampHeadingPattern is rule payload's markdown-heading shape: a heading that opens with a
 	// clock-style timestamp, such as "## 14:05 | develop" - the heading a pasted log excerpt keeps
-	// once it is copied into a question. Fix round 1 loosened the required separator after the time
-	// from a specific "-"/"|"/end-of-line to a plain word boundary, and allowed an optional ":SS"
-	// seconds group, after the reviewer's own probing found "## 09:12:33 main" and "## 09:12 main"
-	// (no separator at all after the time) both passed.
+	// once it is copied into a question. The separator after the time is a plain word boundary
+	// rather than a specific "-"/"|"/end-of-line, and an optional ":SS" seconds group is allowed, so
+	// "## 09:12:33 main" and "## 09:12 main" (no separator at all after the time) both match.
 	timestampHeadingPattern = regexp.MustCompile(`(?m)^#{1,6}\s*\d{1,2}:\d{2}(?::\d{2})?\b`)
 	// probePattern rejects a liveness or echo prompt: a question that asks for a fixed, literal
-	// reply rather than an explanation. Each alternative is anchored the same way the round-1
-	// dry-run findings described it; matching one is enough on its own. Task 7-fix2 added the last
-	// two alternatives: a role-play opener ("You are ...") that primes a persona rather than asking
-	// a question, and a trailing "token"/"nonce" plus a short hex value, the shape a liveness probe
-	// uses to check that a specific reply comes back verbatim.
+	// reply rather than an explanation. Matching any one alternative is enough on its own: alongside
+	// the direct "reply exactly" shapes, it includes a role-play opener ("You are ...") that primes
+	// a persona rather than asking a question, and a trailing "token"/"nonce" plus a short hex value,
+	// the shape a liveness probe uses to check that a specific reply comes back verbatim.
 	probePattern = regexp.MustCompile(`(?i)^(?:reply|respond|answer)\b.{0,40}\b(?:exactly|only)\b|^say \S+ in (?:one|1|exactly one|exactly 1) word|\brespond with status ok\b|^(?:what is|calculate) [\d\s+\-*/().]+\??.{0,40}\b(?:just|only) the number|^you are (?:in|a|an|the|summari[sz]ing)\b|\b(?:token|nonce)\s+[0-9a-f]{4,12}\.?$`)
-	// oneWordAnswerPattern is probe's third Task 7-fix2 shape: a request for a single-word answer.
-	// It is judged only on a short question (see hasProbe's length check) so a longer question that
+	// oneWordAnswerPattern is one of probe's shapes: a request for a single-word answer. It is
+	// judged only on a short question (see hasProbe's length check) so a longer question that
 	// merely discusses "answer in one word" in passing - about ICU collation, say - is not caught.
 	oneWordAnswerPattern = regexp.MustCompile(`(?i)\banswer in (?:one|1|a single) word\.?$`)
 	// assertionPattern rejects a question that opens by asserting its own premise rather than
-	// asking about it ("Confirm that ..."), which is how the round-1 dry run's leaked candidates
-	// about the maintainer's own project were phrased.
+	// asking about it ("Confirm that ..."): that shape states a private fact as settled instead of
+	// asking a reusable question.
 	assertionPattern = regexp.MustCompile(`(?i)^(?:confirm|verify|validate) that\b`)
 	// lowerWordPattern is one segment of the path rule's "ordinary English words joined by slashes"
 	// exemption: see isExemptOrdinaryWords.
@@ -141,37 +148,36 @@ var (
 	// wholeTokenLowerAlnumPath is the shape path rule exemption (a) requires of the whole token (or,
 	// for a golang.org/x/ path, of the part after the prefix): one or more lowercase-alphanumeric
 	// segments joined by "/", with no dots, underscores, uppercase letters or file extensions
-	// anywhere in it. Fix round 1 added this after exemption (a) was found to check only the first
-	// segment, letting a real path under a stdlib-named directory (such as
-	// "go/pkg/mod/github.com/secretco/billing/tax.go") pass.
+	// anywhere in it. Checking the whole token, not just its first segment, keeps a real path under
+	// a stdlib-named directory (such as "go/pkg/mod/github.com/secretco/billing/tax.go") from
+	// passing as an import path.
 	wholeTokenLowerAlnumPath = regexp.MustCompile(`^[a-z0-9]+(?:/[a-z0-9]+)*$`)
-	// trailingCapIdentPattern is a Task 7-fix2 addition to exemption (a): a trailing ".Identifier"
-	// whose first letter is uppercase, such as ".ReverseProxy" in "net/http/httputil.ReverseProxy".
-	// That is a package-qualified exported Go identifier tacked onto an import path, not a
-	// filesystem path segment, so it is stripped before exemption (a)'s whole-token check; see
-	// isExemptPathToken. A trailing lowercase extension such as ".go" is left alone and still falls
-	// through to rejection. Fix round 1 additionally requires at least one lowercase letter in the
-	// identifier, after the reviewer's own probing found an all-uppercase suffix such as ".YAML" -
-	// itself a file extension in disguise, not an exported Go identifier, which is almost always
-	// mixed-case - was also being stripped and let a real nested path through.
+	// trailingCapIdentPattern strips one trailing ".Identifier" whose first letter is uppercase, such
+	// as ".ReverseProxy" in "net/http/httputil.ReverseProxy", before exemption (a)'s whole-token
+	// check; see isExemptPathToken. That is a package-qualified exported Go identifier tacked onto
+	// an import path, not a filesystem path segment. A trailing lowercase extension such as ".go" is
+	// left alone and still falls through to rejection. The pattern also requires at least one
+	// lowercase letter in the identifier, so an all-uppercase suffix such as ".YAML" - itself a file
+	// extension in disguise, not an exported Go identifier, which is almost always mixed-case - is
+	// not stripped, and the token still reads as a real nested path.
 	trailingCapIdentPattern = regexp.MustCompile(`\.[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*$`)
-	// rightSuffixPattern is the extra right-boundary allowance fix round 1 added to the deny-term
-	// boundary check: a lowercase run continuing past a match that is exactly a plural or participle
-	// suffix - "s", "es", "ed", or "ing" - still counts as a boundary, provided a real boundary
-	// follows it too. It also accepts a bare "d": the ruling's own worked example, a term
-	// "widgetgate" against the text "widgetgated", already ends in "e", so English past-tense
-	// spelling adds only "d" (never a doubled "ed") - the same silent-e elision as "gate" ->
-	// "gated". It rejects "widgetgates" and "widgetgated" for a term "widgetgate", while "Material"
-	// (continuation "ial") still passes over a term "Mater". See rightBoundaryOK.
+	// rightSuffixPattern is the right-boundary allowance in the deny-term boundary check: a
+	// lowercase run continuing past a match that is exactly a plural or participle suffix - "s",
+	// "es", "ed", or "ing" - still counts as a boundary, provided a real boundary follows it too. It
+	// also accepts a bare "d": a term "widgetgate" against the text "widgetgated" already ends in
+	// "e", so English past-tense spelling adds only "d" (never a doubled "ed") - the same silent-e
+	// elision as "gate" -> "gated". It rejects "widgetgates" and "widgetgated" for a term
+	// "widgetgate", while "Material" (continuation "ial") still passes over a term "Mater". See
+	// rightBoundaryOK.
 	rightSuffixPattern = regexp.MustCompile(`^(?:ing|es|ed|d|s)(?:[^a-z]|$)`)
 )
 
 // commonDirNames are directory names common enough in a real relative path that a slash-joined run
-// containing one should not be exempted as "ordinary English words" (path rule exemption (b)). Fix
-// round 1 added this after "home/alice/secret/data" and "opt/billing/tax/rates" passed as prose.
-// Fix round 1 added "mod": the go/pkg/mod/... module cache layout otherwise let a token like
-// "go/pkg/mod/secretco/billing.Config" still read as an import path merely because "go" is itself
-// a real stdlib top-level package name; see isExemptPathToken's stdlib branch.
+// containing one should not be exempted as "ordinary English words" (path rule exemption (b)):
+// without this list, a real path like "home/alice/secret/data" or "opt/billing/tax/rates" would
+// read as prose. "mod" is included because the go/pkg/mod/... module cache layout would otherwise
+// let a token like "go/pkg/mod/secretco/billing.Config" still read as an import path merely because
+// "go" is itself a real stdlib top-level package name; see isExemptPathToken's stdlib branch.
 var commonDirNames = map[string]bool{
 	"home": true, "users": true, "user": true, "var": true, "etc": true, "tmp": true, "usr": true,
 	"opt": true, "srv": true, "mnt": true, "src": true, "app": true, "lib": true, "bin": true,
@@ -261,13 +267,29 @@ func NewGate(cfg GateConfig) *Gate {
 			continue
 		}
 		seen[key] = true
+		quoted := quoteTermWhitespace(t)
 		if n >= minSubstringDenyTermLen {
-			g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)` + regexp.QuoteMeta(t)), boundary: true})
+			g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)` + quoted), boundary: true})
 			continue
 		}
-		g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])` + regexp.QuoteMeta(t) + `(?:$|[^\p{L}\p{N}])`)})
+		g.deny = append(g.deny, denyRule{re: regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])` + quoted + `(?:$|[^\p{L}\p{N}])`)})
 	}
 	return g
+}
+
+// quoteTermWhitespace escapes a deny term's regex metacharacters word by word and joins the words
+// with `\s+`, so a multi-word term still matches when its words are broken across a double space or
+// a line break in the question, not only the single literal space the term itself uses.
+func quoteTermWhitespace(t string) string {
+	fields := strings.Fields(t)
+	if len(fields) == 0 {
+		return regexp.QuoteMeta(t)
+	}
+	quoted := make([]string, len(fields))
+	for i, f := range fields {
+		quoted[i] = regexp.QuoteMeta(f)
+	}
+	return strings.Join(quoted, `\s+`)
 }
 
 // Check returns the first rule the question breaks, in the documented order. Any internal failure
@@ -281,7 +303,7 @@ func (g *Gate) Check(question string) (v Verdict) {
 	if !utf8.ValidString(question) {
 		return Verdict{Rule: RuleError}
 	}
-	q := normalize(strings.TrimSpace(question))
+	q := strings.TrimSpace(normalize(question))
 	if n := utf8.RuneCountInString(q); n < minQuestionChars || n > maxQuestionChars {
 		return Verdict{Rule: RuleSize}
 	}
@@ -370,13 +392,12 @@ func matchesWithBoundary(q string, re *regexp.Regexp) bool {
 
 // leftBoundaryOK is the left-side check of matchesWithBoundary: the start of the text, or any rune
 // pair other than "previous rune lowercase and first matched rune (read from the text, not the
-// term) also lowercase". Fix round 1 replaced the original letter/digit-based check with this
-// single rule after probing found several false passes it missed: an acronym or all-caps run before
-// the match ("APIWidgetgate"), a digit before it ("v2widgetgate"), and a CJK character before it
-// ("...widgetgate...") all have a prev rune that unicode.IsLower reports false for a letter, a
-// digit, or a CJK ideograph alike, so all three are now boundaries unconditionally, whatever the
-// first matched rune's case. A glued lowercase run such as "mywidgetgate" is the one accepted
-// residual: prev and first are both lowercase, so it is still not a boundary.
+// term) also lowercase". unicode.IsLower reports false alike for a letter, a digit, or a CJK
+// ideograph, so an acronym or all-caps run before the match ("APIWidgetgate"), a digit before it
+// ("v2widgetgate"), and a CJK character before it ("...widgetgate...") are all boundaries
+// unconditionally, whatever the first matched rune's case. A glued lowercase run such as
+// "mywidgetgate" is the one accepted residual: prev and first are both lowercase, so it is still
+// not a boundary.
 func leftBoundaryOK(q string, start int) bool {
 	if start == 0 {
 		return true
@@ -388,10 +409,10 @@ func leftBoundaryOK(q string, start int) bool {
 
 // rightBoundaryOK is the right-side check of matchesWithBoundary: the end of the text, a rune that
 // is not a lowercase letter (an uppercase letter, digit, underscore, hyphen, dot, space or other
-// punctuation all count), or - added in fix round 1, after probing found "widgetgates" and
-// "widgetgated" passed - a lowercase run continuing past the match that is exactly a plural or
-// participle suffix ("s", "es", "ed", "ing") and is itself followed by a boundary. "Material"
-// continues past a match on "Mater" with "ial", which is none of those four, so it still passes.
+// punctuation all count), or a lowercase run continuing past the match that is exactly a plural or
+// participle suffix ("s", "es", "ed", "ing") and is itself followed by a boundary - so a plain
+// plural or past-tense form of the term still counts as a match. "Material" continues past a match
+// on "Mater" with "ial", which is none of those four, so it still passes.
 func rightBoundaryOK(q string, end int) bool {
 	if end >= len(q) {
 		return true
@@ -591,24 +612,24 @@ func hasPath(q string) bool {
 // (a), or an ordinary run of short lowercase English words joined by slashes, such as "a/the/an"
 // (b). Neither shape is a filesystem or URL path a reader could act on.
 func isExemptPathToken(tok string) bool {
-	// Fix round 1: exemption (a) used to check only the token's first segment, so a real path
-	// nested under a stdlib-named directory ("go/pkg/mod/github.com/secretco/billing/tax.go",
-	// "path/to/Secret/Config.yaml") passed. It now also requires the whole token (or, for a
-	// golang.org/x/ path, the part after the prefix) to be nothing but lowercase-alphanumeric
-	// segments; anything else - a dot, an underscore, an uppercase letter, ".." - falls through to
-	// exemption (b) or rejection instead. Task 7-fix2: before that check, a trailing ".Identifier"
-	// whose first letter is uppercase - a package-qualified exported Go identifier such as
-	// ".ReverseProxy" in "net/http/httputil.ReverseProxy" - is stripped first, so an import path
-	// mentioned together with one of its own exported names still reads as an import path. A
-	// trailing lowercase extension such as ".go" is left alone; see stripTrailingCapIdent.
+	// Exemption (a) requires the whole token (or, for a golang.org/x/ path, the part after the
+	// prefix) to be nothing but lowercase-alphanumeric segments, not just its first segment: anything
+	// else - a dot, an underscore, an uppercase letter, ".." - falls through to exemption (b) or
+	// rejection instead. This keeps a real path nested under a stdlib-named directory
+	// ("go/pkg/mod/github.com/secretco/billing/tax.go", "path/to/Secret/Config.yaml") from passing.
+	// Before that check, a trailing ".Identifier" whose first letter is uppercase - a
+	// package-qualified exported Go identifier such as ".ReverseProxy" in
+	// "net/http/httputil.ReverseProxy" - is stripped first, so an import path mentioned together
+	// with one of its own exported names still reads as an import path. A trailing lowercase
+	// extension such as ".go" is left alone; see stripTrailingCapIdent.
 	//
-	// Fix round 1: the stdlib branch also now rejects a token where any segment after the first
-	// names a common relative-path directory (see commonDirNames and segsContainCommonDir), after
-	// the reviewer's own probing found "go/pkg/mod/secretco/billing.Config" still read as an import
-	// path merely because "go" is itself a real stdlib top-level package name. A token such as
-	// "os/secretco/billing.Tax" - where the second segment is not itself a common directory name -
-	// is an accepted residual of this same gap: catching every implausible stdlib subpackage would
-	// need a real list of actual stdlib import paths, which this rule does not have.
+	// The stdlib branch also rejects a token where any segment after the first names a common
+	// relative-path directory (see commonDirNames and segsContainCommonDir), since otherwise
+	// "go/pkg/mod/secretco/billing.Config" would still read as an import path merely because "go" is
+	// itself a real stdlib top-level package name. A token such as "os/secretco/billing.Tax" - where
+	// the second segment is not itself a common directory name - is an accepted residual gap:
+	// catching every implausible stdlib subpackage would need a real list of actual stdlib import
+	// paths, which this rule does not have.
 	if rest, ok := strings.CutPrefix(tok, golangOrgXPrefix); ok {
 		return wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(rest))
 	}
@@ -639,12 +660,12 @@ func segsContainCommonDir(segs []string) bool {
 }
 
 // isExemptOrdinaryWords is path rule exemption (b): a short run of ordinary lowercase English words
-// joined by slashes, such as "a/the/an", is prose, not a path. Fix round 1 narrowed it after
-// "home/alice/secret/data" and "opt/billing/tax/rates" passed: at most 3 segments (was 4), and never
-// when a segment names a common directory (see commonDirNames), since a real path is far likelier to
-// use one of those than a sentence is. A residual gap remains for a plausible bare project path like
-// "acme/billing/tax": that still passes as ordinary words, so catching a real project name here
-// depends on it also being configured as a deny term.
+// joined by slashes, such as "a/the/an", is prose, not a path. It allows at most 3 segments, and
+// never when a segment names a common directory (see commonDirNames), since a real path is far
+// likelier to use one of those than a sentence is - so a real relative path like
+// "home/alice/secret/data" or "opt/billing/tax/rates" does not pass as prose. A residual gap remains
+// for a plausible bare project path like "acme/billing/tax": that still passes as ordinary words, so
+// catching a real project name here depends on it also being configured as a deny term.
 func isExemptOrdinaryWords(tok string, segs []string) bool {
 	if strings.HasPrefix(tok, "/") || strings.HasSuffix(tok, "/") || len(segs) < 2 || len(segs) > 3 {
 		return false
@@ -660,11 +681,20 @@ func isExemptOrdinaryWords(tok string, segs []string) bool {
 // hasForeignURL reports a URL whose host is not on the allowlist, or whose userinfo names a user
 // with no password (a password is judged secret instead; see hasURLPassword, checked earlier). It
 // also treats a scheme-less "host.tld/path" mention as a URL, since a reader still resolves it as
-// a link.
+// a link, and a scheme-less hostname ending in a private-network suffix even with no path (see
+// privateHostSuffixPattern). A loopback host (localhost, 127.0.0.1, or the IPv6 loopback) is exempt
+// either way, the same way a bare loopback address is already exempt from the pii rule.
 func (g *Gate) hasForeignURL(q string) bool {
 	for _, raw := range urlPattern.FindAllString(q, -1) {
 		u, err := url.Parse(strings.TrimRight(raw, ".,:;!?"))
-		if err != nil || u.User != nil || !g.hostAllowed(strings.ToLower(u.Hostname())) {
+		if err != nil {
+			return true
+		}
+		host := strings.ToLower(u.Hostname())
+		if isLoopbackHost(host) {
+			continue
+		}
+		if u.User != nil || !g.hostAllowed(host) {
 			return true
 		}
 	}
@@ -682,7 +712,7 @@ func (g *Gate) hasForeignURL(q string) bool {
 		if strings.HasPrefix(tok, golangOrgXPrefix) {
 			continue
 		}
-		if !bareHostPattern.MatchString(tok) {
+		if !bareHostPattern.MatchString(tok) && !privateHostSuffixPattern.MatchString(tok) {
 			continue
 		}
 		host := tok
@@ -692,7 +722,11 @@ func (g *Gate) hasForeignURL(q string) bool {
 		if i := strings.IndexByte(host, ':'); i >= 0 {
 			host = host[:i]
 		}
-		if !g.hostAllowed(strings.ToLower(host)) {
+		host = strings.ToLower(host)
+		if isLoopbackHost(host) {
+			continue
+		}
+		if !g.hostAllowed(host) {
 			return true
 		}
 	}
@@ -709,6 +743,16 @@ func (g *Gate) hostAllowed(host string) bool {
 		}
 	}
 	return false
+}
+
+// isLoopbackHost reports whether host (already lowercased) names the local machine: "localhost", or
+// an IP address that net.IP.IsLoopback reports true for (127.0.0.0/8, or the IPv6 "::1").
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // hasCodeDump reports a fenced block longer than maxCodeBlockLines, or fenced code making up more

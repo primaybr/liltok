@@ -48,7 +48,7 @@ var (
 		regexp.MustCompile(`(?s)<user-prompt-submit-hook>.*?</user-prompt-submit-hook>`),
 	}
 	anyTag     = regexp.MustCompile(`</?[A-Za-z][\w:\-]*(?:\s[^<>]*)?>`)
-	contextRef = regexp.MustCompile(`(?i)\b(?:this|that|these|the above|above|attached|my|our)\s+(?:file|files|code|snippet|function|method|class|error|errors|output|log|logs|diff|repo|repository|project|test|tests|script|config)\b|\bfix this\b|\bhere'?s\b|\bsee (?:above|below)\b|\bthe above\b|\bas shown\b`)
+	contextRef = regexp.MustCompile(`(?i)\b(?:this|that|these|above|attached|my|our)\s+(?:file|files|code|snippet|function|method|class|error|errors|output|log|logs|diff|repo|repository|project|test|tests|script|config)\b|\bfix this\b|\bhere'?s\b|\bsee (?:above|below)\b|\bthe above\b|\bas shown\b`)
 	whitespace = regexp.MustCompile(`\s+`)
 )
 

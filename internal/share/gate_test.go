@@ -81,75 +81,97 @@ func TestGate(t *testing.T) {
 		{"unterminated fence of 16 lines rejects", "Why does this loop leak memory?\n" + openFence(16), share.RuleCode},
 		{"temporal", "What is the current time in Jakarta right now, roughly?", share.RuleTemporal},
 		{"invalid utf-8", "\xff\xfe How do I reverse a slice in Go quickly?", share.RuleError},
-		// Round-2 findings: the credential pattern's leading \b never fires right after an
-		// underscore (an env-var name like DB_PASSWORD never gets a word-boundary match there),
-		// and it required the separator to follow the keyword immediately, so a quoted JSON key
-		// like "password": ... also passed.
+		// The credential pattern's boundary treats an underscore as a boundary (unlike \b, which
+		// never fires right after one), so an env-var name like DB_PASSWORD still matches, and an
+		// optional closing quote between the keyword and the separator lets a quoted JSON key like
+		// "password": ... match too.
 		{"env-style credential (underscore prefix)", "I keep seeing DB_PASSWORD=hunter2 in the container logs; is that normal?", share.RuleSecret},
 		{"env-style credential secret name", "The staging service prints CLIENT_SECRET=abcd1234 to stdout on every boot.", share.RuleSecret},
 		{"exported env-style token", "The deploy script runs export GITHUB_TOKEN=abc123 before calling the API.", share.RuleSecret},
 		{"snake-case keyword with colon", "The onboarding doc says to set my_api_key: abcd1234efgh in the shell profile.", share.RuleSecret},
 		{"quoted json credential", "The debug dump includes {\"password\": \"hunter2\"} right in the response body.", share.RuleSecret},
-		// Round-2 findings: the bare-host pattern required "/" immediately after the final
-		// label, so a host with a port, a protocol-relative "//host/path" mention, or a
-		// markdown-decorated "**host/path**" mention all passed.
+		// A keyword followed by an underscore- or hyphen-joined word suffix is still a credential
+		// even when the value itself is short: the suffix does not need to add entropy of its own.
+		{"credential keyword with a word suffix (env style)", "The staging service prints SECRET_KEY=changeme123 to stdout on every boot.", share.RuleSecret},
+		{"credential keyword with a provider-style word suffix and a short value", "The proxy config sets STRIPE_SECRET_KEY=abc1 before every deploy.", share.RuleSecret},
+		{"credential keyword with two word suffixes and a short value", "The runbook says DB_PASS_PROD=x9 is rotated weekly by the operator.", share.RuleSecret},
+		// A lowercase letter immediately before a capitalized keyword is a camelCase credential name,
+		// even though it fails the usual non-alphanumeric boundary check.
+		{"camelCase credential keyword", "The config loader reads dbPassword: Hunter2024! from the local profile.", share.RuleSecret},
+		{"camelCase credential keyword with equals and quotes", `The test fixture sets clientSecret = "abc" before every integration run.`, share.RuleSecret},
+		// A bare-letter suffix (no separator) must still not turn an unrelated word into a
+		// credential match: "max_tokens" is not "token" plus a word suffix.
+		{"credential keyword must not match a bare-letter suffix", "The request body sets max_tokens: 4096 for every completion call.", ""},
+		// The bare-host pattern allows an optional port and decoration (a protocol-relative "//"
+		// prefix, or markdown emphasis) around a host, so a host with a port, a protocol-relative
+		// "//host/path" mention, and a markdown-decorated "**host/path**" mention are all judged.
 		{"bare host with port", "Why does db.corp.io:5432/app refuse connections from the staging pod?", share.RuleURL},
 		{"protocol-relative host", "The asset loads from //cdn.corp.example/lib.js without specifying a scheme.", share.RuleURL},
 		{"markdown-decorated host", "The internal wiki says **wiki.corp.example/go-style** is the canonical guide.", share.RuleURL},
-		// Task 7-fix, item 6: a slash-joined run of short English words, a stdlib import path, and
-		// a golang.org/x/... module path all read as prose or code, not a filesystem or URL path.
-		// The golang.org/x case also exercises the matching exemption added to hasForeignURL's
-		// bare-host check, since golang.org/x/sync/errgroup would otherwise match bareHostPattern
-		// and reject as a foreign host before the path rule is ever reached.
+		// A hostname whose final label is a private-network suffix (internal, corp, local, lan,
+		// intranet) is judged even with no path, since it is not a URL a reader could visit but is
+		// still a private host name. "arpa" (reverse-DNS infrastructure, as in in-addr.arpa) is
+		// deliberately not one of these suffixes.
+		{"private-suffix bare host without a path", "Why can't I resolve billing.corp.internal from the pod?", share.RuleURL},
+		{"arpa suffix is not treated as a private host", "Why does the reverse-lookup zone 1.168.192.in-addr.arpa fail to resolve from the resolver?", ""},
+		// A loopback URL (localhost, 127.0.0.1, or the IPv6 loopback) is exempt from the url rule,
+		// the same way a bare loopback address is already exempt from the pii rule.
+		{"loopback url passes", "How do I proxy http://localhost:3000/api to a Go backend?", ""},
+		// A slash-joined run of short English words, a stdlib import path, and a golang.org/x/...
+		// module path all read as prose or code, not a filesystem or URL path. The golang.org/x case
+		// also exercises the matching exemption in hasForeignURL's bare-host check, since
+		// golang.org/x/sync/errgroup would otherwise match bareHostPattern and reject as a foreign
+		// host before the path rule is ever reached.
 		{"path exemption: short words joined by slashes", "Should the article be a/the/an before an acronym like URL?", ""},
 		{"path exemption: stdlib import path", "How do I read a heap profile from net/http/pprof in production?", ""},
 		{"path exemption: golang.org/x import path", "How does golang.org/x/sync/errgroup cancel siblings?", ""},
 		{"non-exempt path with capitalized segments still rejects", "Why does App/Modules/Billing/Controllers fail to autoload?", share.RulePath},
 		{"non-exempt path with a file extension still rejects", "How do I test src/app/main.go?", share.RulePath},
-		// Fix round 1, item 1: exemption (a) checked only the first segment, so a real path nested
-		// under a stdlib-named directory passed as if it were an import path. It now also requires
-		// the whole token to be nothing but lowercase-alphanumeric segments.
+		// Exemption (a) requires the whole token, not just its first segment, to be nothing but
+		// lowercase-alphanumeric segments, so a real path nested under a stdlib-named directory does
+		// not pass as if it were an import path.
 		{"stdlib-prefixed non-import path still rejects (underscore and extension)", "Why does database/migrations/create_users.php fail during the nightly deploy?", share.RulePath},
 		{"stdlib-prefixed non-import path still rejects (dotted segment)", "Why does go/pkg/mod/github.com/secretco/billing/tax.go fail to build in CI?", share.RulePath},
 		{"stdlib-prefixed non-import path still rejects (deep dotted segment)", "Why does go/src/github.com/secretco/billing fail go vet in CI?", share.RulePath},
 		{"stdlib-prefixed non-import path still rejects (mixed case segment)", "Why can't the loader find path/to/Secret/Config.yaml at startup?", share.RulePath},
 		{"stdlib-prefixed non-import path still rejects (parent-dir segments)", "Why does the setup script read os/exec/../../etc/shadow by mistake?", share.RulePath},
 		{"stdlib import path with all-lowercase segments still passes", "How does database/sql/driver differ from database/sql itself?", ""},
-		// Fix round 1, item 4: exemption (b) used to allow up to 4 segments and any lowercase word,
-		// so a real relative path under a common directory name passed as if it were prose.
+		// Exemption (b) allows at most 3 segments and never a common directory name, so a real
+		// relative path under a common directory name does not pass as if it were prose.
 		{"ordinary-words exemption no longer covers a common directory (4 segments)", "Why does home/alice/secret/data fail to sync after the migration?", share.RulePath},
 		{"ordinary-words exemption no longer covers a common directory (3 segments)", "Why does opt/billing/tax fail to reconcile nightly?", share.RulePath},
 		// Accepted residual (documented, not fixed): a plausible bare project path of three ordinary
 		// words with no common-directory segment still passes exemption (b); catching a real project
 		// name this way depends on it also being configured as a deny term.
 		{"three ordinary words still pass (residual gap; use a deny term to close it)", "How does acme/billing/tax compare with the old spreadsheet workflow?", ""},
-		// Task 7-fix, item 7: an ISO-8601 timestamp is time-anchored the same way "today" is.
+		// An ISO-8601 timestamp is time-anchored the same way "today" is.
 		{"iso timestamp", "Why did the nightly build at 2031-02-03T10:11 fail to upload artifacts?", share.RuleTemporal},
-		// Task 7-fix, item 1: echo/liveness probes ask for a fixed literal reply, not an explanation.
+		// Echo/liveness probes ask for a fixed literal reply, not an explanation.
 		{"probe: reply with exactly", "Reply with exactly: 'Widget service is online.'", share.RuleProbe},
 		{"probe: say in one word", "Say ping in exactly one word.", share.RuleProbe},
 		{"probe: respond with status ok", "The healthcheck script should respond with status ok when the port answers.", share.RuleProbe},
 		{"probe: calculate just the number", "What is 312 + 45? Answer with just the number.", share.RuleProbe},
 		{"probe lookalike passes", `What does "reply-to" mean in an SMTP header and when is it only advisory?`, ""},
-		// Task 7-fix, item 2: a question that asserts its own premise up front, rather than asking
-		// about it, is how the round-1 dry run's leaked candidates were phrased.
+		// A question that asserts its own premise up front, rather than asking about it, states a
+		// private fact as settled instead of asking a reusable question.
 		{"assertion: confirm that", "Confirm that storing frob_bytes in widget_logs gives accurate savings for Acme sessions.", share.RuleAssertion},
 		{"assertion lookalike passes", "How do I verify that a TLS certificate chain is complete with openssl?", ""},
-		// Task 7-fix2, item 1: a line that is only a "paste your X below" label, with pasted
-		// material somewhere after it, is how the round-2 dry run's text-compression leaks were
-		// shaped.
+		// TrimSpace runs after normalize, so a leading zero-width space followed by an ordinary space
+		// cannot hide a break that would otherwise defeat an anchored rule like assertion's.
+		{"assertion after a leading zero-width space and ordinary space", "​ Confirm that the widget flag is on for every tenant.", share.RuleAssertion},
+		// A line that is only a "paste your X below" label, with pasted material somewhere after it,
+		// is the shape a text-compression request takes once a payload has been pasted into it.
 		{"payload: label line then pasted material", "Compress this log. Rules: keep all facts.\n\nText:\n\n## 09:12 | main\nFixed WidgetSync retry in widget_jobs.", share.RulePayload},
 		{"payload: input label then pasted material", "Summarise the following.\nInput:\nAcme ops notes for week 12", share.RulePayload},
 		{"payload lookalike (label word inline, not on its own line) passes", `In a multipart/form-data body, what does the Content-Type: text/plain line of a part mean?`, ""},
-		// Task 7-fix2, item 2: a markdown heading that opens with a clock-style timestamp is the
-		// heading a pasted log excerpt keeps once it is copied into a question.
+		// A markdown heading that opens with a clock-style timestamp is the heading a pasted log
+		// excerpt keeps once it is copied into a question.
 		{"payload: timestamped log heading", "## 14:05 | develop\nDeployed AcmeBilling v2.3 to the cluster. What should I check next?", share.RulePayload},
 		{"payload lookalike (no heading marker) passes", "Why does cron treat 0 9 * * 1-5 as 09:00 on weekdays?", ""},
-		// Task 7-fix2, fix round 1, item 1: the reviewer's own probing of the payload rule found a
-		// dozen bypasses - labels outside the original set, a markdown-bold-wrapped label, same-line
-		// payload, a tag-wrapped payload, a triple-quoted payload, and looser log-heading shapes.
-		// Each case below pairs a label or heading shape with the reviewer's own synthetic probe
-		// payload text.
+		// The payload rule covers a dozen distinct shapes - labels outside the minimal set, a
+		// markdown-bold-wrapped label, same-line payload, a tag-wrapped payload, a triple-quoted
+		// payload, and looser log-heading shapes. Each case below pairs a label or heading shape with
+		// synthetic payload text.
 		{"payload: label with text on the same line", "Compress this log. Rules: keep all facts.\n\nText: Fixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
 		{"payload: here-is-the-log label", "Compress this log. Rules: keep all facts.\n\nHere is the log:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
 		{"payload: notes label (outside the original set)", "Summarize before I send this.\n\nNotes:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
@@ -165,18 +187,18 @@ func TestGate(t *testing.T) {
 		// Negative case: the label is the last non-empty line, with nothing on the same line after
 		// the colon and no later line at all - not payload by this rule.
 		{"payload lookalike: label is the last line with nothing after it", "When drafting a template for this kind of report, what should the final section under\nNotes:", ""},
-		// Negative case straight from the ruling: the label word appears mid-sentence, never at the
-		// true start of a line, so the label-line shape never engages regardless of what follows.
+		// Negative case: the label word appears mid-sentence, never at the true start of a line, so
+		// the label-line shape never engages regardless of what follows.
 		{"payload lookalike: label word mid-sentence, not at line start", "What should come after a line like Notes:", ""},
 		// Must still pass (unchanged by the widened rule): a label word immediately followed by
 		// something other than the colon, and a heading-lookalike line with no "#" marker at all.
 		{"payload lookalike (label word inline, not on its own line, still passes)", `In a multipart/form-data body, what does the Content-Type: text/plain line of a part mean?`, ""},
 		{"payload lookalike (no heading marker, still passes)", "Why does cron treat 0 9 * * 1-5 as 09:00 on weekdays?", ""},
-		// Task 7-fix2, item 3: a dashed UUID names one specific private run, so it is judged secret.
+		// A dashed UUID names one specific private run, so it is judged secret.
 		{"dashed uuid", "Why did run 3f2a9c1e-7b4d-4e2a-9c1f-0a1b2c3d4e5f stall at 14%?", share.RuleSecret},
 		{"uuid discussion without a literal uuid passes", "What is the difference between UUID v4 and UUID v7 layouts?", ""},
-		// Task 7-fix2, item 4: three more probe shapes - a role-play opener, a short one-word-answer
-		// request, and a trailing token/nonce value.
+		// Three more probe shapes: a role-play opener, a short one-word-answer request, and a
+		// trailing token/nonce value.
 		{"probe: role-play opener (in)", "You are in plan mode. Write a 3-step plan for adding a widget cache.", share.RuleProbe},
 		{"probe: role-play opener (summarizing)", "You are summarizing a session for a daily log. Rules: keep facts.", share.RuleProbe},
 		{"probe lookalike (are you, not you are) passes", "Are you required to close a Go http.Response body?", ""},
@@ -185,16 +207,17 @@ func TestGate(t *testing.T) {
 		{"probe lookalike (one-word phrase, but not a request for one) passes", "Why does the word 'answer' in one locale sort differently in ICU collation?", ""},
 		{"probe: trailing token nonce", "Explain a write-ahead log in 150 words. Token 9c1e.", share.RuleProbe},
 		{"probe lookalike (token with no trailing value) passes", "How do I refresh an OAuth access token?", ""},
-		// Task 7-fix2, item 5: path exemption (a) strips one trailing ".Identifier" whose first
-		// letter is uppercase before its whole-token check, so an import path mentioned together
-		// with one of its own exported names still reads as an import path.
+		// Path exemption (a) strips one trailing ".Identifier" whose first letter is uppercase
+		// before its whole-token check, so an import path mentioned together with one of its own
+		// exported names still reads as an import path.
 		{"path exemption: stdlib import path with a trailing exported identifier", "How does net/http/httputil.ReverseProxy rewrite the Host header?", ""},
 		{"non-exempt stdlib-prefixed path with a lowercase extension still rejects", "Why does net/http/secret.go fail to build?", share.RulePath},
 		{"non-exempt path with a trailing capitalized field (first segment not stdlib) still rejects", "How do I test app/billing/Tax.Rate?", share.RulePath},
-		// Task 7-fix2, fix round 1, item 2: the reviewer's own probing found the trailing-identifier
-		// strip too permissive - an all-uppercase suffix like ".YAML" is a file extension in
-		// disguise, not an exported Go identifier, and a go/pkg/mod/... module-cache path still read
-		// as a stdlib import merely because "go" is itself a real stdlib top-level package.
+		// The trailing-identifier strip requires a lowercase letter in the identifier, so an
+		// all-uppercase suffix like ".YAML" - a file extension in disguise, not an exported Go
+		// identifier - is not stripped, and the stdlib branch also rejects a common directory name
+		// after the first segment, so a go/pkg/mod/... module-cache path does not read as a stdlib
+		// import merely because "go" is itself a real stdlib top-level package.
 		{"non-exempt path with an all-uppercase trailing suffix still rejects", "Why does os/acme/billing.YAML not parse?", share.RulePath},
 		{"non-exempt path under go/pkg/mod still rejects despite a lowercase-bearing identifier", "Why does go/pkg/mod/secretco/billing.Config not load?", share.RulePath},
 		{"non-exempt path with an internal segment still rejects", "Why does crypto/internal/acmevault.Key fail to load the master key?", share.RulePath},
@@ -218,7 +241,7 @@ func TestGate(t *testing.T) {
 // go.dev and pkg.go.dev both end in "dev": with the fixture's "dev" deny term in play (as in
 // TestGate's gate), mentioning either would also, correctly, match that deny term and reach
 // deny_term before reaching a passing "" verdict. These cases isolate the bare-host allowlist
-// logic (round-2 finding 2) from that unrelated collision.
+// logic from that unrelated collision.
 func TestGateNoDenyTerms(t *testing.T) {
 	g := share.NewGate(share.GateConfig{URLAllowlist: testAllowlist})
 	cases := []struct {
@@ -242,10 +265,10 @@ func TestVerdictPassed(t *testing.T) {
 	}
 }
 
-// TestGateDenyTermBoundary covers task 7-fix item 3: a deny term of five or more characters now
-// matches a boundary-safe substring occurrence instead of matching anywhere unconditionally, so it
-// catches an identifier built from the term (PascalCase, snake_case, or a camelCase run) without
-// also matching an unrelated word that merely happens to start the same way.
+// TestGateDenyTermBoundary covers the deny-term boundary rule: a deny term of five or more
+// characters matches a boundary-safe substring occurrence instead of matching anywhere
+// unconditionally, so it catches an identifier built from the term (PascalCase, snake_case, or a
+// camelCase run) without also matching an unrelated word that merely happens to start the same way.
 func TestGateDenyTermBoundary(t *testing.T) {
 	g := share.NewGate(share.GateConfig{DenyTerms: []string{"Mater"}, URLAllowlist: testAllowlist})
 	cases := []struct {
@@ -265,11 +288,10 @@ func TestGateDenyTermBoundary(t *testing.T) {
 	}
 }
 
-// TestGateDenyTermBoundaryFixRound1 covers fix round-1 items 2 and 3: probing the boundary rule
-// from TestGateDenyTermBoundary found it still missed an acronym, all-caps, digit, or CJK rune
-// immediately before the term, and a plain plural or past-tense suffix immediately after it. Both
-// sides were narrowed; "mywidgetgate" (a glued, unbroken lowercase run on the left) is the one
-// documented residual the ruling explicitly kept.
+// TestGateDenyTermBoundaryFixRound1 covers the boundary rule's edge cases beyond
+// TestGateDenyTermBoundary: an acronym, all-caps, digit, or CJK rune immediately before the term is
+// a boundary, and so is a plain plural or past-tense suffix immediately after it. "mywidgetgate" (a
+// glued, unbroken lowercase run on the left) is the one documented residual this rule accepts.
 func TestGateDenyTermBoundaryFixRound1(t *testing.T) {
 	g := share.NewGate(share.GateConfig{DenyTerms: []string{"widgetgate"}, URLAllowlist: testAllowlist})
 	cases := []struct {
@@ -282,6 +304,28 @@ func TestGateDenyTermBoundaryFixRound1(t *testing.T) {
 		{"glued lowercase run is the accepted residual and still passes", "Why does mywidgetgate throttle without warning?", ""},
 		{"plural suffix now rejects", "How do I configure widgetgates across the cluster?", share.RuleDenyTerm},
 		{"past-tense suffix now rejects", "Why does the healthcheck endpoint report widgetgated after a retry?", share.RuleDenyTerm},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := g.Check(tc.q).Rule; got != tc.want {
+				t.Errorf("rule = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestGateDenyTermWhitespaceRuns covers a multi-word deny term whose words are broken across a
+// double space or a line break in the question, rather than the single literal space the term
+// itself uses: a whitespace run in a compiled deny term matches a whitespace run in the question,
+// not only the exact separator the term was configured with.
+func TestGateDenyTermWhitespaceRuns(t *testing.T) {
+	g := share.NewGate(share.GateConfig{DenyTerms: []string{"Jane Roe"}, URLAllowlist: testAllowlist})
+	cases := []struct {
+		name, q, want string
+	}{
+		{"line break between the deny term's words", "Why does Jane\nRoe's deploy script fail on arm64?", share.RuleDenyTerm},
+		{"double space between the deny term's words", "Why does Jane  Roe's deploy script fail on arm64 hardware?", share.RuleDenyTerm},
+		{"unrelated text still passes", "Why does the release manager's deploy script fail on arm64 hardware?", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
