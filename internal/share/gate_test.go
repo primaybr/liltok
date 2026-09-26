@@ -145,6 +145,33 @@ func TestGate(t *testing.T) {
 		// heading a pasted log excerpt keeps once it is copied into a question.
 		{"payload: timestamped log heading", "## 14:05 | develop\nDeployed AcmeBilling v2.3 to the cluster. What should I check next?", share.RulePayload},
 		{"payload lookalike (no heading marker) passes", "Why does cron treat 0 9 * * 1-5 as 09:00 on weekdays?", ""},
+		// Task 7-fix2, fix round 1, item 1: the reviewer's own probing of the payload rule found a
+		// dozen bypasses - labels outside the original set, a markdown-bold-wrapped label, same-line
+		// payload, a tag-wrapped payload, a triple-quoted payload, and looser log-heading shapes.
+		// Each case below pairs a label or heading shape with the reviewer's own synthetic probe
+		// payload text.
+		{"payload: label with text on the same line", "Compress this log. Rules: keep all facts.\n\nText: Fixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: here-is-the-log label", "Compress this log. Rules: keep all facts.\n\nHere is the log:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: notes label (outside the original set)", "Summarize before I send this.\n\nNotes:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: session log label (outside the original set)", "Please compress this transcript.\n\nSession log:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: markdown-bold label", "Compress this please.\n\n**Text:**\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: tag-wrapped payload", "Summarize the following.\n<text>\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.\n</text>", share.RulePayload},
+		{"payload: triple-quoted payload", "Summarize the following.\n\"\"\"\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.\n\"\"\"", share.RulePayload},
+		{"payload: log heading with seconds", "## 09:12:33 main\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: log heading with no separator after the time", "## 09:12 main\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: bracketed timestamp at line start", "[09:12] Fixed WidgetSync retry in widget_jobs. Migrated orders_db. What should I check next?", share.RulePayload},
+		{"payload: paste label (outside the original set)", "Please review this.\n\nPaste:\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		{"payload: fullwidth colon after the label", "Compress this log.\n\nText：\nFixed WidgetSync retry in widget_jobs. Migrated orders_db.", share.RulePayload},
+		// Negative case: the label is the last non-empty line, with nothing on the same line after
+		// the colon and no later line at all - not payload by this rule.
+		{"payload lookalike: label is the last line with nothing after it", "When drafting a template for this kind of report, what should the final section under\nNotes:", ""},
+		// Negative case straight from the ruling: the label word appears mid-sentence, never at the
+		// true start of a line, so the label-line shape never engages regardless of what follows.
+		{"payload lookalike: label word mid-sentence, not at line start", "What should come after a line like Notes:", ""},
+		// Must still pass (unchanged by the widened rule): a label word immediately followed by
+		// something other than the colon, and a heading-lookalike line with no "#" marker at all.
+		{"payload lookalike (label word inline, not on its own line, still passes)", `In a multipart/form-data body, what does the Content-Type: text/plain line of a part mean?`, ""},
+		{"payload lookalike (no heading marker, still passes)", "Why does cron treat 0 9 * * 1-5 as 09:00 on weekdays?", ""},
 		// Task 7-fix2, item 3: a dashed UUID names one specific private run, so it is judged secret.
 		{"dashed uuid", "Why did run 3f2a9c1e-7b4d-4e2a-9c1f-0a1b2c3d4e5f stall at 14%?", share.RuleSecret},
 		{"uuid discussion without a literal uuid passes", "What is the difference between UUID v4 and UUID v7 layouts?", ""},
@@ -164,6 +191,19 @@ func TestGate(t *testing.T) {
 		{"path exemption: stdlib import path with a trailing exported identifier", "How does net/http/httputil.ReverseProxy rewrite the Host header?", ""},
 		{"non-exempt stdlib-prefixed path with a lowercase extension still rejects", "Why does net/http/secret.go fail to build?", share.RulePath},
 		{"non-exempt path with a trailing capitalized field (first segment not stdlib) still rejects", "How do I test app/billing/Tax.Rate?", share.RulePath},
+		// Task 7-fix2, fix round 1, item 2: the reviewer's own probing found the trailing-identifier
+		// strip too permissive - an all-uppercase suffix like ".YAML" is a file extension in
+		// disguise, not an exported Go identifier, and a go/pkg/mod/... module-cache path still read
+		// as a stdlib import merely because "go" is itself a real stdlib top-level package.
+		{"non-exempt path with an all-uppercase trailing suffix still rejects", "Why does os/acme/billing.YAML not parse?", share.RulePath},
+		{"non-exempt path under go/pkg/mod still rejects despite a lowercase-bearing identifier", "Why does go/pkg/mod/secretco/billing.Config not load?", share.RulePath},
+		{"non-exempt path with an internal segment still rejects", "Why does crypto/internal/acmevault.Key fail to load the master key?", share.RulePath},
+		// Accepted residual (documented, not fixed): the stdlib branch only checks the first segment
+		// against the real stdlib package list and the segments after it against the common-dir
+		// denylist, so a plausible-looking but nonexistent stdlib subpackage whose later segments
+		// name nothing on that denylist still passes; catching every implausible stdlib subpackage
+		// would need a real list of actual stdlib import paths, which this rule does not have.
+		{"stdlib-prefixed but not a real stdlib subpackage still passes (residual gap)", "Why does os/secretco/billing.Tax fail to compile after the refactor?", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

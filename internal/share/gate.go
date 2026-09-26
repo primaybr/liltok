@@ -52,6 +52,10 @@ const (
 	// to a short question, so a longer question that merely discusses answering in one word in
 	// passing is not caught by it.
 	maxOneWordAnswerChars = 80
+	// minPayloadSameLineChars is rule payload's same-line threshold (Task 7-fix2, fix round 1): a
+	// label line's own trailing content counts as pasted payload once it reaches this many
+	// characters; see hasPayload.
+	minPayloadSameLineChars = 12
 )
 
 var (
@@ -91,14 +95,31 @@ var (
 	// a question naming one is anchored to a specific run and never reusable, so it is judged
 	// temporal like "today" or "right now" are.
 	isoTimestampPattern = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}`)
-	// labelLinePattern is rule payload's first shape: a line that consists only of a "paste your X
-	// below" template label and a colon, such as "Text:" or "Input:". A prompt template like this
-	// leaves the label on its own line once the pasted material follows it; see hasPayload.
-	labelLinePattern = regexp.MustCompile(`(?i)^\s*(?:text|input|content|log|logs|transcript|document|data)\s*:\s*$`)
-	// timestampHeadingPattern is rule payload's second shape: a markdown heading that opens with a
-	// clock-style timestamp, such as "## 14:05 | develop" - the heading a pasted log excerpt keeps
+	// payloadLabelPattern is rule payload's label-line shape. Fix round 1 widened this considerably
+	// after the reviewer's own probing found many labels and wrappers the original version missed:
+	// at line start, an optional markdown heading marker, an optional opening "**", one of the
+	// listed "paste your X below" template labels, an optional closing "**", a colon (ASCII or the
+	// fullwidth "：" a CJK input method can produce), and another optional closing "**" (a bold
+	// wrapper can close either before or after the colon: "**Text**:" or "**Text:**"). It matches
+	// only this prefix - what follows is judged separately by hasPayload, so "Content-Type: text/plain"
+	// never matches: "content" is a label, but "-Type" sits directly between it and the colon, and
+	// nothing here allows that gap.
+	payloadLabelPattern = regexp.MustCompile(`(?i)^\s*(?:#{1,6}\s*)?(?:\*\*)?(?:here is the log|here is the text|here is the input|here are the notes|here is the transcript|session log|session notes|text|input|content|logs|log|transcript|document|data|notes|paste)(?:\*\*)?(?::|：)(?:\*\*)?`)
+	// tagWrappedPayloadPattern is rule payload's tag-wrapped shape: an opening tag such as "<text>"
+	// or "<log>" around pasted material. Extraction already drops unknown tags on its own; this is
+	// defense in depth for a tag it does recognize.
+	tagWrappedPayloadPattern = regexp.MustCompile(`(?i)<(?:text|input|log|document|transcript|notes|content)>`)
+	// bracketTimestampPattern is rule payload's bracketed-timestamp shape: a timestamp in brackets
+	// at line start, such as "[09:12]" or "[09:12:33]" - the shape a pasted chat or log line keeps
 	// once it is copied into a question.
-	timestampHeadingPattern = regexp.MustCompile(`(?m)^#{1,6}\s*\d{1,2}:\d{2}(?:\s*[-|]|\s*$)`)
+	bracketTimestampPattern = regexp.MustCompile(`(?m)^\[\d{1,2}:\d{2}(?::\d{2})?\]`)
+	// timestampHeadingPattern is rule payload's markdown-heading shape: a heading that opens with a
+	// clock-style timestamp, such as "## 14:05 | develop" - the heading a pasted log excerpt keeps
+	// once it is copied into a question. Fix round 1 loosened the required separator after the time
+	// from a specific "-"/"|"/end-of-line to a plain word boundary, and allowed an optional ":SS"
+	// seconds group, after the reviewer's own probing found "## 09:12:33 main" and "## 09:12 main"
+	// (no separator at all after the time) both passed.
+	timestampHeadingPattern = regexp.MustCompile(`(?m)^#{1,6}\s*\d{1,2}:\d{2}(?::\d{2})?\b`)
 	// probePattern rejects a liveness or echo prompt: a question that asks for a fixed, literal
 	// reply rather than an explanation. Each alternative is anchored the same way the round-1
 	// dry-run findings described it; matching one is enough on its own. Task 7-fix2 added the last
@@ -129,8 +150,11 @@ var (
 	// That is a package-qualified exported Go identifier tacked onto an import path, not a
 	// filesystem path segment, so it is stripped before exemption (a)'s whole-token check; see
 	// isExemptPathToken. A trailing lowercase extension such as ".go" is left alone and still falls
-	// through to rejection.
-	trailingCapIdentPattern = regexp.MustCompile(`\.[A-Z][A-Za-z0-9_]*$`)
+	// through to rejection. Fix round 1 additionally requires at least one lowercase letter in the
+	// identifier, after the reviewer's own probing found an all-uppercase suffix such as ".YAML" -
+	// itself a file extension in disguise, not an exported Go identifier, which is almost always
+	// mixed-case - was also being stripped and let a real nested path through.
+	trailingCapIdentPattern = regexp.MustCompile(`\.[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*$`)
 	// rightSuffixPattern is the extra right-boundary allowance fix round 1 added to the deny-term
 	// boundary check: a lowercase run continuing past a match that is exactly a plural or participle
 	// suffix - "s", "es", "ed", or "ing" - still counts as a boundary, provided a real boundary
@@ -145,10 +169,13 @@ var (
 // commonDirNames are directory names common enough in a real relative path that a slash-joined run
 // containing one should not be exempted as "ordinary English words" (path rule exemption (b)). Fix
 // round 1 added this after "home/alice/secret/data" and "opt/billing/tax/rates" passed as prose.
+// Fix round 1 added "mod": the go/pkg/mod/... module cache layout otherwise let a token like
+// "go/pkg/mod/secretco/billing.Config" still read as an import path merely because "go" is itself
+// a real stdlib top-level package name; see isExemptPathToken's stdlib branch.
 var commonDirNames = map[string]bool{
 	"home": true, "users": true, "user": true, "var": true, "etc": true, "tmp": true, "usr": true,
 	"opt": true, "srv": true, "mnt": true, "src": true, "app": true, "lib": true, "bin": true,
-	"cmd": true, "pkg": true, "internal": true, "root": true, "data": true, "config": true,
+	"cmd": true, "pkg": true, "internal": true, "root": true, "data": true, "config": true, "mod": true,
 }
 
 // stdlibTopLevel is the set of Go standard-library top-level import segments; a token whose first
@@ -377,17 +404,25 @@ func rightBoundaryOK(q string, end int) bool {
 }
 
 // hasPayload reports a question built from a "paste your X below" template whose payload was
-// pasted in: either a line that is only a label like "Text:" or "Input:" with at least one
-// non-empty line somewhere after it (labelLinePattern), or a markdown heading that opens with a
-// clock-style timestamp such as a copied log line (timestampHeadingPattern).
+// pasted in. It checks four independent shapes, any one of which is enough: a markdown heading or
+// a bracketed timestamp that opens a copied log line (timestampHeadingPattern,
+// bracketTimestampPattern); an opening tag such as "<text>" wrapping pasted material
+// (tagWrappedPayloadPattern); a Python-style triple-quoted block (hasTripleQuotedPayload); or a
+// label line (payloadLabelPattern) - fired when either at least minPayloadSameLineChars of
+// non-empty content follows the colon on the same line, or a later line is non-empty.
 func hasPayload(q string) bool {
-	if timestampHeadingPattern.MatchString(q) {
+	if timestampHeadingPattern.MatchString(q) || bracketTimestampPattern.MatchString(q) ||
+		tagWrappedPayloadPattern.MatchString(q) || hasTripleQuotedPayload(q) {
 		return true
 	}
 	lines := strings.Split(q, "\n")
 	for i, line := range lines {
-		if !labelLinePattern.MatchString(line) {
+		loc := payloadLabelPattern.FindStringIndex(line)
+		if loc == nil {
 			continue
+		}
+		if utf8.RuneCountInString(strings.TrimSpace(line[loc[1]:])) >= minPayloadSameLineChars {
+			return true
 		}
 		for _, later := range lines[i+1:] {
 			if strings.TrimSpace(later) != "" {
@@ -396,6 +431,28 @@ func hasPayload(q string) bool {
 		}
 	}
 	return false
+}
+
+// hasTripleQuotedPayload reports a question containing two triple-double-quote or two
+// triple-single-quote delimiters with non-empty content between them - a Python-style
+// triple-quoted block pasted into a question.
+func hasTripleQuotedPayload(q string) bool {
+	return hasDelimitedPayload(q, `"""`) || hasDelimitedPayload(q, `'''`)
+}
+
+// hasDelimitedPayload reports whether q contains two occurrences of delim with non-empty (once
+// trimmed) content between the first pair found.
+func hasDelimitedPayload(q, delim string) bool {
+	first := strings.Index(q, delim)
+	if first < 0 {
+		return false
+	}
+	rest := q[first+len(delim):]
+	second := strings.Index(rest, delim)
+	if second < 0 {
+		return false
+	}
+	return strings.TrimSpace(rest[:second]) != ""
 }
 
 // hasProbe reports a liveness or echo prompt; see probePattern for most of its shapes.
@@ -544,11 +601,20 @@ func isExemptPathToken(tok string) bool {
 	// ".ReverseProxy" in "net/http/httputil.ReverseProxy" - is stripped first, so an import path
 	// mentioned together with one of its own exported names still reads as an import path. A
 	// trailing lowercase extension such as ".go" is left alone; see stripTrailingCapIdent.
+	//
+	// Fix round 1: the stdlib branch also now rejects a token where any segment after the first
+	// names a common relative-path directory (see commonDirNames and segsContainCommonDir), after
+	// the reviewer's own probing found "go/pkg/mod/secretco/billing.Config" still read as an import
+	// path merely because "go" is itself a real stdlib top-level package name. A token such as
+	// "os/secretco/billing.Tax" - where the second segment is not itself a common directory name -
+	// is an accepted residual of this same gap: catching every implausible stdlib subpackage would
+	// need a real list of actual stdlib import paths, which this rule does not have.
 	if rest, ok := strings.CutPrefix(tok, golangOrgXPrefix); ok {
 		return wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(rest))
 	}
 	segs := strings.Split(tok, "/")
-	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] && wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(tok)) {
+	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] &&
+		!segsContainCommonDir(segs[1:]) && wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(tok)) {
 		return true
 	}
 	return isExemptOrdinaryWords(tok, segs)
@@ -559,6 +625,17 @@ func isExemptPathToken(tok string) bool {
 // no such suffix is present.
 func stripTrailingCapIdent(s string) string {
 	return trailingCapIdentPattern.ReplaceAllString(s, "")
+}
+
+// segsContainCommonDir reports whether any of segs names a common relative-path directory (see
+// commonDirNames); used by path exemption (a)'s stdlib branch. See isExemptPathToken.
+func segsContainCommonDir(segs []string) bool {
+	for _, s := range segs {
+		if commonDirNames[s] {
+			return true
+		}
+	}
+	return false
 }
 
 // isExemptOrdinaryWords is path rule exemption (b): a short run of ordinary lowercase English words
