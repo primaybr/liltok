@@ -135,6 +135,35 @@ func TestGate(t *testing.T) {
 		// about it, is how the round-1 dry run's leaked candidates were phrased.
 		{"assertion: confirm that", "Confirm that storing frob_bytes in widget_logs gives accurate savings for Acme sessions.", share.RuleAssertion},
 		{"assertion lookalike passes", "How do I verify that a TLS certificate chain is complete with openssl?", ""},
+		// Task 7-fix2, item 1: a line that is only a "paste your X below" label, with pasted
+		// material somewhere after it, is how the round-2 dry run's text-compression leaks were
+		// shaped.
+		{"payload: label line then pasted material", "Compress this log. Rules: keep all facts.\n\nText:\n\n## 09:12 | main\nFixed WidgetSync retry in widget_jobs.", share.RulePayload},
+		{"payload: input label then pasted material", "Summarise the following.\nInput:\nAcme ops notes for week 12", share.RulePayload},
+		{"payload lookalike (label word inline, not on its own line) passes", `In a multipart/form-data body, what does the Content-Type: text/plain line of a part mean?`, ""},
+		// Task 7-fix2, item 2: a markdown heading that opens with a clock-style timestamp is the
+		// heading a pasted log excerpt keeps once it is copied into a question.
+		{"payload: timestamped log heading", "## 14:05 | develop\nDeployed AcmeBilling v2.3 to the cluster. What should I check next?", share.RulePayload},
+		{"payload lookalike (no heading marker) passes", "Why does cron treat 0 9 * * 1-5 as 09:00 on weekdays?", ""},
+		// Task 7-fix2, item 3: a dashed UUID names one specific private run, so it is judged secret.
+		{"dashed uuid", "Why did run 3f2a9c1e-7b4d-4e2a-9c1f-0a1b2c3d4e5f stall at 14%?", share.RuleSecret},
+		{"uuid discussion without a literal uuid passes", "What is the difference between UUID v4 and UUID v7 layouts?", ""},
+		// Task 7-fix2, item 4: three more probe shapes - a role-play opener, a short one-word-answer
+		// request, and a trailing token/nonce value.
+		{"probe: role-play opener (in)", "You are in plan mode. Write a 3-step plan for adding a widget cache.", share.RuleProbe},
+		{"probe: role-play opener (summarizing)", "You are summarizing a session for a daily log. Rules: keep facts.", share.RuleProbe},
+		{"probe lookalike (are you, not you are) passes", "Are you required to close a Go http.Response body?", ""},
+		{"probe: one-word answer on a short prompt", "Calculate 3+5 and answer in one word.", share.RuleProbe},
+		{"probe: one-word answer, digit form", "What is the capital of Peru? Answer in 1 word.", share.RuleProbe},
+		{"probe lookalike (one-word phrase, but not a request for one) passes", "Why does the word 'answer' in one locale sort differently in ICU collation?", ""},
+		{"probe: trailing token nonce", "Explain a write-ahead log in 150 words. Token 9c1e.", share.RuleProbe},
+		{"probe lookalike (token with no trailing value) passes", "How do I refresh an OAuth access token?", ""},
+		// Task 7-fix2, item 5: path exemption (a) strips one trailing ".Identifier" whose first
+		// letter is uppercase before its whole-token check, so an import path mentioned together
+		// with one of its own exported names still reads as an import path.
+		{"path exemption: stdlib import path with a trailing exported identifier", "How does net/http/httputil.ReverseProxy rewrite the Host header?", ""},
+		{"non-exempt stdlib-prefixed path with a lowercase extension still rejects", "Why does net/http/secret.go fail to build?", share.RulePath},
+		{"non-exempt path with a trailing capitalized field (first segment not stdlib) still rejects", "How do I test app/billing/Tax.Rate?", share.RulePath},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -78,4 +80,29 @@ func TestShareScan(t *testing.T) {
 		t.Fatalf("second share scan: %v", err)
 	}
 	assertContains(t, out, countLine("added", 0), countLine("dropped", 0), "Pending review:          1")
+}
+
+// TestShareScanMissingDatabase covers task 7-fix2, item 6: a storage.db_path that does not point at
+// an existing file must be refused before db.Open, which would otherwise silently create and seed a
+// new, empty database there and report zero pending candidates. This config's db_path is a separate
+// path from newTestEnv's own (which TestShareScan already creates via insertEntry before scanning),
+// so this test starts from a path nothing has ever opened.
+func TestShareScanMissingDatabase(t *testing.T) {
+	env := newTestEnv(t, "")
+	missing := filepath.ToSlash(filepath.Join(env.home, "never-opened", "liltok.db"))
+	cfg := "storage:\n  db_path: '" + missing + "'\nlog:\n  level: 'error'\n"
+	if err := os.WriteFile(env.cfgPath, []byte(cfg), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	_, err := env.run(t, "share", "scan")
+	if err == nil || !strings.Contains(err.Error(), missing) {
+		t.Fatalf("share scan: err = %v, want an error mentioning %q", err, missing)
+	}
+	if _, statErr := os.Stat(missing); !os.IsNotExist(statErr) {
+		t.Errorf("share scan must create nothing at %s; stat err = %v", missing, statErr)
+	}
+	if _, statErr := os.Stat(filepath.Dir(missing)); !os.IsNotExist(statErr) {
+		t.Errorf("share scan must not even create the parent directory of %s; stat err = %v", missing, statErr)
+	}
 }

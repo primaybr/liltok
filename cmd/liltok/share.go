@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/primaybr/liltok/internal/config"
@@ -40,9 +41,20 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-			database, err := db.Open(cfg.Storage.DBPath)
+			// Resolve the path the same way the rest of the CLI does and refuse a missing database
+			// outright, rather than letting db.Open silently create and seed a new, empty one at
+			// that path: a mistyped or not-yet-initialized storage.db_path would otherwise report
+			// zero pending candidates with no indication anything was wrong.
+			dbPath := config.ExpandHomeDir(cfg.Storage.DBPath)
+			if _, err := os.Stat(dbPath); err != nil {
+				if os.IsNotExist(err) {
+					return fmt.Errorf("database not found at %s: run the gateway first or check storage.db_path", dbPath)
+				}
+				return fmt.Errorf("failed to check database at %s: %w", dbPath, err)
+			}
+			database, err := db.Open(dbPath)
 			if err != nil {
-				return fmt.Errorf("failed to open database at %s: %w", cfg.Storage.DBPath, err)
+				return fmt.Errorf("failed to open database at %s: %w", dbPath, err)
 			}
 			defer database.Close()
 
@@ -66,7 +78,7 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 
 			fmt.Println("==================================================================")
 			fmt.Println(" liltok Share Scan (nothing leaves this machine)")
-			fmt.Printf(" Database:                %s\n", cfg.Storage.DBPath)
+			fmt.Printf(" Database:                %s\n", dbPath)
 			fmt.Printf(" Cache entries scanned:   %d\n", rep.scanned)
 			fmt.Printf(" Skipped:                 %d\n", total(rep.skips))
 			printCounts(rep.skips)

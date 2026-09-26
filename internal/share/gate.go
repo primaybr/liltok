@@ -32,6 +32,7 @@ const (
 	RuleDenyTerm  = "deny_term"
 	RuleCode      = "code"
 	RuleTemporal  = "temporal"
+	RulePayload   = "payload"
 	RuleProbe     = "probe"
 	RuleAssertion = "assertion"
 	RuleError     = "error"
@@ -47,10 +48,17 @@ const (
 	minPhoneDigits          = 9
 	minDenyTermLen          = 3
 	minSubstringDenyTermLen = 5
+	// maxOneWordAnswerChars bounds the probe rule's "answer in one word" shape (see oneWordAnswerPattern)
+	// to a short question, so a longer question that merely discusses answering in one word in
+	// passing is not caught by it.
+	maxOneWordAnswerChars = 80
 )
 
 var (
-	secretPattern = regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_\-]{8,}|\bsk-[A-Za-z0-9_\-]{16,}|\bgsk_[A-Za-z0-9]{16,}|\bnvapi-[A-Za-z0-9_\-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bAIza[0-9A-Za-z_\-]{30,}|\bAKIA[0-9A-Z]{16}\b|\bxox[abp]-[A-Za-z0-9\-]{10,}|\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:\bbearer\s+[A-Za-z0-9._~+/\-]{16,})`)
+	// secretPattern's final alternative catches a dashed UUID (8-4-4-4-12 hex groups): a run or
+	// request ID naming one is not itself a secret token, but the round-2 dry run found it always
+	// identifies one specific private run, so it is judged secret rather than let through as prose.
+	secretPattern = regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_\-]{8,}|\bsk-[A-Za-z0-9_\-]{16,}|\bgsk_[A-Za-z0-9]{16,}|\bnvapi-[A-Za-z0-9_\-]{16,}|\bgh[pousr]_[A-Za-z0-9]{20,}|\bgithub_pat_[A-Za-z0-9_]{20,}|\bAIza[0-9A-Za-z_\-]{30,}|\bAKIA[0-9A-Z]{16}\b|\bxox[abp]-[A-Za-z0-9\-]{10,}|\beyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?i:\bbearer\s+[A-Za-z0-9._~+/\-]{16,})|\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b`)
 	// hexSecretPattern catches a long hex-only run (a hex-encoded key or a UUID used as one):
 	// Shannon entropy tops out at exactly 4.0 for a 16-symbol alphabet, so it can never exceed
 	// minTokenEntropy and needs its own check.
@@ -83,10 +91,25 @@ var (
 	// a question naming one is anchored to a specific run and never reusable, so it is judged
 	// temporal like "today" or "right now" are.
 	isoTimestampPattern = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}`)
+	// labelLinePattern is rule payload's first shape: a line that consists only of a "paste your X
+	// below" template label and a colon, such as "Text:" or "Input:". A prompt template like this
+	// leaves the label on its own line once the pasted material follows it; see hasPayload.
+	labelLinePattern = regexp.MustCompile(`(?i)^\s*(?:text|input|content|log|logs|transcript|document|data)\s*:\s*$`)
+	// timestampHeadingPattern is rule payload's second shape: a markdown heading that opens with a
+	// clock-style timestamp, such as "## 14:05 | develop" - the heading a pasted log excerpt keeps
+	// once it is copied into a question.
+	timestampHeadingPattern = regexp.MustCompile(`(?m)^#{1,6}\s*\d{1,2}:\d{2}(?:\s*[-|]|\s*$)`)
 	// probePattern rejects a liveness or echo prompt: a question that asks for a fixed, literal
 	// reply rather than an explanation. Each alternative is anchored the same way the round-1
-	// dry-run findings described it; matching one is enough on its own.
-	probePattern = regexp.MustCompile(`(?i)^(?:reply|respond|answer)\b.{0,40}\b(?:exactly|only)\b|^say \S+ in (?:one|1|exactly one|exactly 1) word|\brespond with status ok\b|^(?:what is|calculate) [\d\s+\-*/().]+\??.{0,40}\b(?:just|only) the number`)
+	// dry-run findings described it; matching one is enough on its own. Task 7-fix2 added the last
+	// two alternatives: a role-play opener ("You are ...") that primes a persona rather than asking
+	// a question, and a trailing "token"/"nonce" plus a short hex value, the shape a liveness probe
+	// uses to check that a specific reply comes back verbatim.
+	probePattern = regexp.MustCompile(`(?i)^(?:reply|respond|answer)\b.{0,40}\b(?:exactly|only)\b|^say \S+ in (?:one|1|exactly one|exactly 1) word|\brespond with status ok\b|^(?:what is|calculate) [\d\s+\-*/().]+\??.{0,40}\b(?:just|only) the number|^you are (?:in|a|an|the|summari[sz]ing)\b|\b(?:token|nonce)\s+[0-9a-f]{4,12}\.?$`)
+	// oneWordAnswerPattern is probe's third Task 7-fix2 shape: a request for a single-word answer.
+	// It is judged only on a short question (see hasProbe's length check) so a longer question that
+	// merely discusses "answer in one word" in passing - about ICU collation, say - is not caught.
+	oneWordAnswerPattern = regexp.MustCompile(`(?i)\banswer in (?:one|1|a single) word\.?$`)
 	// assertionPattern rejects a question that opens by asserting its own premise rather than
 	// asking about it ("Confirm that ..."), which is how the round-1 dry run's leaked candidates
 	// about the maintainer's own project were phrased.
@@ -101,6 +124,13 @@ var (
 	// segment, letting a real path under a stdlib-named directory (such as
 	// "go/pkg/mod/github.com/secretco/billing/tax.go") pass.
 	wholeTokenLowerAlnumPath = regexp.MustCompile(`^[a-z0-9]+(?:/[a-z0-9]+)*$`)
+	// trailingCapIdentPattern is a Task 7-fix2 addition to exemption (a): a trailing ".Identifier"
+	// whose first letter is uppercase, such as ".ReverseProxy" in "net/http/httputil.ReverseProxy".
+	// That is a package-qualified exported Go identifier tacked onto an import path, not a
+	// filesystem path segment, so it is stripped before exemption (a)'s whole-token check; see
+	// isExemptPathToken. A trailing lowercase extension such as ".go" is left alone and still falls
+	// through to rejection.
+	trailingCapIdentPattern = regexp.MustCompile(`\.[A-Z][A-Za-z0-9_]*$`)
 	// rightSuffixPattern is the extra right-boundary allowance fix round 1 added to the deny-term
 	// boundary check: a lowercase run continuing past a match that is exactly a plural or participle
 	// suffix - "s", "es", "ed", or "ing" - still counts as a boundary, provided a real boundary
@@ -260,7 +290,10 @@ func (g *Gate) Check(question string) (v Verdict) {
 	if isoTimestampPattern.MatchString(q) || !semantic.CheckSemanticEligibility(q).IsEligible {
 		return Verdict{Rule: RuleTemporal}
 	}
-	if probePattern.MatchString(q) {
+	if hasPayload(q) {
+		return Verdict{Rule: RulePayload}
+	}
+	if hasProbe(q) {
 		return Verdict{Rule: RuleProbe}
 	}
 	if assertionPattern.MatchString(q) {
@@ -341,6 +374,38 @@ func rightBoundaryOK(q string, end int) bool {
 		return true
 	}
 	return rightSuffixPattern.MatchString(q[end:])
+}
+
+// hasPayload reports a question built from a "paste your X below" template whose payload was
+// pasted in: either a line that is only a label like "Text:" or "Input:" with at least one
+// non-empty line somewhere after it (labelLinePattern), or a markdown heading that opens with a
+// clock-style timestamp such as a copied log line (timestampHeadingPattern).
+func hasPayload(q string) bool {
+	if timestampHeadingPattern.MatchString(q) {
+		return true
+	}
+	lines := strings.Split(q, "\n")
+	for i, line := range lines {
+		if !labelLinePattern.MatchString(line) {
+			continue
+		}
+		for _, later := range lines[i+1:] {
+			if strings.TrimSpace(later) != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// hasProbe reports a liveness or echo prompt; see probePattern for most of its shapes.
+// oneWordAnswerPattern is checked separately because it applies only to a short question: a longer
+// one that merely discusses answering in one word, rather than demanding it, should still pass.
+func hasProbe(q string) bool {
+	if probePattern.MatchString(q) {
+		return true
+	}
+	return oneWordAnswerPattern.MatchString(q) && utf8.RuneCountInString(q) <= maxOneWordAnswerChars
 }
 
 func hasSecret(q string) bool {
@@ -474,15 +539,26 @@ func isExemptPathToken(tok string) bool {
 	// "path/to/Secret/Config.yaml") passed. It now also requires the whole token (or, for a
 	// golang.org/x/ path, the part after the prefix) to be nothing but lowercase-alphanumeric
 	// segments; anything else - a dot, an underscore, an uppercase letter, ".." - falls through to
-	// exemption (b) or rejection instead.
+	// exemption (b) or rejection instead. Task 7-fix2: before that check, a trailing ".Identifier"
+	// whose first letter is uppercase - a package-qualified exported Go identifier such as
+	// ".ReverseProxy" in "net/http/httputil.ReverseProxy" - is stripped first, so an import path
+	// mentioned together with one of its own exported names still reads as an import path. A
+	// trailing lowercase extension such as ".go" is left alone; see stripTrailingCapIdent.
 	if rest, ok := strings.CutPrefix(tok, golangOrgXPrefix); ok {
-		return wholeTokenLowerAlnumPath.MatchString(rest)
+		return wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(rest))
 	}
 	segs := strings.Split(tok, "/")
-	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] && wholeTokenLowerAlnumPath.MatchString(tok) {
+	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] && wholeTokenLowerAlnumPath.MatchString(stripTrailingCapIdent(tok)) {
 		return true
 	}
 	return isExemptOrdinaryWords(tok, segs)
+}
+
+// stripTrailingCapIdent removes one trailing ".Identifier" whose first letter is uppercase from s,
+// for path exemption (a)'s whole-token check; see isExemptPathToken. s is returned unchanged when
+// no such suffix is present.
+func stripTrailingCapIdent(s string) string {
+	return trailingCapIdentPattern.ReplaceAllString(s, "")
 }
 
 // isExemptOrdinaryWords is path rule exemption (b): a short run of ordinary lowercase English words
