@@ -103,32 +103,36 @@ func (idx *VectorIndex) loadFromDB() error {
 	defer idx.mu.Unlock()
 
 	rows, err := idx.db.Query(`
-		SELECT se.cache_hash, se.embedding, se.dimension, ce.model, ce.response_payload
+		SELECT se.cache_hash, se.embedding, se.dimension, se.system_hash, se.tools_hash, se.expires_at,
+		       ce.model, ce.response_payload
 		FROM semantic_embeddings se
 		JOIN cache_entries ce ON se.cache_hash = ce.hash
-		WHERE datetime(ce.created_at, '+' || ce.ttl_seconds || ' seconds') > CURRENT_TIMESTAMP
-	`)
+		WHERE se.expires_at IS NOT NULL AND se.expires_at > ?
+		  AND datetime(ce.created_at, '+' || ce.ttl_seconds || ' seconds') > CURRENT_TIMESTAMP
+	`, time.Now().Unix())
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var hash, model string
-		var rawBlob []byte
+		var hash, systemHash, toolsHash, model string
+		var rawBlob, payload []byte
 		var dim int
-		var payload []byte
+		var expiresAt int64
 
-		if err := rows.Scan(&hash, &rawBlob, &dim, &model, &payload); err == nil {
+		if err := rows.Scan(&hash, &rawBlob, &dim, &systemHash, &toolsHash, &expiresAt, &model, &payload); err == nil {
 			vec := BytesToFloat32Slice(rawBlob)
 			if len(vec) == dim {
 				idx.entries = append(idx.entries, &SemanticEntry{
 					Hash:            hash,
 					Model:           model,
+					SystemHash:      systemHash,
+					ToolsHash:       toolsHash,
 					Vector:          vec,
 					ResponsePayload: payload,
 					CreatedAt:       time.Now(),
-					ExpiresAt:       time.Now().Add(7 * 24 * time.Hour),
+					ExpiresAt:       time.Unix(expiresAt, 0),
 				})
 			}
 		}
@@ -154,14 +158,9 @@ func (idx *VectorIndex) Search(ctx context.Context, model, systemHash, toolsHash
 		if !entry.ExpiresAt.IsZero() && now.After(entry.ExpiresAt) {
 			continue
 		}
-		// Strict guardrail check: Model, System prompt, and Tool declarations must match
-		if entry.Model != model {
-			continue
-		}
-		if systemHash != "" && entry.SystemHash != "" && entry.SystemHash != systemHash {
-			continue
-		}
-		if toolsHash != "" && entry.ToolsHash != "" && entry.ToolsHash != toolsHash {
+		// Model, system prompt and tool declarations must match exactly; an empty hash is a value,
+		// not a wildcard.
+		if entry.Model != model || entry.SystemHash != systemHash || entry.ToolsHash != toolsHash {
 			continue
 		}
 
@@ -191,10 +190,15 @@ func (idx *VectorIndex) Insert(ctx context.Context, entry *SemanticEntry) error 
 
 	if idx.db != nil {
 		blob := Float32SliceToBytes(entry.Vector)
+		var expires interface{}
+		if !entry.ExpiresAt.IsZero() {
+			expires = entry.ExpiresAt.Unix()
+		}
 		_, err := idx.db.ExecContext(ctx, `
-			INSERT OR REPLACE INTO semantic_embeddings (cache_hash, embedding, dimension, created_at)
-			VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-		`, entry.Hash, blob, len(entry.Vector))
+			INSERT OR REPLACE INTO semantic_embeddings
+				(cache_hash, embedding, dimension, system_hash, tools_hash, expires_at, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		`, entry.Hash, blob, len(entry.Vector), entry.SystemHash, entry.ToolsHash, expires)
 		return err
 	}
 

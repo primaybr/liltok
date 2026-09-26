@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Semantic Cache Lost Its Scope on Restart:** semantic entries reloaded from SQLite came back without their system-prompt hash, tools hash and expiry, and matching treated the missing hashes as "any", so after a restart an entry could answer a request with a different system prompt or different tools, and expiry restarted at seven days. Migration 010 stores all three; matching now requires them to be equal. Rows written before the migration are not reloaded (they are rebuilt if the request is cached again). The semantic cache is off by default.
+
 ## [0.2.5-beta] - 2026-09-26
 
 ### Added

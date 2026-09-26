@@ -41,6 +41,13 @@ var migrations = []migration{
 	{version: 7, name: "pricing_refresh", file: "007_pricing_refresh.sql"},
 	{version: 8, name: "key_budget_periods", file: "008_key_budget_periods.sql"},
 	{version: 9, name: "cache_search", file: "009_cache_search.sql"},
+	// Semantic entries lost their system-prompt and tools scope and their expiry on reload, and
+	// Search treated the empty hashes as wildcards.
+	{version: 10, name: "semantic_scoping", up: addColumnsIfMissing("semantic_embeddings", []columnDef{
+		{"system_hash", "TEXT NOT NULL DEFAULT ''"},
+		{"tools_hash", "TEXT NOT NULL DEFAULT ''"},
+		{"expires_at", "INTEGER"},
+	})},
 }
 
 type columnDef struct {
