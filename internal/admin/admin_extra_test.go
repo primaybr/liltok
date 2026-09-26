@@ -438,8 +438,9 @@ func TestAdminPackStarterCache(t *testing.T) {
 	t.Chdir(t.TempDir()) // pack targets must be relative to the working directory
 	target := "starter.json.gz"
 
-	rec, out := do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": target, "sanitize": false, "min_hits": 1})
-	if rec.Code != http.StatusOK || out["target_path"] != target || out["merged_from_db"].(float64) < 1 {
+	// pack-1 is ordinary traffic, not a mined answer to a curated prompt, so it must not be packed.
+	rec, out := do(t, env.mux, "POST", "/api/v1/cache/pack", map[string]interface{}{"target_path": target, "min_hits": 1})
+	if rec.Code != http.StatusOK || out["target_path"] != target || out["merged_from_db"].(float64) != 0 || out["rejected"].(float64) != 1 {
 		t.Fatalf("pack status %d body %v", rec.Code, out)
 	}
 	if fi, err := os.Stat(target); err != nil || fi.Size() == 0 {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -660,23 +661,35 @@ func ImportCacheFromGz(database *db.DB, reader io.Reader) (int, error) {
 // PackOptions defines configuration for merging and packaging the starter cache.
 type PackOptions struct {
 	MinHits        int
-	MaxPromptBytes int // Maximum prompt byte length to include in starter pack (default 65536)
-	Sanitize       bool
+	MaxPromptBytes int          // Maximum prompt byte length to include in starter pack (default 65536)
+	Prompts        []PromptItem // Prompts whose mined entries may be packed; nil means the curated corpus
 }
 
 // PackResult summarizes the merge and packaging output.
 type PackResult struct {
-	TotalEntries    int    `json:"total_entries"`
-	ExistingEntries int    `json:"existing_entries"`
-	MergedFromDB    int    `json:"merged_from_db"`
-	SizeBytes       int    `json:"size_bytes"`
-	TargetPath      string `json:"target_path"`
+	TotalEntries    int            `json:"total_entries"`
+	ExistingEntries int            `json:"existing_entries"`
+	MergedFromDB    int            `json:"merged_from_db"`
+	Rejected        int            `json:"rejected"`
+	RejectReasons   map[string]int `json:"reject_reasons,omitempty"`
+	SizeBytes       int            `json:"size_bytes"`
+	TargetPath      string         `json:"target_path"`
 }
 
-// PackStarterCache merges existing starter pack entries with entries from SQLite database,
-// applies automated privacy sanitization, deduplicates by SHA-256 hash, and writes directly to targetGzPath.
+// PackStarterCache merges existing starter pack entries with mined entries from the SQLite database,
+// deduplicates by hash, and writes targetGzPath. Every entry, including those already in the archive,
+// must pass StarterFilter: only miner answers to curated corpus prompts are packed, never user traffic.
 func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*PackResult, error) {
 	itemsMap := make(map[string]CacheExportItem)
+	filter := NewStarterFilter(opts.Prompts)
+	rejected := make(map[string]int)
+	accept := func(it CacheExportItem) bool {
+		if reason := filter.Check(it); reason != "" {
+			rejected[reason]++
+			return false
+		}
+		return true
+	}
 
 	// 1. Read existing starter pack entries if archive already exists
 	if _, err := os.Stat(targetGzPath); err == nil {
@@ -685,7 +698,9 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 				var existing []CacheExportItem
 				if err := json.NewDecoder(gzReader).Decode(&existing); err == nil {
 					for _, it := range existing {
-						itemsMap[it.Hash] = it
+						if accept(it) {
+							itemsMap[it.Hash] = it
+						}
 					}
 				}
 				_ = gzReader.Close()
@@ -695,7 +710,7 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 	existingCount := len(itemsMap)
 	mergedFromDB := 0
 
-	// 2. Extract and sanitize entries from local database
+	// 2. Add mined entries from the local database
 	if database != nil {
 		maxBytes := opts.MaxPromptBytes
 		if maxBytes == 0 {
@@ -724,11 +739,9 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 				it.ResponsePayload = string(rawPayload)
 				it.IsSemantic = (isSem == 1)
 
-				if opts.Sanitize {
-					it.NormalizedPrompt = SanitizeContent(it.NormalizedPrompt)
-					it.ResponsePayload = SanitizeContent(it.ResponsePayload)
+				if !accept(it) {
+					continue
 				}
-
 				if _, exists := itemsMap[it.Hash]; !exists {
 					mergedFromDB++
 				}
@@ -737,10 +750,16 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 		}
 	}
 
-	// 3. Flatten map into list
-	var finalItems []CacheExportItem
+	// 3. Flatten map into a list sorted by hash, so rebuilding an unchanged pack gives the same file
+	finalItems := make([]CacheExportItem, 0, len(itemsMap))
 	for _, it := range itemsMap {
 		finalItems = append(finalItems, it)
+	}
+	sort.Slice(finalItems, func(i, j int) bool { return finalItems[i].Hash < finalItems[j].Hash })
+
+	totalRejected := 0
+	for _, n := range rejected {
+		totalRejected += n
 	}
 
 	// 4. Encode to gzip
@@ -766,6 +785,8 @@ func PackStarterCache(database *db.DB, targetGzPath string, opts PackOptions) (*
 		TotalEntries:    len(finalItems),
 		ExistingEntries: existingCount,
 		MergedFromDB:    mergedFromDB,
+		Rejected:        totalRejected,
+		RejectReasons:   rejected,
 		SizeBytes:       buf.Len(),
 		TargetPath:      targetGzPath,
 	}, nil

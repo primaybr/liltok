@@ -158,7 +158,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.2.4-beta",
+		"version":                   "0.2.5-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -1374,7 +1374,8 @@ func (h *AdminHandler) HandlePurgeCache(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// HandlePackStarterCache merges local database cache entries into starter_cache.json.gz with sanitization.
+// HandlePackStarterCache merges mined curated-prompt entries from the database into starter_cache.json.gz.
+// Only entries that pass miner.StarterFilter are packed; user traffic never is.
 func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Request) {
 	if h.database == nil {
 		writeError(w, http.StatusInternalServerError, "database unavailable")
@@ -1384,15 +1385,9 @@ func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Req
 	var req struct {
 		MinHits        int    `json:"min_hits"`
 		MaxPromptBytes int    `json:"max_prompt_bytes"`
-		Sanitize       *bool  `json:"sanitize"`
 		TargetPath     string `json:"target_path"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req)
-
-	sanitize := true
-	if req.Sanitize != nil {
-		sanitize = *req.Sanitize
-	}
 
 	targetPath := req.TargetPath
 	if targetPath == "" {
@@ -1408,7 +1403,6 @@ func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Req
 	res, err := miner.PackStarterCache(h.database, targetPath, miner.PackOptions{
 		MinHits:        req.MinHits,
 		MaxPromptBytes: req.MaxPromptBytes,
-		Sanitize:       sanitize,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -1420,6 +1414,8 @@ func (h *AdminHandler) HandlePackStarterCache(w http.ResponseWriter, r *http.Req
 		"total_entries":    res.TotalEntries,
 		"existing_entries": res.ExistingEntries,
 		"merged_from_db":   res.MergedFromDB,
+		"rejected":         res.Rejected,
+		"reject_reasons":   res.RejectReasons,
 		"size_bytes":       res.SizeBytes,
 		"target_path":      res.TargetPath,
 	})

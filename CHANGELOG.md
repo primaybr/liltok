@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5-beta] - 2026-09-26
+
 ### Added
 - **Optional Admin Token:** set `server.admin_token` (or `LILTOK_ADMIN_TOKEN`) to require a token on every `/api/v1` admin call, for machines where other local users or processes should not read logs and keys or change routes. CLI commands and the MCP bridge send it automatically (`X-Liltok-Admin-Token`) from the same config; the dashboard asks for it once and keeps an HttpOnly, SameSite=Strict login cookie, which also authenticates its live feed. The model API (`/v1`), health checks, metrics and the dashboard page itself are unaffected. Empty (the default) keeps the admin API open to local callers, as before.
 - **Purge Large Cache Entries:** `liltok cache purge --larger-than 256KB` (or `POST /api/v1/cache/purge?larger_than=<bytes>`) deletes unpinned entries whose prompt exceeds the size, through the running gateway when it is up (so its memory tier is flushed too) and directly in the database otherwise. On a real cache, the 2,012 entries over 256 KB held 1.2 GB (90% of the prompt text) and had earned 33 hits in total.
@@ -23,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Deleted Cache Entries Kept Being Served:** deleting an entry or purging from the dashboard or admin API removed it from SQLite but not from the in-memory tier, which kept serving it until the gateway restarted. Deletes now go through the cache store and purges flush the memory tier.
 - **Stray Heredoc Terminator:** heredoc repair appended a second terminator to a valid `cat <<-EOF` heredoc closed by a tab-indented `EOF`; bash then ran the extra line as a command.
 - **Cache Entries Could Outlive Their TTL on Disk:** the SQLite tier stored every entry with its insert time rather than its creation time, and kept the original creation time when an entry was overwritten. The memory and disk tiers could therefore disagree about expiry: an expired entry dropped from memory could still be served from SQLite, and an overwritten entry inherited the previous reply's age. SQLite now stores the entry's own creation time and restarts it on overwrite. Found by an intermittent CI failure.
+
+### Removed
+- **`--sanitize` on `liltok cache pack`** and the `sanitize` field of `POST /api/v1/cache/pack` (the dashboard's sanitization checkbox is gone too). Packing no longer redacts entries; it refuses any entry that is not a mined answer to a curated prompt (see Security). `liltok cache export --sanitize` is unchanged.
+- **`--from-db`, `--sanitize`, `--min-hits` and `--max-prompt-bytes` on `cmd/build_starter_cache`.** It now only adds its hand-written answers and repacks the archive through the starter filter; mined answers are added with `liltok cache pack`. Prompts without a hand-written answer no longer get a generic placeholder reply.
+
+### Security
+- **Starter Pack Contained Personal Data from Agent Sessions:** the embedded starter pack shipped in 0.1.8-beta through 0.2.4-beta, and published as the `starter_cache.json.gz` release asset that gateways download daily, had been built partly from the maintainer's own local cache. Besides the mined answers it held about 160 raw requests from coding-agent sessions, including an email address from the client's context block, local project names and session context. The regex sanitizer applied at packing time rewrote home paths but does not recognise such data, and because it edited prompts without changing their hashes, those entries could never be hit by anyone anyway. The pack is rebuilt from mined answers to the curated corpus only (12,250 entries, down from 12,613). Every packing path (`liltok cache pack`, the dashboard button, `POST /api/v1/cache/pack`, `cmd/build_starter_cache`) now passes each entry, including those already in the archive, through `miner.StarterFilter`: an entry is packed only if its hash is one the miner builds for a curated prompt and its stored prompt re-hashes to that key, so user traffic cannot enter a pack whatever it contains. The filter also drops entries with empty or unparseable responses and the old placeholder answers. `TestEmbeddedStarterPack_OnlyCuratedEntries` fails the build if the embedded pack ever contains anything else. Gateways that already imported an affected pack keep those rows locally; those entries match only the original sessions' exact requests, so they are never served for anyone else's.
 
 ## [0.2.4-beta] - 2026-09-26
 

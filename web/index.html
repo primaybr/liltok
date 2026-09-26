@@ -141,7 +141,7 @@
       <div class="logo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
         <span>liltok</span>
-        <span class="logo-badge">v0.2.4-beta</span>
+        <span class="logo-badge">v0.2.5-beta</span>
         <span style="font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); letter-spacing: 0;">Little Token, Big Savings.</span>
       </div>
       <div class="header-right">
@@ -1668,19 +1668,15 @@
     <div class="modal-card">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
         <span class="badge badge-hit-exact" style="background: rgba(16, 185, 129, 0.2);">Starter Cache Pack</span>
-        <h3 style="font-size: 18px; font-weight: 600;">Merge Local DB into Seed Pack</h3>
+        <h3 style="font-size: 18px; font-weight: 600;">Pack Mined Answers into Seed Pack</h3>
       </div>
       <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
-        Extracts active cache entries from your local SQLite database (<code style="font-family: var(--mono); color: #93c5fd;">~/.liltok/liltok.db</code>), scrubs personal paths and credentials, and merges them into <code style="font-family: var(--mono); color: #93c5fd;">internal/db/starter_cache.json.gz</code> for public releases.
+        Merges mined answers to the curated prompt corpus from your local SQLite database (<code style="font-family: var(--mono); color: #93c5fd;">~/.liltok/liltok.db</code>) into <code style="font-family: var(--mono); color: #93c5fd;">internal/db/starter_cache.json.gz</code> for public releases.
       </p>
-      
+
       <div class="form-group" style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 6px; border: 1px solid var(--border);">
-        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
-          <input type="checkbox" id="pack-sanitize-checkbox" checked style="accent-color: var(--accent);" />
-          <span style="font-weight: 600; color: #fff;">Automated Privacy Sanitization (Recommended)</span>
-        </label>
-        <p style="font-size: 12px; color: var(--muted); margin-top: 6px; padding-left: 24px;">
-          Automatically scrubs personal home paths, API keys, and private IPs before bundling.
+        <p style="font-size: 12px; color: var(--muted);">
+          Only entries whose request is exactly one the miner builds for a curated prompt are packed. Your own traffic is never included, and entries already in the archive that fail this check are dropped.
         </p>
       </div>
 
@@ -3456,7 +3452,6 @@
     async function submitPackStarter() {
       const btn = document.getElementById('pack-submit-btn');
       const area = document.getElementById('pack-status-area');
-      const sanitize = document.getElementById('pack-sanitize-checkbox').checked;
       const minHits = parseInt(document.getElementById('pack-min-hits-input').value) || 0;
       const maxBytes = parseInt(document.getElementById('pack-max-bytes-input').value) || 65536;
 
@@ -3466,14 +3461,13 @@
       area.style.background = 'rgba(59, 130, 246, 0.15)';
       area.style.color = '#93c5fd';
       area.style.border = '1px solid rgba(59, 130, 246, 0.3)';
-      area.innerText = 'Extracting, sanitizing, and merging local database entries...';
+      area.innerText = 'Checking and merging mined entries...';
 
       try {
         const res = await fetch('/api/v1/cache/pack', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sanitize: sanitize,
             min_hits: minHits,
             max_prompt_bytes: maxBytes
           })
@@ -3486,7 +3480,7 @@
         area.style.background = 'rgba(16, 185, 129, 0.15)';
         area.style.color = '#a7f3d0';
         area.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-        area.innerHTML = `<strong>Success!</strong> Merged <strong>${data.merged_from_db}</strong> database entries into <strong>${data.total_entries}</strong> total starter entries (${(data.size_bytes / 1024).toFixed(1)} KB gz). Saved to <code>${data.target_path}</code>.`;
+        area.innerHTML = `<strong>Success!</strong> Merged <strong>${data.merged_from_db}</strong> database entries into <strong>${data.total_entries}</strong> total starter entries (${(data.size_bytes / 1024).toFixed(1)} KB gz); <strong>${data.rejected}</strong> entries were not eligible. Saved to <code>${escapeHTML(data.target_path)}</code>.`;
       } catch (err) {
         area.style.background = 'rgba(239, 68, 68, 0.15)';
         area.style.color = '#fca5a5';

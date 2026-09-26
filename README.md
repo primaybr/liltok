@@ -245,8 +245,8 @@ liltok cache decrypt submission.enc --out decrypted.json.gz
 # Import an external cache pack into local SQLite
 liltok cache import community_pack.json.gz
 
-# Merge local mined entries into the release starter pack
-liltok cache pack --min-hits 1 --sanitize
+# Merge locally mined answers to curated prompts into the release starter pack
+liltok cache pack --min-hits 1
 
 # Purge cache entries
 liltok cache purge --hash <sha256-hash>
@@ -267,7 +267,7 @@ liltok maintainer keygen --out ~/.liltok/maintainer.key
 Liltok eliminates cold-start latency and enables zero-cost distributed caching without requiring hosted servers or cloud database subscriptions:
 
 ### Embedded Zero-Cold-Start Starter Pack
-Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On initial startup or when running `liltok cache seed`, Liltok automatically unpacks 12,613 pre-mined canonical responses (19.7 MB compressed archive) for standard programming idioms, common syntax errors, and framework patterns across Claude 4/4.5, Claude 5, GPT-4o, DeepSeek, and open-weights models. Developers experience instant 0ms responses from the very first query.
+Standalone Liltok binaries embed `starter_cache.json.gz` via Go `//go:embed`. On initial startup or when running `liltok cache seed`, Liltok automatically unpacks 12,250 pre-mined canonical responses (18.0 MB compressed archive) for standard programming idioms, common syntax errors, and framework patterns across Claude 4/4.5, Claude 5, GPT-4o, DeepSeek, and open-weights models. Developers experience instant 0ms responses from the very first query.
 
 ### Over-The-Air (OTA) Updates via GitHub Releases CDN
 Run `liltok cache update` to pull the latest community-verified cache pack:
@@ -275,11 +275,10 @@ Run `liltok cache update` to pull the latest community-verified cache pack:
 - Employs HTTP `ETag` and `If-None-Match` conditional requests. If your cache is current, GitHub returns `304 Not Modified` consuming zero unnecessary bandwidth.
 - When an update is available, new entries are merged directly into local SQLite using canonical deduplication.
 
-### Privacy-Preserving Mining & Packaging
-Developers can contribute to or package their own cache packs:
-- **CLI Packing**: `liltok cache pack --sanitize` mines entries from local `liltok.db`, deduplicates against existing packs, and writes an updated `starter_cache.json.gz`.
-- **Automated Privacy Sanitization**: The sanitization engine automatically scrubs developer home paths (e.g. `/Users/username` or `C:\Users\username`), API keys (`sk-...`, `nvapi-...`, `gsk_...`), and private IPv4 addresses.
-- **Web Dashboard**: Use the **"Merge & Pack to Starter"** button on the Cache Explorer tab (`http://localhost:8080/dashboard`) to review and merge cache entries interactively.
+### Mining & Packaging
+The starter pack holds only answers to the curated prompt corpus (`internal/miner/corpus/`), never anyone's own traffic:
+- **CLI Packing**: after mining, `liltok cache pack` merges mined answers from local `liltok.db` into `starter_cache.json.gz`. Every entry, including those already in the archive, must be exactly a request the miner builds for a curated prompt; anything else (your own sessions, imported or approved community entries) is rejected and counted in the output.
+- **Web Dashboard**: the **"Merge & Pack to Starter"** button on the Cache Explorer tab (`http://localhost:8080/dashboard`) runs the same packing.
 
 ### Zero-Server Private Submissions via Asymmetric Encryption
 To receive candidate cache packs privately without exposing prompts to the public web or renting servers:

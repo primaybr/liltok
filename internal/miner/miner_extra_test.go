@@ -238,29 +238,46 @@ func TestImportCacheFromGz_PreservesFields(t *testing.T) {
 }
 
 func TestPackStarterCache_MergesExistingArchive(t *testing.T) {
+	prompts := []miner.PromptItem{
+		{ID: "p-shared", UserPrompt: "shared question"},
+		{ID: "p-db", UserPrompt: "db only question"},
+		{ID: "p-cold", UserPrompt: "cold question"},
+		{ID: "p-huge", UserPrompt: strings.Repeat("x", 300)},
+		{ID: "p-archive", UserPrompt: "archive only question"},
+	}
+	shared := minedEntry(t, prompts[0], "gpt-4o", true, "db payload")
+	dbOnly := minedEntry(t, prompts[1], "gpt-4o", true, "db")
+	cold := minedEntry(t, prompts[2], "gpt-4o", true, "cold")
+	huge := minedEntry(t, prompts[3], "gpt-4o", true, "big")
 	database := openTestDB(t)
-	insertEntry(t, database, "shared", "gpt-4o", "from db", "db payload", 3, false)
-	insertEntry(t, database, "db-only", "gpt-4o", "db only", "db", 3, false)
-	insertEntry(t, database, "cold", "gpt-4o", "cold", "cold", 0, false)
-	insertEntry(t, database, "huge", "gpt-4o", strings.Repeat("x", 200), "big", 3, false)
+	for _, e := range []struct {
+		it   miner.CacheExportItem
+		hits int
+	}{{shared, 3}, {dbOnly, 3}, {cold, 0}, {huge, 3}} {
+		insertEntry(t, database, e.it.Hash, e.it.Model, e.it.NormalizedPrompt, e.it.ResponsePayload, e.hits, false)
+	}
 
 	target := filepath.Join(t.TempDir(), "nested", "dir", "starter.json.gz")
 	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 		t.Fatal(err)
 	}
+	oldShared := minedEntry(t, prompts[0], "gpt-4o", true, "old")
+	archiveOnly := minedEntry(t, prompts[4], "gpt-4o", true, "a")
 	existing := []miner.CacheExportItem{
-		{Hash: "shared", Model: "gpt-4o", NormalizedPrompt: "old", ResponsePayload: "old"},
-		{Hash: "archive-only", Model: "gpt-4o", NormalizedPrompt: "a", ResponsePayload: "a"},
+		oldShared,
+		archiveOnly,
+		// A raw request in an old archive is dropped on repack.
+		{Hash: "legacy-session", Model: "gpt-4o", NormalizedPrompt: `{"messages":[]}`, ResponsePayload: "{}"},
 	}
 	if err := os.WriteFile(target, encodeGz(t, existing), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	res, err := miner.PackStarterCache(database, target, miner.PackOptions{MinHits: 1, MaxPromptBytes: 100})
+	res, err := miner.PackStarterCache(database, target, miner.PackOptions{MinHits: 1, MaxPromptBytes: 200, Prompts: prompts})
 	if err != nil {
 		t.Fatalf("pack failed: %v", err)
 	}
-	if res.ExistingEntries != 2 || res.MergedFromDB != 1 || res.TotalEntries != 3 || res.TargetPath != target {
+	if res.ExistingEntries != 2 || res.MergedFromDB != 1 || res.TotalEntries != 3 || res.Rejected != 1 || res.TargetPath != target {
 		t.Errorf("unexpected result: %+v", res)
 	}
 
@@ -275,17 +292,20 @@ func TestPackStarterCache_MergesExistingArchive(t *testing.T) {
 	for _, it := range decodeGz(t, data) {
 		byHash[it.Hash] = it
 	}
-	if _, ok := byHash["huge"]; ok {
+	if _, ok := byHash[huge.Hash]; ok {
 		t.Error("prompt larger than MaxPromptBytes was packed")
 	}
-	if _, ok := byHash["cold"]; ok {
+	if _, ok := byHash[cold.Hash]; ok {
 		t.Error("entry below MinHits was packed")
 	}
-	if byHash["shared"].ResponsePayload != "db payload" {
-		t.Errorf("db entry did not replace archive entry: %+v", byHash["shared"])
+	if byHash[shared.Hash].ResponsePayload != shared.ResponsePayload {
+		t.Errorf("db entry did not replace archive entry: %+v", byHash[shared.Hash])
 	}
-	if _, ok := byHash["archive-only"]; !ok {
+	if _, ok := byHash[archiveOnly.Hash]; !ok {
 		t.Error("existing archive entry dropped")
+	}
+	if _, ok := byHash["legacy-session"]; ok {
+		t.Error("uncurated archive entry kept")
 	}
 }
 

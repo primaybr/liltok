@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,86 +155,44 @@ func TestCacheMiner_MockExecution(t *testing.T) {
 
 func TestPackStarterCache(t *testing.T) {
 	tempDir := t.TempDir()
-	dbPath := filepath.Join(tempDir, "test.db")
-	database, err := db.Open(dbPath)
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+	database, err := db.Open(filepath.Join(tempDir, "test.db"))
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 	defer database.Close()
 
-	// Clear default seeded entries for test isolation
-	_, _ = database.Exec("DELETE FROM cache_entries")
-
-	// Insert an entry containing sensitive home path and api key
-	_, err = database.Exec(`
-		INSERT INTO cache_entries (
-			hash, model, normalized_prompt, response_payload,
-			prompt_tokens, completion_tokens, hit_count,
-			created_at, last_accessed_at, ttl_seconds, is_pinned, is_semantic
-		) VALUES (
-			'hash-test-pack-1', 'gpt-4o',
-			'{"messages":[{"content":"Read C:\\Users\\Developer\\secret.txt with key sk-123456789012345678901234","role":"user"}]}',
-			'{"choices":[{"message":{"content":"Found key sk-987654321098765432109876 in C:\\Users\\Developer\\secret.txt"}}]}',
-			20, 20, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 3600, 0, 0
-		)
-	`)
-	if err != nil {
-		t.Fatalf("failed to insert test entry: %v", err)
-	}
+	// A mined answer to a curated prompt, and a user request carrying a home path and an API key.
+	mined := minedEntry(t, testPrompts[0], "gpt-4o", true, "Use slices.Reverse(s).")
+	insertEntry(t, database, mined.Hash, mined.Model, mined.NormalizedPrompt, mined.ResponsePayload, 1, false)
+	insertEntry(t, database, "hash-user-traffic", "gpt-4o",
+		`{"messages":[{"content":"Read C:\\Users\\Developer\\secret.txt with key sk-123456789012345678901234","role":"user"}],"model":"gpt-4o"}`,
+		`{"choices":[{"message":{"content":"Found key sk-987654321098765432109876"}}]}`, 1, false)
 
 	targetGz := filepath.Join(tempDir, "out_starter.json.gz")
-	res, err := miner.PackStarterCache(database, targetGz, miner.PackOptions{
-		MinHits:  0,
-		Sanitize: true,
-	})
+	res, err := miner.PackStarterCache(database, targetGz, miner.PackOptions{Prompts: testPrompts})
 	if err != nil {
 		t.Fatalf("PackStarterCache failed: %v", err)
 	}
-
-	if res.TotalEntries != 1 {
-		t.Errorf("expected 1 total entry, got %d", res.TotalEntries)
+	if res.TotalEntries != 1 || res.MergedFromDB != 1 {
+		t.Errorf("expected only the mined entry packed, got %+v", res)
 	}
-	if res.MergedFromDB != 1 {
-		t.Errorf("expected 1 merged entry, got %d", res.MergedFromDB)
+	if res.Rejected != 1 || res.RejectReasons[miner.RejectNotCurated] != 1 {
+		t.Errorf("expected the user entry rejected as not curated, got %+v", res)
 	}
-	if res.SizeBytes <= 0 {
-		t.Errorf("expected non-zero size, got %d", res.SizeBytes)
-	}
-
-	// Verify imported sanitized content
-	verifyDB, err := db.Open(filepath.Join(tempDir, "verify.db"))
-	if err != nil {
-		t.Fatalf("failed to open verify db: %v", err)
-	}
-	defer verifyDB.Close()
 
 	data, err := os.ReadFile(targetGz)
 	if err != nil {
 		t.Fatalf("failed to read targetGz: %v", err)
 	}
-
-	imported, err := miner.ImportCacheFromGz(verifyDB, bytes.NewReader(data))
-	if err != nil {
-		t.Fatalf("failed to import packed cache: %v", err)
+	items := decodeGz(t, data)
+	if len(items) != 1 || items[0].Hash != mined.Hash {
+		t.Fatalf("packed items = %+v, want only the mined entry", items)
 	}
-	if imported != 1 {
-		t.Errorf("expected 1 imported entry, got %d", imported)
-	}
-
-	var prompt, payload string
-	err = verifyDB.QueryRow("SELECT normalized_prompt, response_payload FROM cache_entries WHERE hash='hash-test-pack-1'").Scan(&prompt, &payload)
-	if err != nil {
-		t.Fatalf("failed to query imported entry: %v", err)
-	}
-
-	if bytes.Contains([]byte(prompt), []byte("Developer")) {
-		t.Errorf("prompt was not sanitized, found 'Developer': %s", prompt)
-	}
-	if bytes.Contains([]byte(prompt), []byte("sk-123456789012345678901234")) {
-		t.Errorf("prompt was not sanitized, found raw API key: %s", prompt)
-	}
-	if bytes.Contains([]byte(payload), []byte("Developer")) {
-		t.Errorf("payload was not sanitized, found 'Developer': %s", payload)
+	for _, leak := range []string{"Developer", "sk-123456789012345678901234", "hash-user-traffic"} {
+		if strings.Contains(items[0].NormalizedPrompt+items[0].ResponsePayload, leak) {
+			t.Errorf("packed archive contains %q from user traffic", leak)
+		}
 	}
 }
 

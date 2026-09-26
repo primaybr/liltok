@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/primaybr/liltok/internal/cache"
 	"github.com/primaybr/liltok/internal/crypto"
 	"github.com/primaybr/liltok/internal/miner"
 )
@@ -375,22 +376,52 @@ func TestCacheExportDecryptErrors(t *testing.T) {
 	}
 }
 
+// minedCorpusEntry returns the Anthropic-shape request the miner stores for a curated prompt.
+func minedCorpusEntry(t *testing.T, p miner.PromptItem, answer string) (hash, prompt, payload string) {
+	t.Helper()
+	req := map[string]interface{}{
+		"model":      "gpt-4o",
+		"messages":   []map[string]string{{"role": "user", "content": p.UserPrompt}},
+		"max_tokens": 4096,
+	}
+	if p.SystemPrompt != "" {
+		req["system"] = p.SystemPrompt
+	}
+	b, _ := json.Marshal(req)
+	norm, err := cache.NormalizePayload(b, cache.NormalizationOptions{CacheNonzeroTemperature: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, _ := json.Marshal(map[string]interface{}{"content": []map[string]string{{"type": "text", "text": answer}}})
+	return norm.Hash, norm.CanonicalJSON, string(resp)
+}
+
 func TestCachePack(t *testing.T) {
 	env := newTestEnv(t, "")
-	env.insertEntry(t, "db-1", "gpt-4o", "from db", "{}", 2, false)
-	env.insertEntry(t, "db-2", "gpt-4o", strings.Repeat("x", 200), "{}", 2, false)
-	env.insertEntry(t, "db-3", "gpt-4o", "too cold", "{}", 0, false)
+	corpus := miner.GetCuratedPrompts("all")
+	if len(corpus) < 2 {
+		t.Fatal("curated corpus is empty")
+	}
+	minedHash, minedPrompt, minedPayload := minedCorpusEntry(t, corpus[0], "mined answer")
+	baseHash, basePrompt, basePayload := minedCorpusEntry(t, corpus[1], "base answer")
+	env.insertEntry(t, minedHash, "gpt-4o", minedPrompt, minedPayload, 2, false)
+	env.insertEntry(t, "db-traffic", "gpt-4o", "from db", "{}", 2, false)
+	env.insertEntry(t, "db-cold", "gpt-4o", "too cold", "{}", 0, false)
 
-	// Seed the target archive with one existing entry so the merge path is exercised.
+	// Seed the target archive with one valid entry and one raw entry so the merge path is exercised.
 	target := filepath.Join(env.home, "out", "starter.json.gz")
 	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(target, encodePack(t, []miner.CacheExportItem{{Hash: "base-1", Model: "m", NormalizedPrompt: "base"}}), 0644); err != nil {
+	archive := []miner.CacheExportItem{
+		{Hash: baseHash, Model: "gpt-4o", NormalizedPrompt: basePrompt, ResponsePayload: basePayload},
+		{Hash: "base-raw", Model: "m", NormalizedPrompt: "base"},
+	}
+	if err := os.WriteFile(target, encodePack(t, archive), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	out, err := env.run(t, "cache", "pack", "--from-db", env.dbPath, "-o", target, "--min-hits", "1", "--max-prompt-bytes", "100")
+	out, err := env.run(t, "cache", "pack", "--from-db", env.dbPath, "-o", target, "--min-hits", "1")
 	if err != nil {
 		t.Fatalf("cache pack: %v", err)
 	}
@@ -399,14 +430,16 @@ func TestCachePack(t *testing.T) {
 		"Output Archive:         "+target,
 		"Existing Base Entries:  1",
 		"Merged from Database:   1",
+		"Rejected (not packed):  2",
+		"not_curated_request:  2",
 		"Total Packed Entries:   2",
 	)
 	hashes := map[string]bool{}
 	for _, it := range readPack(t, target) {
 		hashes[it.Hash] = true
 	}
-	if !hashes["base-1"] || !hashes["db-1"] || hashes["db-2"] || hashes["db-3"] {
-		t.Errorf("packed hashes = %v, want base-1 and db-1 only", hashes)
+	if len(hashes) != 2 || !hashes[baseHash] || !hashes[minedHash] {
+		t.Errorf("packed hashes = %v, want only the two mined corpus entries", hashes)
 	}
 }
 

@@ -8,198 +8,116 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
+	"sort"
 	"time"
 
 	"github.com/primaybr/liltok/internal/cache"
-	"github.com/primaybr/liltok/internal/db"
 	"github.com/primaybr/liltok/internal/miner"
 )
 
-type StarterItem struct {
-	Hash             string `json:"hash"`
-	Model            string `json:"model"`
-	NormalizedPrompt string `json:"normalized_prompt"`
-	ResponsePayload  string `json:"response_payload"`
-	PromptTokens     int    `json:"prompt_tokens"`
-	CompletionTokens int    `json:"completion_tokens"`
-	TTLSeconds       int    `json:"ttl_seconds"`
-	IsSemantic       bool   `json:"is_semantic"`
-}
-
+// build_starter_cache adds the hand-written answers below to the starter pack archive, then repacks
+// it through miner.PackStarterCache, which keeps only entries that pass miner.StarterFilter (answers
+// to curated corpus prompts in the miner's request shapes). Mined answers are added with
+// `liltok cache pack`; there is deliberately no way to pack entries from user traffic.
 func main() {
-	fromDB := flag.String("from-db", "", "Path to source SQLite database to merge (optional, e.g. ~/.liltok/liltok.db)")
 	outPath := flag.String("out", filepath.Join("internal", "db", "starter_cache.json.gz"), "Target starter cache archive path")
-	sanitize := flag.Bool("sanitize", true, "Automatically scrub personal home paths, API keys, and private IPs")
-	minHits := flag.Int("min-hits", 0, "Minimum hits required for imported database entries")
-	maxPromptBytes := flag.Int("max-prompt-bytes", 65536, "Maximum prompt byte length to include (default 65536, 0 = unlimited)")
 	flag.Parse()
 
-	prompts := miner.GetCuratedPrompts("all")
 	models := []string{"claude-opus-5", "claude-sonnet-5", "claude-sonnet-4-5", "claude-haiku-4-5", "gpt-4o"}
-
-	var starterItems []StarterItem
 	normOpts := cache.NormalizationOptions{CacheNonzeroTemperature: true}
 
-	for _, p := range prompts {
-		answer := generateCanonicalAnswer(p)
+	items := make(map[string]miner.CacheExportItem)
+	if data, err := os.ReadFile(*outPath); err == nil {
+		if gz, err := gzip.NewReader(bytes.NewReader(data)); err == nil {
+			var existing []miner.CacheExportItem
+			if err := json.NewDecoder(gz).Decode(&existing); err == nil {
+				for _, it := range existing {
+					items[it.Hash] = it
+				}
+			}
+			_ = gz.Close()
+		}
+	}
 
+	added := 0
+	for _, p := range miner.GetCuratedPrompts("all") {
+		answer := generateCanonicalAnswer(p)
+		if answer == "" {
+			continue
+		}
 		for _, model := range models {
-			// 1. Anthropic schema
 			anthPayload := map[string]interface{}{
-				"model": model,
-				"messages": []map[string]string{
-					{"role": "user", "content": p.UserPrompt},
-				},
+				"model":      model,
+				"messages":   []map[string]string{{"role": "user", "content": p.UserPrompt}},
 				"max_tokens": 4096,
 			}
 			if p.SystemPrompt != "" {
 				anthPayload["system"] = p.SystemPrompt
 			}
-			anthBytes, _ := json.Marshal(anthPayload)
-			normAnth, err := cache.NormalizePayload(anthBytes, normOpts)
-			if err == nil {
-				anthResp, _ := json.Marshal(map[string]interface{}{
-					"id":          fmt.Sprintf("msg-seed-%s", p.ID),
-					"type":        "message",
-					"role":        "assistant",
-					"model":       model,
-					"content":     []map[string]string{{"type": "text", "text": answer}},
-					"stop_reason": "end_turn",
-					"usage": map[string]int{
-						"input_tokens":  len(p.UserPrompt) / 4,
-						"output_tokens": len(answer) / 4,
-					},
-				})
-				starterItems = append(starterItems, StarterItem{
-					Hash:             normAnth.Hash,
-					Model:            model,
-					NormalizedPrompt: normAnth.CanonicalJSON,
-					ResponsePayload:  string(anthResp),
-					PromptTokens:     len(p.UserPrompt) / 4,
-					CompletionTokens: len(answer) / 4,
-					TTLSeconds:       2592000,
-					IsSemantic:       false,
-				})
+			anthResp := map[string]interface{}{
+				"id":          fmt.Sprintf("msg-seed-%s", p.ID),
+				"type":        "message",
+				"role":        "assistant",
+				"model":       model,
+				"content":     []map[string]string{{"type": "text", "text": answer}},
+				"stop_reason": "end_turn",
+				"usage":       map[string]int{"input_tokens": len(p.UserPrompt) / 4, "output_tokens": len(answer) / 4},
 			}
 
-			// 2. OpenAI schema
-			openAIPayload := map[string]interface{}{
-				"model": model,
-				"messages": []map[string]string{
-					{"role": "user", "content": p.UserPrompt},
-				},
-				"temperature": 0.0,
-			}
+			openAIMessages := []map[string]string{{"role": "user", "content": p.UserPrompt}}
 			if p.SystemPrompt != "" {
-				openAIPayload["messages"] = []map[string]string{
+				openAIMessages = []map[string]string{
 					{"role": "system", "content": p.SystemPrompt},
 					{"role": "user", "content": p.UserPrompt},
 				}
 			}
-			openAIBytes, _ := json.Marshal(openAIPayload)
-			normOpenAI, err := cache.NormalizePayload(openAIBytes, normOpts)
-			if err == nil {
-				openAIResp, _ := json.Marshal(map[string]interface{}{
-					"id":      fmt.Sprintf("chatcmpl-seed-%s", p.ID),
-					"object":  "chat.completion",
-					"created": time.Now().Unix(),
-					"model":   model,
-					"choices": []map[string]interface{}{
-						{
-							"index": 0,
-							"message": map[string]string{
-								"role":    "assistant",
-								"content": answer,
-							},
-							"finish_reason": "stop",
-						},
-					},
-					"usage": map[string]int{
-						"prompt_tokens":     len(p.UserPrompt) / 4,
-						"completion_tokens": len(answer) / 4,
-						"total_tokens":      (len(p.UserPrompt) + len(answer)) / 4,
-					},
-				})
-				starterItems = append(starterItems, StarterItem{
-					Hash:             normOpenAI.Hash,
+			openAIPayload := map[string]interface{}{"model": model, "messages": openAIMessages, "temperature": 0.0}
+			openAIResp := map[string]interface{}{
+				"id":      fmt.Sprintf("chatcmpl-seed-%s", p.ID),
+				"object":  "chat.completion",
+				"created": time.Now().Unix(),
+				"model":   model,
+				"choices": []map[string]interface{}{{
+					"index":         0,
+					"message":       map[string]string{"role": "assistant", "content": answer},
+					"finish_reason": "stop",
+				}},
+				"usage": map[string]int{
+					"prompt_tokens":     len(p.UserPrompt) / 4,
+					"completion_tokens": len(answer) / 4,
+					"total_tokens":      (len(p.UserPrompt) + len(answer)) / 4,
+				},
+			}
+
+			for _, pair := range [][2]interface{}{{anthPayload, anthResp}, {openAIPayload, openAIResp}} {
+				reqBytes, _ := json.Marshal(pair[0])
+				norm, err := cache.NormalizePayload(reqBytes, normOpts)
+				if err != nil {
+					continue
+				}
+				respBytes, _ := json.Marshal(pair[1])
+				items[norm.Hash] = miner.CacheExportItem{
+					Hash:             norm.Hash,
 					Model:            model,
-					NormalizedPrompt: normOpenAI.CanonicalJSON,
-					ResponsePayload:  string(openAIResp),
+					NormalizedPrompt: norm.CanonicalJSON,
+					ResponsePayload:  string(respBytes),
 					PromptTokens:     len(p.UserPrompt) / 4,
 					CompletionTokens: len(answer) / 4,
 					TTLSeconds:       2592000,
-					IsSemantic:       false,
-				})
-			}
-		}
-	}
-
-	itemsMap := make(map[string]StarterItem)
-	for _, item := range starterItems {
-		itemsMap[item.Hash] = item
-	}
-
-	if *fromDB != "" {
-		dbPath := *fromDB
-		if strings.HasPrefix(dbPath, "~") {
-			if home, err := os.UserHomeDir(); err == nil {
-				dbPath = filepath.Join(home, dbPath[1:])
-			}
-		}
-
-		database, err := db.Open(dbPath)
-		if err != nil {
-			fmt.Printf("Warning: failed to open source database %s: %v\n", dbPath, err)
-		} else {
-			defer database.Close()
-
-			rows, err := database.Query(`
-				SELECT hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens, ttl_seconds, is_semantic
-				FROM cache_entries
-				WHERE hit_count >= ?
-			`, *minHits)
-			if err != nil {
-				fmt.Printf("Warning: failed to query cache entries: %v\n", err)
-			} else {
-				defer rows.Close()
-				dbMerged := 0
-				for rows.Next() {
-					var item StarterItem
-					var rawPayload []byte
-					var isSem int
-					if err := rows.Scan(&item.Hash, &item.Model, &item.NormalizedPrompt, &rawPayload, &item.PromptTokens, &item.CompletionTokens, &item.TTLSeconds, &isSem); err == nil {
-						if *maxPromptBytes > 0 && len(item.NormalizedPrompt) > *maxPromptBytes {
-							continue
-						}
-
-						item.ResponsePayload = string(rawPayload)
-						item.IsSemantic = (isSem == 1)
-
-						if *sanitize {
-							item.NormalizedPrompt = miner.SanitizeContent(item.NormalizedPrompt)
-							item.ResponsePayload = miner.SanitizeContent(item.ResponsePayload)
-						}
-
-						if _, exists := itemsMap[item.Hash]; !exists {
-							dbMerged++
-						}
-						itemsMap[item.Hash] = item
-					}
 				}
-				fmt.Printf("Merged %d entries from database %s (Total unique: %d)\n", dbMerged, dbPath, len(itemsMap))
+				added++
 			}
 		}
 	}
 
-	var finalItems []StarterItem
-	for _, item := range itemsMap {
-		finalItems = append(finalItems, item)
+	merged := make([]miner.CacheExportItem, 0, len(items))
+	for _, it := range items {
+		merged = append(merged, it)
 	}
-
+	sort.Slice(merged, func(i, j int) bool { return merged[i].Hash < merged[j].Hash })
 	var buf bytes.Buffer
 	gzWriter := gzip.NewWriter(&buf)
-	if err := json.NewEncoder(gzWriter).Encode(finalItems); err != nil {
+	if err := json.NewEncoder(gzWriter).Encode(merged); err != nil {
 		fmt.Printf("Failed to encode: %v\n", err)
 		os.Exit(1)
 	}
@@ -207,7 +125,6 @@ func main() {
 		fmt.Printf("Failed to close gzWriter: %v\n", err)
 		os.Exit(1)
 	}
-
 	if err := os.MkdirAll(filepath.Dir(*outPath), 0755); err != nil {
 		fmt.Printf("Failed to create parent directory for %s: %v\n", *outPath, err)
 		os.Exit(1)
@@ -217,8 +134,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully generated %d starter cache entries into %s (%d bytes gz)\n",
-		len(finalItems), *outPath, buf.Len())
+	// Repack through the starter filter: this drops every entry, old or new, that is not an answer
+	// to a curated prompt in the miner's request shape.
+	res, err := miner.PackStarterCache(nil, *outPath, miner.PackOptions{})
+	if err != nil {
+		fmt.Printf("Failed to repack %s: %v\n", *outPath, err)
+		os.Exit(1)
+	}
+	fmt.Printf("Added %d hand-written entries; %d entries rejected %v; wrote %d starter cache entries to %s (%d bytes gz)\n",
+		added, res.Rejected, res.RejectReasons, res.TotalEntries, res.TargetPath, res.SizeBytes)
 }
 
 func generateCanonicalAnswer(p miner.PromptItem) string {
@@ -1183,6 +1107,7 @@ git stash branch feature/auth-modal stash@{0}
 ` + "```" + `
 `
 	default:
-		return fmt.Sprintf("### %s\n\nTo solve this task efficiently, follow standard industry best practices:\n1. Verify input boundaries and type constraints.\n2. Ensure thread-safety and proper error handling.\n3. Add unit tests covering edge cases.", p.UserPrompt)
+		// No hand-written answer: leave the prompt to the miner rather than packing a generic reply.
+		return ""
 	}
 }

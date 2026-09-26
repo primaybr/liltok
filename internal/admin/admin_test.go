@@ -178,7 +178,7 @@ func TestAdminCacheOperations(t *testing.T) {
 	// 4. Pack starter cache
 	t.Chdir(t.TempDir()) // pack targets must be relative to the working directory
 	targetGz := "packed_starter.json.gz"
-	packBody := fmt.Sprintf(`{"target_path": %q, "sanitize": true, "min_hits": 0}`, targetGz)
+	packBody := fmt.Sprintf(`{"target_path": %q, "min_hits": 0}`, targetGz)
 	reqPack := httptest.NewRequest("POST", "/api/v1/cache/pack", strings.NewReader(packBody))
 	reqPack.Header.Set("Content-Type", "application/json")
 	recPack := httptest.NewRecorder()
