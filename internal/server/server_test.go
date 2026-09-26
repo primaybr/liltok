@@ -15,7 +15,7 @@ func TestServerHealthz(t *testing.T) {
 		Config: cfg,
 	})
 
-	req := httptest.NewRequest("GET", "/healthz", nil)
+	req := httptest.NewRequest("GET", "http://localhost:8080/healthz", nil)
 	rec := httptest.NewRecorder()
 
 	s.Router().ServeHTTP(rec, req)
@@ -36,7 +36,7 @@ func TestServerDashboardAndMetrics(t *testing.T) {
 	})
 
 	// Test GET /metrics
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequest("GET", "http://localhost:8080/metrics", nil)
 	rec := httptest.NewRecorder()
 	s.Router().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -47,7 +47,7 @@ func TestServerDashboardAndMetrics(t *testing.T) {
 	}
 
 	// Test GET /dashboard
-	req = httptest.NewRequest("GET", "/dashboard", nil)
+	req = httptest.NewRequest("GET", "http://localhost:8080/dashboard", nil)
 	rec = httptest.NewRecorder()
 	s.Router().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -58,7 +58,7 @@ func TestServerDashboardAndMetrics(t *testing.T) {
 	}
 
 	// Test GET / (redirects to /dashboard)
-	req = httptest.NewRequest("GET", "/", nil)
+	req = httptest.NewRequest("GET", "http://localhost:8080/", nil)
 	rec = httptest.NewRecorder()
 	s.Router().ServeHTTP(rec, req)
 	if rec.Code != http.StatusTemporaryRedirect {
@@ -69,7 +69,7 @@ func TestServerDashboardAndMetrics(t *testing.T) {
 	}
 
 	// Test GET /api/v1/overview
-	req = httptest.NewRequest("GET", "/api/v1/overview", nil)
+	req = httptest.NewRequest("GET", "http://localhost:8080/api/v1/overview", nil)
 	rec = httptest.NewRecorder()
 	s.Router().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -77,5 +77,17 @@ func TestServerDashboardAndMetrics(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "total_requests") {
 		t.Errorf("expected total_requests in overview response: %s", rec.Body.String())
+	}
+}
+
+// TestServerRefusesRebindingHost checks the LocalGuard wiring: a gateway listening on loopback
+// refuses a request whose Host is another name, as a DNS-rebinding page would send.
+func TestServerRefusesRebindingHost(t *testing.T) {
+	cfg := config.DefaultConfig()
+	srv := NewServer(ServerConfig{Config: cfg})
+	rec := httptest.NewRecorder()
+	srv.Router().ServeHTTP(rec, httptest.NewRequest("GET", "http://rebind.example:8080/healthz", nil))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("rebinding host got %d, want 403", rec.Code)
 	}
 }

@@ -51,7 +51,13 @@ type Server struct {
 func NewServer(sc ServerConfig) *Server {
 	r := chi.NewRouter()
 
-	// Apply Core Middlewares
+	// Apply Core Middlewares. LocalGuard runs first so rebinding and cross-site requests are
+	// refused before any handler, logging or quota work.
+	bindHost := ""
+	if sc.Config != nil {
+		bindHost = sc.Config.Server.Host
+	}
+	r.Use(middleware.LocalGuard(bindHost))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recovery)
 	r.Use(middleware.Logger)
