@@ -1,10 +1,12 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"io/fs"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func openFileDB(t *testing.T, path string) *DB {
@@ -212,5 +214,84 @@ func TestPricingRefreshKeepsEditedRates(t *testing.T) {
 	var n int
 	if err := d.QueryRow(`SELECT COUNT(*) FROM model_pricing WHERE model_pattern IN ('gpt-4o', 'claude-haiku-5.*')`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("stale rows remaining = %d (err %v), want 0", n, err)
+	}
+}
+
+var keyBudgetColumns = []string{"daily_budget_usd", "daily_spend_usd", "daily_spend_date", "spend_month"}
+
+func TestMigrateFreshDatabaseHasKeyBudgetColumns(t *testing.T) {
+	d := openFileDB(t, filepath.Join(t.TempDir(), "fresh-keys.db"))
+	defer d.Close()
+	cols := columnSet(t, d, "api_keys")
+	for _, c := range keyBudgetColumns {
+		if !cols[c] {
+			t.Errorf("api_keys is missing column %s", c)
+		}
+	}
+}
+
+// TestKeyBudgetPeriodsOverVersion7 builds a database at schema version 7 holding a key with spend,
+// then migrates it: 008 adds the budget columns with no daily cap, and stamps the key with the
+// current UTC month so the spend it already has keeps counting.
+func TestKeyBudgetPeriodsOverVersion7(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "v7.db")
+	raw, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw.SetMaxOpenConns(1)
+	d := &DB{DB: raw, path: path}
+	defer d.Close()
+
+	ctx := context.Background()
+	if _, err := d.Exec(`CREATE TABLE schema_migrations (
+		version INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range migrations {
+		if m.version > 7 {
+			break
+		}
+		if err := d.apply(ctx, m); err != nil {
+			t.Fatalf("apply %d: %v", m.version, err)
+		}
+	}
+	if v, err := d.SchemaVersion(); err != nil || v != 7 {
+		t.Fatalf("setup schema version = %d (err %v), want 7", v, err)
+	}
+	if cols := columnSet(t, d, "api_keys"); cols["spend_month"] {
+		t.Fatal("spend_month must not exist before 008")
+	}
+	if _, err := d.Exec(`INSERT INTO api_keys (id, key_hash, name, monthly_budget_usd, current_spend_usd)
+		VALUES ('key_old', 'hash_old', 'old', 10, 3.5)`); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := d.Migrate(); err != nil {
+		t.Fatalf("Migrate over v7: %v", err)
+	}
+	if v, err := d.SchemaVersion(); err != nil || v != latestVersion() {
+		t.Fatalf("schema version = %d (err %v), want %d", v, err, latestVersion())
+	}
+	var (
+		spend, dailyBudget, dailySpend float64
+		dailyDate, month               string
+	)
+	if err := d.QueryRow(`SELECT current_spend_usd, daily_budget_usd, daily_spend_usd, daily_spend_date, spend_month
+		FROM api_keys WHERE id = 'key_old'`).Scan(&spend, &dailyBudget, &dailySpend, &dailyDate, &month); err != nil {
+		t.Fatal(err)
+	}
+	if spend != 3.5 || dailyBudget != 0 || dailySpend != 0 || dailyDate != "" {
+		t.Errorf("migrated key = spend %v daily budget %v daily spend %v date %q; want 3.5, 0, 0, empty",
+			spend, dailyBudget, dailySpend, dailyDate)
+	}
+	// strftime('now') is UTC; allow for the test straddling a month boundary.
+	before := time.Now().UTC().Add(-time.Minute).Format("2006-01")
+	after := time.Now().UTC().Format("2006-01")
+	if month != before && month != after {
+		t.Errorf("spend_month = %q, want the current UTC month %q", month, after)
 	}
 }

@@ -1075,13 +1075,15 @@
                 <th>Status</th>
                 <th>Current Spend <span class="badge-est">EST.</span></th>
                 <th>Monthly Budget</th>
+                <th>Today Spend <span class="badge-est">EST.</span></th>
+                <th>Daily Budget (UTC)</th>
                 <th>RPM</th>
                 <th>TPM</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="keys-tbody">
-              <tr><td colspan="8" style="text-align: center; color: var(--muted);">Loading keys...</td></tr>
+              <tr><td colspan="10" style="text-align: center; color: var(--muted);">Loading keys...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1639,6 +1641,10 @@
       <div class="form-group">
         <label class="form-label">Monthly Spend Budget ($ USD, 0 for unlimited)</label>
         <input id="key-budget-input" type="number" step="0.5" class="form-input" value="25.00" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Daily Spend Budget ($ USD per UTC day, 0 for unlimited)</label>
+        <input id="key-daily-budget-input" type="number" step="0.5" min="0" class="form-input" value="0" />
       </div>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
         <div class="form-group">
@@ -3381,19 +3387,21 @@
         const keys = await res.json();
         const tbody = document.getElementById('keys-tbody');
         if (keys.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--muted);">No keys found</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; color: var(--muted);">No keys found</td></tr>';
           return;
         }
         tbody.innerHTML = keys.map(k => `
           <tr>
-            <td>${k.id}</td>
-            <td style="font-weight: 600;">${k.name}</td>
+            <td>${escapeHTML(k.id)}</td>
+            <td style="font-weight: 600;">${escapeHTML(k.name)}</td>
             <td>${k.is_active ? '<span class="badge badge-hit-exact">ACTIVE</span>' : '<span class="badge badge-miss">REVOKED</span>'}</td>
             <td>${formatCurrency(k.current_spend_usd)}</td>
             <td>${k.monthly_budget_usd > 0 ? '$' + k.monthly_budget_usd.toFixed(2) : 'UNLIMITED'}</td>
+            <td>${formatCurrency(k.daily_spend_usd || 0)}</td>
+            <td>${k.daily_budget_usd > 0 ? '$' + k.daily_budget_usd.toFixed(2) : 'UNLIMITED'}</td>
             <td>${k.rpm_limit}</td>
             <td>${k.tpm_limit}</td>
-            <td>${k.is_active ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="revokeKey('${k.id}')">Revoke</button>` : '-'}</td>
+            <td>${k.is_active ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="revokeKey('${escapeHTML(k.id)}')">Revoke</button>` : '-'}</td>
           </tr>
         `).join('');
       } catch (e) {}
@@ -3415,13 +3423,14 @@
     async function submitCreateKey() {
       const name = document.getElementById('key-name-input').value;
       const budget = parseFloat(document.getElementById('key-budget-input').value) || 0;
+      const daily_budget = parseFloat(document.getElementById('key-daily-budget-input').value) || 0;
       const rpm = parseInt(document.getElementById('key-rpm-input').value) || 60;
       const tpm = parseInt(document.getElementById('key-tpm-input').value) || 100000;
 
       const res = await fetch('/api/v1/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, budget, rpm, tpm })
+        body: JSON.stringify({ name, budget, daily_budget, rpm, tpm })
       });
       if (res.ok) {
         const data = await res.json();

@@ -24,11 +24,12 @@ func resolveDBPath() string {
 func newKeysCommand() *cobra.Command {
 	keysCmd := &cobra.Command{
 		Use:   "keys",
-		Short: "Manage virtual API keys, rate limits, and monthly spend quotas",
+		Short: "Manage virtual API keys, rate limits, and monthly and daily spend quotas",
 	}
 
 	var name string
 	var budget float64
+	var dailyBudget float64
 	var rpm int
 	var tpm int
 
@@ -48,7 +49,13 @@ func newKeysCommand() *cobra.Command {
 			defer database.Close()
 
 			km := ledger.NewKeyManager(database)
-			rawKey, keyObj, err := km.CreateKey(context.Background(), name, budget, rpm, tpm)
+			rawKey, keyObj, err := km.CreateKeyWithOptions(context.Background(), ledger.KeyOptions{
+				Name:             name,
+				MonthlyBudgetUSD: budget,
+				DailyBudgetUSD:   dailyBudget,
+				RPM:              rpm,
+				TPM:              tpm,
+			})
 			if err != nil {
 				return fmt.Errorf("failed to create api key: %w", err)
 			}
@@ -63,6 +70,11 @@ func newKeysCommand() *cobra.Command {
 			} else {
 				fmt.Println("   Monthly Budget:  Unlimited")
 			}
+			if keyObj.DailyBudgetUSD > 0 {
+				fmt.Printf("   Daily Budget:    $%.2f USD (resets 00:00 UTC)\n", keyObj.DailyBudgetUSD)
+			} else {
+				fmt.Println("   Daily Budget:    Unlimited")
+			}
 			fmt.Printf("   Rate Limits:     %d RPM / %d TPM\n", keyObj.RPM, keyObj.TPM)
 			fmt.Println("==================================================================")
 			fmt.Println(" Keep this secret key safe! It will not be displayed again.")
@@ -71,6 +83,7 @@ func newKeysCommand() *cobra.Command {
 	}
 	createCmd.Flags().StringVarP(&name, "name", "n", "default", "Friendly name for the virtual key")
 	createCmd.Flags().Float64VarP(&budget, "budget", "b", 0.0, "Monthly spend cap in USD (0.0 for unlimited)")
+	createCmd.Flags().Float64Var(&dailyBudget, "daily-budget", 0.0, "Daily spend cap in USD per UTC day (0.0 for unlimited)")
 	createCmd.Flags().IntVar(&rpm, "rpm", 60, "Maximum requests per minute")
 	createCmd.Flags().IntVar(&tpm, "tpm", 100000, "Maximum tokens per minute")
 
@@ -97,7 +110,7 @@ func newKeysCommand() *cobra.Command {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-			_, _ = fmt.Fprintln(w, "ID\tNAME\tSTATUS\tCURRENT SPEND\tMONTHLY BUDGET\tRPM\tTPM")
+			_, _ = fmt.Fprintln(w, "ID\tNAME\tSTATUS\tCURRENT SPEND\tMONTHLY BUDGET\tTODAY SPEND\tDAILY BUDGET\tRPM\tTPM")
 			for _, k := range keys {
 				status := "ACTIVE"
 				if !k.IsActive {
@@ -107,8 +120,12 @@ func newKeysCommand() *cobra.Command {
 				if k.MonthlyBudgetUSD > 0 {
 					budgetStr = fmt.Sprintf("$%.2f", k.MonthlyBudgetUSD)
 				}
-				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t$%.4f\t%s\t%d\t%d\n",
-					k.ID, k.Name, status, k.CurrentSpendUSD, budgetStr, k.RPM, k.TPM)
+				dailyStr := "UNLIMITED"
+				if k.DailyBudgetUSD > 0 {
+					dailyStr = fmt.Sprintf("$%.2f", k.DailyBudgetUSD)
+				}
+				_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t$%.4f\t%s\t$%.4f\t%s\t%d\t%d\n",
+					k.ID, k.Name, status, k.CurrentSpendUSD, budgetStr, k.DailySpendUSD, dailyStr, k.RPM, k.TPM)
 			}
 			_ = w.Flush()
 			return nil

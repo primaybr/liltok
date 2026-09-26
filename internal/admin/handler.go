@@ -263,7 +263,7 @@ func (h *AdminHandler) HandleClearLogs(w http.ResponseWriter, r *http.Request) {
 	rowsDeleted, _ := res.RowsAffected()
 
 	if r.URL.Query().Get("reset_spends") == "true" {
-		_, _ = h.database.ExecContext(ctx, "UPDATE api_keys SET current_spend_usd = 0.0")
+		_, _ = h.database.ExecContext(ctx, "UPDATE api_keys SET current_spend_usd = 0.0, daily_spend_usd = 0.0")
 	}
 
 	// Broadcast SSE event so connected browser dashboards update instantly
@@ -1626,10 +1626,11 @@ func (h *AdminHandler) HandleCreateKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name   string  `json:"name"`
-		Budget float64 `json:"budget"`
-		RPM    int     `json:"rpm"`
-		TPM    int     `json:"tpm"`
+		Name        string  `json:"name"`
+		Budget      float64 `json:"budget"`
+		DailyBudget float64 `json:"daily_budget"`
+		RPM         int     `json:"rpm"`
+		TPM         int     `json:"tpm"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1637,7 +1638,13 @@ func (h *AdminHandler) HandleCreateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rawKey, keyObj, err := h.keyManager.CreateKey(r.Context(), req.Name, req.Budget, req.RPM, req.TPM)
+	rawKey, keyObj, err := h.keyManager.CreateKeyWithOptions(r.Context(), ledger.KeyOptions{
+		Name:             req.Name,
+		MonthlyBudgetUSD: req.Budget,
+		DailyBudgetUSD:   req.DailyBudget,
+		RPM:              req.RPM,
+		TPM:              req.TPM,
+	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

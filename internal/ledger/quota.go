@@ -115,14 +115,20 @@ func (qe *QuotaEnforcer) CheckRateLimit(key *APIKey, estimatedTokens int) (bool,
 	return true, ""
 }
 
-// CheckBudget evaluates whether the virtual key has exceeded its monthly spend cap.
+// CheckBudget evaluates whether the virtual key has reached its monthly or daily spend cap. Only
+// spend recorded for the current UTC month (or day) counts, so a cap lifts when the period ends.
+// A budget of 0 means no cap.
 func (qe *QuotaEnforcer) CheckBudget(key *APIKey) (bool, string) {
 	if key == nil {
 		return true, ""
 	}
 
-	if key.MonthlyBudgetUSD > 0 && key.CurrentSpendUSD >= key.MonthlyBudgetUSD {
+	now := qe.now()
+	if key.MonthlyBudgetUSD > 0 && key.monthlySpendAt(now) >= key.MonthlyBudgetUSD {
 		return false, "monthly budget quota exceeded; cache hits permitted but upstream requests blocked"
+	}
+	if key.DailyBudgetUSD > 0 && key.dailySpendAt(now) >= key.DailyBudgetUSD {
+		return false, "daily budget quota exceeded; cache hits permitted but upstream requests blocked"
 	}
 
 	return true, ""

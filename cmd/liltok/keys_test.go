@@ -61,6 +61,33 @@ func TestKeysLifecycle(t *testing.T) {
 	}
 }
 
+func TestKeysDailyBudget(t *testing.T) {
+	env := newTestEnv(t, "")
+
+	out, err := env.run(t, "keys", "create", "--name", "daily-bot", "--budget", "40", "--daily-budget", "3.25")
+	if err != nil {
+		t.Fatalf("keys create --daily-budget: %v", err)
+	}
+	assertContains(t, out, "Monthly Budget:  $40.00 USD", "Daily Budget:    $3.25 USD (resets 00:00 UTC)")
+
+	out, err = env.run(t, "keys", "create", "--name", "no-daily")
+	if err != nil {
+		t.Fatalf("keys create: %v", err)
+	}
+	assertContains(t, out, "Daily Budget:    Unlimited")
+
+	out, err = env.run(t, "keys", "list")
+	if err != nil {
+		t.Fatalf("keys list: %v", err)
+	}
+	assertContains(t, out, "TODAY SPEND", "DAILY BUDGET", "$3.25")
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "daily-bot") && !strings.Contains(line, "$3.25") {
+			t.Errorf("daily-bot row lacks its daily budget: %q", line)
+		}
+	}
+}
+
 func TestKeysRevokeErrors(t *testing.T) {
 	env := newTestEnv(t, "")
 
