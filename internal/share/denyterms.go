@@ -131,6 +131,20 @@ func AutoDenyTerms(e DenyEnv) []string {
 			if utf8.RuneCountInString(local) >= minSubstringDenyTermLen {
 				add(local)
 			}
+			// Fix round 1: a GitHub noreply address such as "12345+jdoe@users.noreply.github.com"
+			// never emitted a usable term, since the numeric id dominates the local part's length
+			// check and the domain is generic. A "+" in the local part usually separates a numeric
+			// id (or a role) from the handle that actually identifies the contributor, so the part
+			// before the first "+" and the part after the last "+" are also added as candidates,
+			// each subject to the same length and generic-name filters as everything else.
+			if strings.Contains(local, "+") {
+				if j := strings.Index(local, "+"); j >= 0 {
+					add(local[:j])
+				}
+				if j := strings.LastIndex(local, "+"); j >= 0 {
+					add(local[j+1:])
+				}
+			}
 			add(e.GitEmail[i+1:])
 		}
 	}

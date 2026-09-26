@@ -106,6 +106,23 @@ func TestGate(t *testing.T) {
 		{"path exemption: golang.org/x import path", "How does golang.org/x/sync/errgroup cancel siblings?", ""},
 		{"non-exempt path with capitalized segments still rejects", "Why does App/Modules/Billing/Controllers fail to autoload?", share.RulePath},
 		{"non-exempt path with a file extension still rejects", "How do I test src/app/main.go?", share.RulePath},
+		// Fix round 1, item 1: exemption (a) checked only the first segment, so a real path nested
+		// under a stdlib-named directory passed as if it were an import path. It now also requires
+		// the whole token to be nothing but lowercase-alphanumeric segments.
+		{"stdlib-prefixed non-import path still rejects (underscore and extension)", "Why does database/migrations/create_users.php fail during the nightly deploy?", share.RulePath},
+		{"stdlib-prefixed non-import path still rejects (dotted segment)", "Why does go/pkg/mod/github.com/secretco/billing/tax.go fail to build in CI?", share.RulePath},
+		{"stdlib-prefixed non-import path still rejects (deep dotted segment)", "Why does go/src/github.com/secretco/billing fail go vet in CI?", share.RulePath},
+		{"stdlib-prefixed non-import path still rejects (mixed case segment)", "Why can't the loader find path/to/Secret/Config.yaml at startup?", share.RulePath},
+		{"stdlib-prefixed non-import path still rejects (parent-dir segments)", "Why does the setup script read os/exec/../../etc/shadow by mistake?", share.RulePath},
+		{"stdlib import path with all-lowercase segments still passes", "How does database/sql/driver differ from database/sql itself?", ""},
+		// Fix round 1, item 4: exemption (b) used to allow up to 4 segments and any lowercase word,
+		// so a real relative path under a common directory name passed as if it were prose.
+		{"ordinary-words exemption no longer covers a common directory (4 segments)", "Why does home/alice/secret/data fail to sync after the migration?", share.RulePath},
+		{"ordinary-words exemption no longer covers a common directory (3 segments)", "Why does opt/billing/tax fail to reconcile nightly?", share.RulePath},
+		// Accepted residual (documented, not fixed): a plausible bare project path of three ordinary
+		// words with no common-directory segment still passes exemption (b); catching a real project
+		// name this way depends on it also being configured as a deny term.
+		{"three ordinary words still pass (residual gap; use a deny term to close it)", "How does acme/billing/tax compare with the old spreadsheet workflow?", ""},
 		// Task 7-fix, item 7: an ISO-8601 timestamp is time-anchored the same way "today" is.
 		{"iso timestamp", "Why did the nightly build at 2031-02-03T10:11 fail to upload artifacts?", share.RuleTemporal},
 		// Task 7-fix, item 1: echo/liveness probes ask for a fixed literal reply, not an explanation.
@@ -169,6 +186,33 @@ func TestGateDenyTermBoundary(t *testing.T) {
 		{"PascalCase identifier matches", "Why does MaterClient retry twice?", share.RuleDenyTerm},
 		{"snake_case identifier matches", "How should the mater_billing table be designed?", share.RuleDenyTerm},
 		{"camelCase boundary matches", "Why does myMaterClient leak goroutines?", share.RuleDenyTerm},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := g.Check(tc.q).Rule; got != tc.want {
+				t.Errorf("rule = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestGateDenyTermBoundaryFixRound1 covers fix round-1 items 2 and 3: probing the boundary rule
+// from TestGateDenyTermBoundary found it still missed an acronym, all-caps, digit, or CJK rune
+// immediately before the term, and a plain plural or past-tense suffix immediately after it. Both
+// sides were narrowed; "mywidgetgate" (a glued, unbroken lowercase run on the left) is the one
+// documented residual the ruling explicitly kept.
+func TestGateDenyTermBoundaryFixRound1(t *testing.T) {
+	g := share.NewGate(share.GateConfig{DenyTerms: []string{"widgetgate"}, URLAllowlist: testAllowlist})
+	cases := []struct {
+		name, q, want string
+	}{
+		{"digit immediately before the term now rejects", "Why does v2widgetgate throttle unexpectedly?", share.RuleDenyTerm},
+		{"acronym immediately before the term now rejects", "Why does APIWidgetgate crash under load?", share.RuleDenyTerm},
+		{"all-caps run around the term now rejects", "Why does MATERIALWIDGETGATEX time out under load?", share.RuleDenyTerm},
+		{"CJK rune immediately before the term now rejects", "我们的widgetgate服务为什么会随机重启？", share.RuleDenyTerm},
+		{"glued lowercase run is the accepted residual and still passes", "Why does mywidgetgate throttle without warning?", ""},
+		{"plural suffix now rejects", "How do I configure widgetgates across the cluster?", share.RuleDenyTerm},
+		{"past-tense suffix now rejects", "Why does the healthcheck endpoint report widgetgated after a retry?", share.RuleDenyTerm},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -61,3 +61,26 @@ func TestAutoDenyTermsRepoIdentity(t *testing.T) {
 		t.Errorf("AutoDenyTerms = %q, want %q", got, want)
 	}
 }
+
+// TestAutoDenyTermsGitEmailPlusAddress covers fix round-1 item 5: a GitHub noreply address such as
+// "12345+jdoe.dev@users.noreply.github.com" never emitted a usable term before, since the numeric
+// id dominates the local part and the domain is generic. The part before the first "+" and the part
+// after the last "+" are now also added as candidates.
+func TestAutoDenyTermsGitEmailPlusAddress(t *testing.T) {
+	got := share.AutoDenyTerms(share.DenyEnv{GitEmail: "12345+jdoe.dev@users.noreply.github.com"})
+	want := []string{"12345+jdoe.dev@users.noreply.github.com", "12345+jdoe.dev", "12345", "jdoe.dev"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("AutoDenyTerms = %q, want %q", got, want)
+	}
+}
+
+// TestAutoDenyTermsGitEmailPlusAddressShortSuffix covers the same fix round-1 rule with a short
+// after-"+" part: "ci" (2 chars) stays filtered out by the existing length check, while the
+// before-"+" part "alice.w" (7 chars) is emitted.
+func TestAutoDenyTermsGitEmailPlusAddressShortSuffix(t *testing.T) {
+	got := share.AutoDenyTerms(share.DenyEnv{GitEmail: "alice.w+ci@corp.example"})
+	want := []string{"alice.w+ci@corp.example", "alice.w+ci", "alice.w", "corp.example"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("AutoDenyTerms = %q, want %q", got, want)
+	}
+}

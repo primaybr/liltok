@@ -92,9 +92,34 @@ var (
 	// about the maintainer's own project were phrased.
 	assertionPattern = regexp.MustCompile(`(?i)^(?:confirm|verify|validate) that\b`)
 	// lowerWordPattern is one segment of the path rule's "ordinary English words joined by slashes"
-	// exemption: see isExemptPathToken.
+	// exemption: see isExemptOrdinaryWords.
 	lowerWordPattern = regexp.MustCompile(`^[a-z]{1,8}$`)
+	// wholeTokenLowerAlnumPath is the shape path rule exemption (a) requires of the whole token (or,
+	// for a golang.org/x/ path, of the part after the prefix): one or more lowercase-alphanumeric
+	// segments joined by "/", with no dots, underscores, uppercase letters or file extensions
+	// anywhere in it. Fix round 1 added this after exemption (a) was found to check only the first
+	// segment, letting a real path under a stdlib-named directory (such as
+	// "go/pkg/mod/github.com/secretco/billing/tax.go") pass.
+	wholeTokenLowerAlnumPath = regexp.MustCompile(`^[a-z0-9]+(?:/[a-z0-9]+)*$`)
+	// rightSuffixPattern is the extra right-boundary allowance fix round 1 added to the deny-term
+	// boundary check: a lowercase run continuing past a match that is exactly a plural or participle
+	// suffix - "s", "es", "ed", or "ing" - still counts as a boundary, provided a real boundary
+	// follows it too. It also accepts a bare "d": the ruling's own worked example, a term
+	// "widgetgate" against the text "widgetgated", already ends in "e", so English past-tense
+	// spelling adds only "d" (never a doubled "ed") - the same silent-e elision as "gate" ->
+	// "gated". It rejects "widgetgates" and "widgetgated" for a term "widgetgate", while "Material"
+	// (continuation "ial") still passes over a term "Mater". See rightBoundaryOK.
+	rightSuffixPattern = regexp.MustCompile(`^(?:ing|es|ed|d|s)(?:[^a-z]|$)`)
 )
+
+// commonDirNames are directory names common enough in a real relative path that a slash-joined run
+// containing one should not be exempted as "ordinary English words" (path rule exemption (b)). Fix
+// round 1 added this after "home/alice/secret/data" and "opt/billing/tax/rates" passed as prose.
+var commonDirNames = map[string]bool{
+	"home": true, "users": true, "user": true, "var": true, "etc": true, "tmp": true, "usr": true,
+	"opt": true, "srv": true, "mnt": true, "src": true, "app": true, "lib": true, "bin": true,
+	"cmd": true, "pkg": true, "internal": true, "root": true, "data": true, "config": true,
+}
 
 // stdlibTopLevel is the set of Go standard-library top-level import segments; a token whose first
 // slash-separated segment is one of these (and has no dot, so it is not a domain) reads as an
@@ -153,11 +178,16 @@ type denyRule struct {
 // boundary-safe, so it also catches an identifier built from it, such as a term "acmehq" inside
 // "AcmeHQClient" or "acmehq_billing" - while still letting a term like "Mater" pass over an
 // unrelated word like "Material", because the run of letters continues in lowercase past the match.
-// The left side of the occurrence must be the start of the text, a rune that is not a letter or a
-// digit, or a camelCase boundary (the rune before is lowercase and the first matched rune is
-// uppercase in the text); the right side must be the end of the text or a rune that is not a
-// lowercase letter. RE2 has no lookaround, so these terms are found with a plain
-// `(?i)`+QuoteMeta(term) regex and the boundary runes are checked in code; see matchesWithBoundary.
+// The left side of the occurrence is a boundary unless the rune before it and the first matched rune
+// are both lowercase letters (so an uppercase, digit, underscore, or other non-lowercase rune
+// immediately before the match - or the very start of the text - is always a boundary, whatever the
+// match's own case; only a glued run of lowercase letters on both sides, such as "mywidgetgate", is
+// not). The right side is a boundary at the end of the text, at a rune that is not a lowercase
+// letter, or - so a plain plural or participle does not read as a different word - at a lowercase
+// run continuing past the match that is exactly "s", "es", "ed", or "ing" and is itself followed by
+// a boundary. RE2 has no lookaround, so these terms are found with a plain `(?i)`+QuoteMeta(term)
+// regex and the boundary runes are checked in code; see matchesWithBoundary, leftBoundaryOK and
+// rightBoundaryOK.
 func NewGate(cfg GateConfig) *Gate {
 	g := &Gate{}
 	for _, a := range cfg.URLAllowlist {
@@ -278,30 +308,39 @@ func matchesWithBoundary(q string, re *regexp.Regexp) bool {
 	return false
 }
 
-// leftBoundaryOK is the left-side check of matchesWithBoundary: the start of the text, a rune that
-// is not a letter or a digit, or a camelCase boundary (the rune before is lowercase and the first
-// matched rune, read from the text rather than the term, is uppercase).
+// leftBoundaryOK is the left-side check of matchesWithBoundary: the start of the text, or any rune
+// pair other than "previous rune lowercase and first matched rune (read from the text, not the
+// term) also lowercase". Fix round 1 replaced the original letter/digit-based check with this
+// single rule after probing found several false passes it missed: an acronym or all-caps run before
+// the match ("APIWidgetgate"), a digit before it ("v2widgetgate"), and a CJK character before it
+// ("...widgetgate...") all have a prev rune that unicode.IsLower reports false for a letter, a
+// digit, or a CJK ideograph alike, so all three are now boundaries unconditionally, whatever the
+// first matched rune's case. A glued lowercase run such as "mywidgetgate" is the one accepted
+// residual: prev and first are both lowercase, so it is still not a boundary.
 func leftBoundaryOK(q string, start int) bool {
 	if start == 0 {
 		return true
 	}
 	prev, _ := utf8.DecodeLastRuneInString(q[:start])
-	if !unicode.IsLetter(prev) && !unicode.IsDigit(prev) {
-		return true
-	}
 	first, _ := utf8.DecodeRuneInString(q[start:])
-	return unicode.IsLower(prev) && unicode.IsUpper(first)
+	return !(unicode.IsLower(prev) && unicode.IsLower(first))
 }
 
-// rightBoundaryOK is the right-side check of matchesWithBoundary: the end of the text, or a rune
-// that is not a lowercase letter (an uppercase letter, digit, underscore, hyphen, dot, space or
-// other punctuation all count, since none of them continues the matched word).
+// rightBoundaryOK is the right-side check of matchesWithBoundary: the end of the text, a rune that
+// is not a lowercase letter (an uppercase letter, digit, underscore, hyphen, dot, space or other
+// punctuation all count), or - added in fix round 1, after probing found "widgetgates" and
+// "widgetgated" passed - a lowercase run continuing past the match that is exactly a plural or
+// participle suffix ("s", "es", "ed", "ing") and is itself followed by a boundary. "Material"
+// continues past a match on "Mater" with "ial", which is none of those four, so it still passes.
 func rightBoundaryOK(q string, end int) bool {
 	if end >= len(q) {
 		return true
 	}
 	next, _ := utf8.DecodeRuneInString(q[end:])
-	return !unicode.IsLower(next)
+	if !unicode.IsLower(next) {
+		return true
+	}
+	return rightSuffixPattern.MatchString(q[end:])
 }
 
 func hasSecret(q string) bool {
@@ -430,18 +469,35 @@ func hasPath(q string) bool {
 // (a), or an ordinary run of short lowercase English words joined by slashes, such as "a/the/an"
 // (b). Neither shape is a filesystem or URL path a reader could act on.
 func isExemptPathToken(tok string) bool {
-	if strings.HasPrefix(tok, golangOrgXPrefix) {
-		return true
+	// Fix round 1: exemption (a) used to check only the token's first segment, so a real path
+	// nested under a stdlib-named directory ("go/pkg/mod/github.com/secretco/billing/tax.go",
+	// "path/to/Secret/Config.yaml") passed. It now also requires the whole token (or, for a
+	// golang.org/x/ path, the part after the prefix) to be nothing but lowercase-alphanumeric
+	// segments; anything else - a dot, an underscore, an uppercase letter, ".." - falls through to
+	// exemption (b) or rejection instead.
+	if rest, ok := strings.CutPrefix(tok, golangOrgXPrefix); ok {
+		return wholeTokenLowerAlnumPath.MatchString(rest)
 	}
 	segs := strings.Split(tok, "/")
-	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] {
+	if first := segs[0]; !strings.Contains(first, ".") && stdlibTopLevel[first] && wholeTokenLowerAlnumPath.MatchString(tok) {
 		return true
 	}
-	if strings.HasPrefix(tok, "/") || strings.HasSuffix(tok, "/") || len(segs) > 4 {
+	return isExemptOrdinaryWords(tok, segs)
+}
+
+// isExemptOrdinaryWords is path rule exemption (b): a short run of ordinary lowercase English words
+// joined by slashes, such as "a/the/an", is prose, not a path. Fix round 1 narrowed it after
+// "home/alice/secret/data" and "opt/billing/tax/rates" passed: at most 3 segments (was 4), and never
+// when a segment names a common directory (see commonDirNames), since a real path is far likelier to
+// use one of those than a sentence is. A residual gap remains for a plausible bare project path like
+// "acme/billing/tax": that still passes as ordinary words, so catching a real project name here
+// depends on it also being configured as a deny term.
+func isExemptOrdinaryWords(tok string, segs []string) bool {
+	if strings.HasPrefix(tok, "/") || strings.HasSuffix(tok, "/") || len(segs) < 2 || len(segs) > 3 {
 		return false
 	}
 	for _, s := range segs {
-		if !lowerWordPattern.MatchString(s) {
+		if !lowerWordPattern.MatchString(s) || commonDirNames[s] {
 			return false
 		}
 	}
