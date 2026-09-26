@@ -228,3 +228,42 @@ func TestHitCountSemantics(t *testing.T) {
 		t.Errorf("expected hit_count = 2 after second cache hit, got %d", hitCount)
 	}
 }
+
+// TestTTLExpirationAfterPersistence forces the order CI hit: the expired entry reaches SQLite
+// before the read, so the L1 miss falls through to L2. L2 must see the entry's own creation time
+// (it used to store the insert time), and so report the same expiry as L1.
+func TestTTLExpirationAfterPersistence(t *testing.T) {
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+	database, err := db.Open(t.TempDir() + "/ttl.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	store, err := NewTieredStore(database, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	ctx := context.Background()
+	entry := &cache.CacheEntry{Hash: "persisted-expired", Model: "gpt-4o", NormalizedPrompt: "p",
+		ResponsePayload: []byte(`{}`), TTLSeconds: 60, CreatedAt: time.Now().Add(-2 * time.Hour)}
+	if err := store.Set(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var n int
+		_ = database.QueryRow("SELECT COUNT(*) FROM cache_entries WHERE hash = 'persisted-expired'").Scan(&n)
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("entry was not persisted to SQLite")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if _, ok, err := store.Get(ctx, "persisted-expired"); err != nil || ok {
+		t.Fatalf("an entry created two hours ago with a 60 s TTL must be a miss from either tier (ok=%v err=%v)", ok, err)
+	}
+}

@@ -69,15 +69,22 @@ func (s *SQLiteStore) Get(ctx context.Context, hash string) (*cache.CacheEntry, 
 	return &entry, true, nil
 }
 
-// Set writes or overwrites an entry in SQLite.
+// Set writes or overwrites an entry in SQLite. created_at is the entry's own creation time (the
+// L1 copy uses the same value, so both tiers expire it together); overwriting an entry with a new
+// reply restarts its TTL.
 func (s *SQLiteStore) Set(ctx context.Context, entry *cache.CacheEntry) error {
+	created := entry.CreatedAt
+	if created.IsZero() {
+		created = time.Now()
+	}
 	query := `
 		INSERT INTO cache_entries (
 			hash, model, normalized_prompt, response_payload, prompt_tokens, completion_tokens,
 			hit_count, created_at, last_accessed_at, ttl_seconds, is_pinned, is_semantic
-		) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)
 		ON CONFLICT(hash) DO UPDATE SET
 			response_payload = excluded.response_payload,
+			created_at = excluded.created_at,
 			last_accessed_at = CURRENT_TIMESTAMP,
 			hit_count = cache_entries.hit_count
 	`
@@ -89,6 +96,7 @@ func (s *SQLiteStore) Set(ctx context.Context, entry *cache.CacheEntry) error {
 		entry.PromptTokens,
 		entry.CompletionTokens,
 		entry.HitCount,
+		created.UTC().Format("2006-01-02 15:04:05"),
 		entry.TTLSeconds,
 		entry.IsPinned,
 		entry.IsSemantic,
