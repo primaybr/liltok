@@ -736,6 +736,13 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	}
 	candidateTargets = r.demoteLastResort(candidateTargets)
 
+	// Live streaming applies when the caller supplied a sink, except in plan mode, where the
+	// translator may rewrite the whole reply into a plan-file write.
+	sink := liveSinkFrom(ctx)
+	if sink != nil && extractPlanModeContext(req).Active {
+		sink = nil
+	}
+
 	var lastErr error
 	for _, target := range candidateTargets {
 		// Stop the chain once the client has gone: later attempts would fail instantly with
@@ -812,11 +819,30 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			attemptCtx, cancelAttempt = context.WithTimeout(ctx, r.attemptTimeout)
 		}
 		attemptStart := time.Now()
-		resp, err := p.SendChat(attemptCtx, &targetReq)
-		timedOut := err != nil && ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
+		var (
+			resp      *provider.UnifiedChatResponse
+			err       error
+			timedOut  bool
+			committed bool
+		)
+		if sink != nil {
+			// A live stream is bounded per event rather than in total, so a long reply that keeps
+			// producing tokens is not cut off by the attempt timeout.
+			idle := time.Duration(0)
+			if p.Tier() != provider.TierPremium {
+				idle = r.attemptTimeout
+			}
+			resp, committed, err = r.streamAttempt(ctx, p, target, &targetReq, req, sink, idle)
+		} else {
+			resp, err = p.SendChat(attemptCtx, &targetReq)
+			timedOut = err != nil && ctx.Err() == nil && errors.Is(attemptCtx.Err(), context.DeadlineExceeded)
+		}
 		cancelAttempt()
 
 		if err != nil && ctx.Err() != nil {
+			if committed {
+				sink.Fail(ctx.Err())
+			}
 			return nil, "", fmt.Errorf("request canceled while waiting on %s: %w", target.ProviderName, ctx.Err())
 		}
 		if timedOut {
@@ -901,10 +927,27 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if err == nil {
 			cb.RecordSuccess()
 			r.catalog.MarkActive(target.ProviderName, target.UpstreamModel)
+			if committed {
+				// Send what was held back, the tool calls and the stop. A write failure here means
+				// the client left; the reply itself was valid, so it is still returned for logging.
+				_ = sink.Finish(resp, target.ProviderName)
+			}
 			return resp, target.ProviderName, nil
 		}
 		if reason, gone := modelGoneReason(err); gone {
 			r.catalog.MarkInactive(target.ProviderName, target.UpstreamModel, reason)
+		}
+		if committed {
+			if isCircuitBreakerError(err) {
+				cb.RecordFailure()
+			}
+			sink.Fail(err)
+			telemetry.Log.Warn().
+				Str("failed_provider", target.ProviderName).
+				Str("failed_model", target.UpstreamModel).
+				Err(err).
+				Msg("Live stream failed after output started; cannot fail over")
+			return nil, "", &CommittedStreamError{Provider: target.ProviderName, Err: err}
 		}
 
 		if isCircuitBreakerError(err) {

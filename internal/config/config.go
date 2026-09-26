@@ -87,6 +87,10 @@ type RouteConfig struct {
 	// ModelRecheckHours is how long a model that answered "model not found" or "decommissioned"
 	// stays out of fallback chains before one request is allowed to re-check it. 0 uses 24.
 	ModelRecheckHours int `yaml:"model_recheck_hours"`
+	// LiveStreaming streams routed replies to Anthropic-format streaming clients as they arrive,
+	// once a reply has passed the checks that would fail it over. A failure after that point ends
+	// the turn with an error instead of failing over. Off by default.
+	LiveStreaming bool `yaml:"live_streaming"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -228,6 +232,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("LILTOK_ATTEMPT_TIMEOUT_SECONDS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
 			cfg.Routes.AttemptTimeoutSeconds = n
+		}
+	}
+	if v := os.Getenv("LILTOK_LIVE_STREAMING"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			cfg.Routes.LiveStreaming = b
 		}
 	}
 	if v := os.Getenv("LILTOK_MODEL_RECHECK_HOURS"); v != "" {

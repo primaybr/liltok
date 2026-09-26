@@ -477,9 +477,33 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				defer ka.finish()
 				w = ka
 			}
+			// With routes.live_streaming, Anthropic-format streaming clients receive a reply as it
+			// arrives once the router commits it (see router/livestream.go).
+			var live *anthropicLiveSink
+			if chatReq.Stream && targetProvider == "anthropic" && p.cfg.Routes.LiveStreaming {
+				live = newAnthropicLiveSink(w, p.router.Translator(), unifiedReq, reqID)
+				dispatchCtx = router.WithLiveSink(dispatchCtx, live)
+			}
 			resp, winningProvider, err := p.router.DispatchChat(dispatchCtx, unifiedReq, routeAlias)
 			if ka, ok := w.(*keepAliveWriter); ok {
 				ka.stop()
+			}
+			if err != nil && router.IsCommittedStreamError(err) {
+				// Part of the reply already reached the client and the sink sent the error event;
+				// there is nothing to fail over to and nothing to replay.
+				recordLog(&ledger.RequestLog{
+					RequestID:      reqID,
+					APIKeyID:       apiKeyID,
+					Model:          unifiedReq.Model,
+					RequestedModel: unifiedReq.Model,
+					Provider:       "router",
+					CacheStatus:    "MISS",
+					CacheTier:      "NONE",
+					LatencyMs:      time.Since(startTime).Milliseconds(),
+					StatusCode:     http.StatusBadGateway,
+					ErrorMessage:   err.Error(),
+				})
+				return
 			}
 
 			if err == nil {
@@ -489,7 +513,11 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				w.Header().Set("X-Liltok-Provider", winningProvider)
 
 				var finalBytes []byte
-				if targetProvider == "anthropic" && winningProvider != "anthropic" {
+				liveSent := live != nil && live.committed
+				if liveSent {
+					// The sink already streamed the reply; keep its translated form for the log and cache.
+					finalBytes = live.finalBytes
+				} else if targetProvider == "anthropic" && winningProvider != "anthropic" {
 					finalBytes, _ = p.router.Translator().ConvertOpenAIToAnthropicResponseForRequest(resp, unifiedReq, unifiedReq.Model)
 					if capture != nil {
 						if path, capErr := capture.write(p.cfg.Routes.CaptureDir, reqID, originalBody, finalBytes); capErr != nil {
@@ -515,7 +543,9 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					modelName = normReq.Model
 				}
 
-				if chatReq.Stream {
+				if liveSent {
+					// Already written.
+				} else if chatReq.Stream {
 					entry := &cache.CacheEntry{
 						Model:           modelName,
 						ResponsePayload: finalBytes,

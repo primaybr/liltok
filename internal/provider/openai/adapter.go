@@ -685,56 +685,7 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		defer resp.Body.Close()
 		defer close(eventChan)
 		defer close(errChan)
-
-		scanner := bufio.NewScanner(resp.Body)
-		buf := make([]byte, 64*1024)
-		scanner.Buffer(buf, 512*1024)
-
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if !strings.HasPrefix(line, "data: ") {
-				continue
-			}
-
-			data := strings.TrimPrefix(line, "data: ")
-			if data == "[DONE]" {
-				eventChan <- provider.UnifiedSSEEvent{
-					Type: "done",
-				}
-				return
-			}
-
-			var chunk struct {
-				ID      string `json:"id"`
-				Model   string `json:"model"`
-				Choices []struct {
-					Delta struct {
-						Role    string `json:"role"`
-						Content string `json:"content"`
-					} `json:"delta"`
-					FinishReason string `json:"finish_reason"`
-				} `json:"choices"`
-			}
-
-			if err := json.Unmarshal([]byte(data), &chunk); err == nil && len(chunk.Choices) > 0 {
-				c := chunk.Choices[0]
-				ev := provider.UnifiedSSEEvent{
-					Type:         "text_delta",
-					DeltaText:    c.Delta.Content,
-					Role:         c.Delta.Role,
-					FinishReason: c.FinishReason,
-					RawChunk:     []byte(line + "\n\n"),
-				}
-				if c.FinishReason != "" {
-					ev.Type = "finish"
-				}
-				eventChan <- ev
-			}
-		}
-
-		if err := scanner.Err(); err != nil && err != io.EOF {
-			errChan <- err
-		}
+		readOpenAIStream(ctx, resp.Body, eventChan, errChan)
 	}()
 
 	return eventChan, errChan, nil
@@ -904,4 +855,154 @@ func convertToolChoiceToOpenAI(choice interface{}) interface{} {
 	default:
 		return choice
 	}
+}
+
+// streamToolCall accumulates one tool call from OpenAI-style streamed fragments.
+type streamToolCall struct {
+	id, name string
+	args     strings.Builder
+}
+
+// readOpenAIStream turns an OpenAI-compatible SSE body into unified events: text and reasoning
+// deltas as they arrive, then, once the stream ends, one tool_call event per assembled call, a
+// finish event (with usage when the provider reported it) and done. Tool calls and the finish
+// event wait for the end because providers send argument fragments across many chunks and some
+// report usage in a chunk after finish_reason. A mid-stream error object is reported on errs.
+func readOpenAIStream(ctx context.Context, body io.Reader, events chan<- provider.UnifiedSSEEvent, errs chan<- error) {
+	send := func(ev provider.UnifiedSSEEvent) bool {
+		select {
+		case events <- ev:
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
+
+	var (
+		calls        = map[int]*streamToolCall{}
+		order        []int
+		finishReason string
+		usage        *provider.UnifiedUsage
+	)
+	flush := func() {
+		for i, idx := range order {
+			c := calls[idx]
+			id := c.id
+			if id == "" {
+				id = fmt.Sprintf("call_stream_%x_%d", time.Now().UnixNano(), i)
+			}
+			args := c.args.String()
+			if strings.TrimSpace(args) == "" {
+				args = "{}"
+			}
+			tc := provider.UnifiedToolCall{ID: id, Type: "function"}
+			tc.Function.Name = c.name
+			tc.Function.Arguments = args
+			if !send(provider.UnifiedSSEEvent{Type: "tool_call", ToolCalls: []provider.UnifiedToolCall{tc}}) {
+				return
+			}
+		}
+		if finishReason == "" {
+			finishReason = "stop"
+			if len(order) > 0 {
+				finishReason = "tool_calls"
+			}
+		}
+		if send(provider.UnifiedSSEEvent{Type: "finish", FinishReason: finishReason, Usage: usage}) {
+			send(provider.UnifiedSSEEvent{Type: "done"})
+		}
+	}
+
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 64*1024), 512*1024)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if data == "[DONE]" {
+			flush()
+			return
+		}
+
+		var chunk struct {
+			Error   json.RawMessage `json:"error"`
+			Choices []struct {
+				Delta struct {
+					Role             string `json:"role"`
+					Content          string `json:"content"`
+					ReasoningContent string `json:"reasoning_content"`
+					Reasoning        string `json:"reasoning"`
+					Thought          string `json:"thought"`
+					ToolCalls        []struct {
+						Index    int    `json:"index"`
+						ID       string `json:"id"`
+						Function struct {
+							Name      string `json:"name"`
+							Arguments string `json:"arguments"`
+						} `json:"function"`
+					} `json:"tool_calls"`
+				} `json:"delta"`
+				FinishReason string `json:"finish_reason"`
+			} `json:"choices"`
+			Usage *provider.UnifiedUsage `json:"usage"`
+			XGroq *struct {
+				Usage *provider.UnifiedUsage `json:"usage"`
+			} `json:"x_groq"`
+		}
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			continue
+		}
+		if len(chunk.Error) > 0 && string(chunk.Error) != "null" {
+			errs <- fmt.Errorf("upstream stream error: %s", string(chunk.Error))
+			return
+		}
+		if chunk.Usage != nil && (chunk.Usage.PromptTokens > 0 || chunk.Usage.CompletionTokens > 0) {
+			usage = chunk.Usage
+		} else if chunk.XGroq != nil && chunk.XGroq.Usage != nil {
+			usage = chunk.XGroq.Usage
+		}
+		if len(chunk.Choices) == 0 {
+			continue
+		}
+		c := chunk.Choices[0]
+		thinking := c.Delta.ReasoningContent
+		if thinking == "" {
+			thinking = c.Delta.Reasoning
+		}
+		if thinking == "" {
+			thinking = c.Delta.Thought
+		}
+		if thinking != "" && !send(provider.UnifiedSSEEvent{Type: "thinking_delta", DeltaText: thinking}) {
+			return
+		}
+		if c.Delta.Content != "" && !send(provider.UnifiedSSEEvent{Type: "text_delta", DeltaText: c.Delta.Content, Role: c.Delta.Role, RawChunk: []byte(line + "\n\n")}) {
+			return
+		}
+		for _, frag := range c.Delta.ToolCalls {
+			tc, ok := calls[frag.Index]
+			if !ok {
+				tc = &streamToolCall{}
+				calls[frag.Index] = tc
+				order = append(order, frag.Index)
+			}
+			if frag.ID != "" {
+				tc.id = frag.ID
+			}
+			if frag.Function.Name != "" {
+				tc.name += frag.Function.Name
+			}
+			tc.args.WriteString(frag.Function.Arguments)
+		}
+		if c.FinishReason != "" {
+			finishReason = c.FinishReason
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		errs <- err
+		return
+	}
+	// The body ended without [DONE]; deliver what was assembled.
+	flush()
 }
