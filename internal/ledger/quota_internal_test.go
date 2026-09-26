@@ -101,3 +101,20 @@ func TestCheckRateLimitConcurrentRequestsStayWithinBudget(t *testing.T) {
 		t.Fatalf("%d of 200 concurrent requests allowed, want exactly the RPM budget of 50", allowed)
 	}
 }
+
+// TestCheckRateLimitClockStepBackwards checks that a clock moving backwards (an NTP correction)
+// neither drains the buckets nor locks the key out.
+func TestCheckRateLimitClockStepBackwards(t *testing.T) {
+	qe, now := enforcerAt(time.Date(2026, 9, 25, 12, 0, 0, 0, time.UTC))
+	key := &APIKey{ID: "k", RPM: 100, TPM: 1000}
+	if ok, _ := qe.CheckRateLimit(key, 100); !ok {
+		t.Fatal("first request must be allowed")
+	}
+	*now = now.Add(-2 * time.Hour)
+	if ok, reason := qe.CheckRateLimit(key, 100); !ok {
+		t.Fatalf("after the clock stepped back two hours the request was rejected (%s)", reason)
+	}
+	if got := qe.limiters["k"].tpmBucket.tokens; got != 800 {
+		t.Fatalf("TPM bucket = %v after two 100-token requests, want 800 (no negative refill)", got)
+	}
+}

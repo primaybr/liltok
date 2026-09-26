@@ -12,9 +12,9 @@ type tokenBucket struct {
 	lastRefill time.Time
 }
 
-// newTokenBucket returns a bucket refilled at capacityPerMin per minute, or nil (no limit) when
-// capacityPerMin <= 0.
-func newTokenBucket(capacityPerMin int) *tokenBucket {
+// newTokenBucket returns a full bucket refilled at capacityPerMin per minute, starting at now, or
+// nil (no limit) when capacityPerMin <= 0.
+func newTokenBucket(capacityPerMin int, now time.Time) *tokenBucket {
 	if capacityPerMin <= 0 {
 		return nil
 	}
@@ -23,12 +23,16 @@ func newTokenBucket(capacityPerMin int) *tokenBucket {
 		capacity:   capF,
 		tokens:     capF,
 		refillRate: capF / 60.0,
-		lastRefill: time.Now(),
+		lastRefill: now,
 	}
 }
 
+// refill adds the tokens earned since the last refill. If the clock stepped backwards, nothing is
+// added or removed; the bucket just restarts its timing from now.
 func (tb *tokenBucket) refill(now time.Time) {
-	tb.tokens += now.Sub(tb.lastRefill).Seconds() * tb.refillRate
+	if elapsed := now.Sub(tb.lastRefill).Seconds(); elapsed > 0 {
+		tb.tokens += elapsed * tb.refillRate
+	}
 	tb.lastRefill = now
 	if tb.tokens > tb.capacity {
 		tb.tokens = tb.capacity
@@ -74,16 +78,16 @@ func (qe *QuotaEnforcer) CheckRateLimit(key *APIKey, estimatedTokens int) (bool,
 
 	qe.mu.Lock()
 	defer qe.mu.Unlock()
+	now := qe.now()
 	limiter, exists := qe.limiters[key.ID]
 	if !exists {
 		limiter = &keyLimiter{
-			rpmBucket: newTokenBucket(key.RPM),
-			tpmBucket: newTokenBucket(key.TPM),
+			rpmBucket: newTokenBucket(key.RPM, now),
+			tpmBucket: newTokenBucket(key.TPM, now),
 		}
 		qe.limiters[key.ID] = limiter
 	}
 
-	now := qe.now()
 	tokenCost := float64(estimatedTokens)
 	if tokenCost < 1.0 {
 		tokenCost = 1.0

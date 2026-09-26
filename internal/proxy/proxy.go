@@ -39,6 +39,9 @@ type Proxy struct {
 	coalescer       *InFlightCoalescer
 	// onFailover, when set (by tests), receives each failed attempt reported to the live feed.
 	onFailover func(*ledger.RequestLog)
+	// keepAliveDelay and keepAliveInterval control the SSE keep-alive sent to streaming clients
+	// while a routed dispatch runs (see keepalive.go).
+	keepAliveDelay, keepAliveInterval time.Duration
 }
 
 // NewProxy creates a new Proxy instance with multi-tier caching, routing, and accounting capabilities.
@@ -65,15 +68,17 @@ func NewProxy(cfg *config.Config, cacheStore cache.Store, semCache *semantic.Sem
 	pruneOpts.ProtectCodeFiles = cfg.Cache.ProtectCodeFiles
 
 	return &Proxy{
-		cfg:             cfg,
-		cacheStore:      cacheStore,
-		semanticCache:   semCache,
-		pruner:          prune.NewPruner(pruneOpts),
-		prefixOptimizer: prefix.NewPrefixOptimizer(prefix.DefaultMinTokensForAnthropicCache),
-		router:          r,
-		ledger:          led,
-		pricingReg:      pr,
-		coalescer:       NewInFlightCoalescer(),
+		cfg:               cfg,
+		cacheStore:        cacheStore,
+		semanticCache:     semCache,
+		pruner:            prune.NewPruner(pruneOpts),
+		prefixOptimizer:   prefix.NewPrefixOptimizer(prefix.DefaultMinTokensForAnthropicCache),
+		router:            r,
+		ledger:            led,
+		pricingReg:        pr,
+		coalescer:         NewInFlightCoalescer(),
+		keepAliveDelay:    keepAliveDelay,
+		keepAliveInterval: keepAliveInterval,
 		httpClient: &http.Client{
 			Timeout: time.Duration(cfg.Server.WriteTimeoutSeconds) * time.Second,
 		},
@@ -465,7 +470,17 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					p.broadcastFailover(reqID, requestedModel, res)
 				}
 			})
+			// Streaming clients get SSE keep-alives if the dispatch runs long; later writes go
+			// through the wrapper, which turns a failure after the commit into an SSE error event.
+			if chatReq.Stream {
+				ka := startKeepAlive(w, targetProvider == "anthropic", p.keepAliveDelay, p.keepAliveInterval)
+				defer ka.finish()
+				w = ka
+			}
 			resp, winningProvider, err := p.router.DispatchChat(dispatchCtx, unifiedReq, routeAlias)
+			if ka, ok := w.(*keepAliveWriter); ok {
+				ka.stop()
+			}
 
 			if err == nil {
 				w.Header().Set("X-Liltok-Request-Id", reqID)
