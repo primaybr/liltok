@@ -27,6 +27,7 @@ var isolatedEnvVars = []string{
 	"NVIDIA_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY",
 	"LILTOK_SYNC_URL", "LILTOK_AUTO_SYNC", "LILTOK_CAPTURE_DIR",
 	"LILTOK_MAINTAINER_MODE", "LILTOK_MAINTAINER_KEY_FILE", "LILTOK_MAINTAINER_PUBKEY",
+	"LILTOK_SHARE_DENY_TERMS", "LILTOK_SHARE_URL_ALLOWLIST",
 }
 
 // newTestEnv creates a temp workspace and writes a config whose db_path points inside it.

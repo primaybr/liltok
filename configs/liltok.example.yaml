@@ -59,3 +59,10 @@ routes:
   last_resort_models: ["gemini-3.5-flash-lite"] # tried only after every other target failed or was skipped
   model_recheck_hours: 24 # a model that answered "not found"/"decommissioned" is skipped this long, then re-checked once
   live_streaming: false # stream free-model replies as they arrive once they pass the failover checks; a later failure ends the turn with an error
+
+share:
+  # Names that identify you (projects, employers, clients). Questions containing one are never
+  # offered for sharing. Your OS username, hostname and git identity are added automatically.
+  deny_terms: []
+  # Hosts a shared question may link to; any other URL rejects the question.
+  url_allowlist: ["go.dev", "pkg.go.dev", "developer.mozilla.org", "docs.python.org", "nodejs.org", "react.dev", "www.typescriptlang.org", "docs.docker.com", "kubernetes.io", "www.postgresql.org", "sqlite.org"]

@@ -77,5 +77,9 @@ func DefaultConfig() *Config {
 			PrivateKeyFile: "~/.liltok/maintainer.key",
 			PublicKey:      "",
 		},
+		Share: ShareConfig{
+			URLAllowlist: []string{"go.dev", "pkg.go.dev", "developer.mozilla.org", "docs.python.org", "nodejs.org",
+				"react.dev", "www.typescriptlang.org", "docs.docker.com", "kubernetes.io", "www.postgresql.org", "sqlite.org"},
+		},
 	}
 }

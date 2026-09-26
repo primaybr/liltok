@@ -108,6 +108,17 @@ type MaintainerConfig struct {
 	PublicKey      string `yaml:"public_key"`
 }
 
+// ShareConfig controls which questions from the local cache may be offered for the shared answer
+// pack (liltok share). Nothing is sent anywhere by these settings alone.
+type ShareConfig struct {
+	// DenyTerms are names that identify you (projects, employers, clients, people). A question
+	// containing one, as a whole word, is never offered. Your OS username, hostname and git
+	// identity are added automatically at run time and are not written here.
+	DenyTerms []string `yaml:"deny_terms"`
+	// URLAllowlist lists hosts a question may link to; any other URL rejects the question.
+	URLAllowlist []string `yaml:"url_allowlist"`
+}
+
 // Config represents the complete runtime configuration of Liltok.
 type Config struct {
 	Server     ServerConfig     `yaml:"server"`
@@ -117,6 +128,7 @@ type Config struct {
 	Providers  ProvidersConfig  `yaml:"providers"`
 	Routes     RouteConfig      `yaml:"routes"`
 	Maintainer MaintainerConfig `yaml:"maintainer"`
+	Share      ShareConfig      `yaml:"share"`
 }
 
 // Load loads configuration by cascading Defaults -> Config File (if exists) -> Environment Variables.
@@ -271,6 +283,12 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("LILTOK_PROTECT_CODE_FILES"); v != "" {
 		cfg.Cache.ProtectCodeFiles = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v, ok := os.LookupEnv("LILTOK_SHARE_DENY_TERMS"); ok {
+		cfg.Share.DenyTerms = splitModelList(v)
+	}
+	if v, ok := os.LookupEnv("LILTOK_SHARE_URL_ALLOWLIST"); ok {
+		cfg.Share.URLAllowlist = splitModelList(v)
 	}
 	if v := os.Getenv("LILTOK_MAINTAINER_MODE"); v != "" {
 		cfg.Maintainer.Enabled = strings.ToLower(v) == "true" || v == "1"
