@@ -291,7 +291,7 @@ routes:
 		},
 	}
 
-	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand(), newRouteCommand())
+	rootCmd.AddCommand(startCmd, initCmd, versionCmd, newKeysCommand(), newCacheCommand(), newMineCommand(), newMCPCommand(), newMaintainerCommand(), newRouteCommand(), newShareCommand())
 	return rootCmd
 }
 

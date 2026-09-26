@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`liltok share scan` (first step of question sharing):** finds standalone questions in your local cache and keeps those that pass a deterministic privacy gate: no secrets, personal data (emails, phone numbers, private IPs), file paths, links outside a docs allowlist, client context blocks, identifying names, or pasted code. Identifying names come from `share.deny_terms` plus your OS username, hostname and git identity, which are added at run time and never stored. Survivors are stored locally as pending candidates (migration 011) for review; nothing leaves the machine, and the report prints counts only. Answers to curated corpus prompts are skipped because they already ship in the starter pack. New config keys: `share.deny_terms` and `share.url_allowlist` (`LILTOK_SHARE_DENY_TERMS`, `LILTOK_SHARE_URL_ALLOWLIST`).
+
 ### Fixed
 - **Semantic Cache Lost Its Scope on Restart:** semantic entries reloaded from SQLite came back without their system-prompt hash, tools hash and expiry, and matching treated the missing hashes as "any", so after a restart an entry could answer a request with a different system prompt or different tools, and expiry restarted at seven days. Migration 010 stores all three; matching now requires them to be equal. Rows written before the migration are not reloaded (they are rebuilt if the request is cached again). The semantic cache is off by default.
 
