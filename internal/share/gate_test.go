@@ -81,6 +81,43 @@ func TestGate(t *testing.T) {
 		{"unterminated fence of 16 lines rejects", "Why does this loop leak memory?\n" + openFence(16), share.RuleCode},
 		{"temporal", "What is the current time in Jakarta right now, roughly?", share.RuleTemporal},
 		{"invalid utf-8", "\xff\xfe How do I reverse a slice in Go quickly?", share.RuleError},
+		// Round-2 findings: the credential pattern's leading \b never fires right after an
+		// underscore (an env-var name like DB_PASSWORD never gets a word-boundary match there),
+		// and it required the separator to follow the keyword immediately, so a quoted JSON key
+		// like "password": ... also passed.
+		{"env-style credential (underscore prefix)", "I keep seeing DB_PASSWORD=hunter2 in the container logs; is that normal?", share.RuleSecret},
+		{"env-style credential secret name", "The staging service prints CLIENT_SECRET=abcd1234 to stdout on every boot.", share.RuleSecret},
+		{"exported env-style token", "The deploy script runs export GITHUB_TOKEN=abc123 before calling the API.", share.RuleSecret},
+		{"snake-case keyword with colon", "The onboarding doc says to set my_api_key: abcd1234efgh in the shell profile.", share.RuleSecret},
+		{"quoted json credential", "The debug dump includes {\"password\": \"hunter2\"} right in the response body.", share.RuleSecret},
+		// Round-2 findings: the bare-host pattern required "/" immediately after the final
+		// label, so a host with a port, a protocol-relative "//host/path" mention, or a
+		// markdown-decorated "**host/path**" mention all passed.
+		{"bare host with port", "Why does db.corp.io:5432/app refuse connections from the staging pod?", share.RuleURL},
+		{"protocol-relative host", "The asset loads from //cdn.corp.example/lib.js without specifying a scheme.", share.RuleURL},
+		{"markdown-decorated host", "The internal wiki says **wiki.corp.example/go-style** is the canonical guide.", share.RuleURL},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := g.Check(tc.q).Rule; got != tc.want {
+				t.Errorf("rule = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// TestGateNoDenyTerms covers allowlist-only cases with a gate that has no deny terms, since
+// go.dev and pkg.go.dev both end in "dev": with the fixture's "dev" deny term in play (as in
+// TestGate's gate), mentioning either would also, correctly, match that deny term and reach
+// deny_term before reaching a passing "" verdict. These cases isolate the bare-host allowlist
+// logic (round-2 finding 2) from that unrelated collision.
+func TestGateNoDenyTerms(t *testing.T) {
+	g := share.NewGate(share.GateConfig{URLAllowlist: testAllowlist})
+	cases := []struct {
+		name, q, want string
+	}{
+		{"pkg.go.dev bare host passes", "The pkg.go.dev/errors package documents how to wrap and unwrap errors nicely.", ""},
+		{"two-segment path passes", "What is the difference between io/fs and the os package in Go?", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

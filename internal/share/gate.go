@@ -54,8 +54,12 @@ var (
 	// minTokenEntropy and needs its own check.
 	hexSecretPattern = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
 	// credentialPattern catches a plain "keyword = value" or "keyword: value" credential that has
-	// no distinctive shape of its own, such as password=Summer2024!.
-	credentialPattern = regexp.MustCompile(`(?i)\b(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token)\s*[:=]\s*\S+`)
+	// no distinctive shape of its own, such as password=Summer2024!. The leading boundary is
+	// "not a letter or digit" rather than \b, so an underscore still counts as a boundary (an
+	// env-var name like DB_PASSWORD or GITHUB_TOKEN triggers); an optional closing quote is
+	// allowed between the keyword and the separator, so a quoted JSON key like "password": ...
+	// also triggers.
+	credentialPattern = regexp.MustCompile(`(?i)(?:^|[^A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token)["']?\s*[:=]\s*\S+`)
 	emailPattern      = regexp.MustCompile(`[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`)
 	// phonePattern uses [ \t] rather than \s so a match cannot span a newline.
 	phonePattern = regexp.MustCompile(`\+?\(?\d[\d \t().\-]{7,}\d`)
@@ -67,9 +71,11 @@ var (
 	// is judged instead of silently passing.
 	urlPattern = regexp.MustCompile(`(?i)\b[A-Za-z][A-Za-z0-9+.\-]*://[^\s"'<>()\[\]{}]+`)
 	// bareHostPattern matches a scheme-less "host.tld/path" mention: one or more dotted labels
-	// ending in a letters-only label of two or more characters, followed by a slash and a path.
-	// A reader still resolves this as a link, so it is judged by the same allowlist as a full URL.
-	bareHostPattern = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}/\S*$`)
+	// ending in a letters-only label of two or more characters, an optional :port, then a slash
+	// and a path. A reader still resolves this as a link, so it is judged by the same allowlist
+	// as a full URL. The token is stripped of a leading protocol-relative "//" and leading or
+	// trailing markdown emphasis characters before this pattern is tried; see hasForeignURL.
+	bareHostPattern = regexp.MustCompile(`^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,}(?::\d+)?/\S*$`)
 	contextPattern  = regexp.MustCompile(`(?i)userEmail|claudeMd|gitStatus|today's date is|working directory|<system-reminder`)
 )
 
@@ -329,12 +335,21 @@ func (g *Gate) hasForeignURL(q string) bool {
 			continue
 		}
 		tok = strings.TrimRight(tok, ".,:;!?")
+		// A protocol-relative link ("//host/path") or markdown emphasis around one
+		// ("**host/path**") still reads as a link to a person, so strip the decoration before
+		// testing the shape. "/" is only stripped from the left (a leading "//"); "*_~" are
+		// stripped from both ends.
+		tok = strings.TrimLeft(tok, "/*_~")
+		tok = strings.TrimRight(tok, "*_~")
 		if !bareHostPattern.MatchString(tok) {
 			continue
 		}
 		host := tok
-		if i := strings.IndexByte(tok, '/'); i >= 0 {
-			host = tok[:i]
+		if i := strings.IndexByte(host, '/'); i >= 0 {
+			host = host[:i]
+		}
+		if i := strings.IndexByte(host, ':'); i >= 0 {
+			host = host[:i]
 		}
 		if !g.hostAllowed(strings.ToLower(host)) {
 			return true
