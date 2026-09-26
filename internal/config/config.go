@@ -112,8 +112,12 @@ type MaintainerConfig struct {
 // pack (liltok share). Nothing is sent anywhere by these settings alone.
 type ShareConfig struct {
 	// DenyTerms are names that identify you (projects, employers, clients, people). A question
-	// containing one, as a whole word, is never offered. Your OS username, hostname and git
-	// identity are added automatically at run time and are not written here.
+	// containing one is never offered: a term of 3-4 characters matches only as a whole word, and a
+	// term of 5 or more characters also matches inside an identifier built from it (PascalCase,
+	// snake_case, or a camelCase run). Your OS username, hostname and git identity are added
+	// automatically at run time and are not written here, along with the repository's owner and
+	// name (and any subgroup segments between them) from the origin remote of the directory a scan
+	// runs in - so the automatic terms depend on the current directory.
 	DenyTerms []string `yaml:"deny_terms"`
 	// URLAllowlist lists hosts a question may link to; any other URL rejects the question.
 	URLAllowlist []string `yaml:"url_allowlist"`

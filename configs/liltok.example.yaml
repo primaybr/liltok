@@ -61,8 +61,12 @@ routes:
   live_streaming: false # stream free-model replies as they arrive once they pass the failover checks; a later failure ends the turn with an error
 
 share:
-  # Names that identify you (projects, employers, clients). Questions containing one are never
-  # offered for sharing. Your OS username, hostname and git identity are added automatically.
+  # Names that identify you (projects, employers, clients, people). A question containing one is
+  # never offered: a term of 3-4 characters matches only as a whole word, and a term of 5 or more
+  # characters also matches inside an identifier built from it (PascalCase, snake_case, or a
+  # camelCase run). Your OS username, hostname and git identity are added automatically, along with
+  # the repository's owner and name (and any subgroup segments between them) from the origin remote
+  # of the directory a scan runs in - so the automatic terms depend on the current directory.
   deny_terms: []
   # Hosts a shared question may link to; any other URL rejects the question.
   url_allowlist: ["go.dev", "pkg.go.dev", "developer.mozilla.org", "docs.python.org", "nodejs.org", "react.dev", "www.typescriptlang.org", "docs.docker.com", "kubernetes.io", "www.postgresql.org", "sqlite.org"]
