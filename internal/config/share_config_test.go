@@ -29,3 +29,17 @@ func TestShareConfigDefaultsAndEnv(t *testing.T) {
 		t.Errorf("env allowlist = %q", cfg.Share.URLAllowlist)
 	}
 }
+
+func TestShareConfigEmptyEnvClearsLists(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Share.DenyTerms = []string{"x-term"}
+	t.Setenv("LILTOK_SHARE_DENY_TERMS", "")
+	t.Setenv("LILTOK_SHARE_URL_ALLOWLIST", "")
+	applyEnvOverrides(cfg)
+	if len(cfg.Share.DenyTerms) != 0 {
+		t.Errorf("deny terms after empty env = %q, want empty", cfg.Share.DenyTerms)
+	}
+	if len(cfg.Share.URLAllowlist) != 0 {
+		t.Errorf("allowlist after empty env = %q, want empty", cfg.Share.URLAllowlist)
+	}
+}
