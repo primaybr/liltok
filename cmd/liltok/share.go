@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/db"
@@ -41,16 +42,23 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			if err != nil {
 				return fmt.Errorf("failed to load config: %w", err)
 			}
-			// Resolve the path the same way the rest of the CLI does and refuse a missing database
-			// outright, rather than letting db.Open silently create and seed a new, empty one at
-			// that path: a mistyped or not-yet-initialized storage.db_path would otherwise report
-			// zero pending candidates with no indication anything was wrong.
+			// Resolve the path the same way the rest of the CLI does and refuse a missing, empty-path,
+			// or zero-byte database outright, rather than letting db.Open silently create and seed a
+			// new, empty one at that path: a mistyped or not-yet-initialized storage.db_path would
+			// otherwise report zero pending candidates with no indication anything was wrong.
 			dbPath := config.ExpandHomeDir(cfg.Storage.DBPath)
-			if _, err := os.Stat(dbPath); err != nil {
+			if strings.TrimSpace(dbPath) == "" {
+				return fmt.Errorf("storage.db_path is empty")
+			}
+			info, err := os.Stat(dbPath)
+			if err != nil {
 				if os.IsNotExist(err) {
 					return fmt.Errorf("database not found at %s: run the gateway first or check storage.db_path", dbPath)
 				}
 				return fmt.Errorf("failed to check database at %s: %w", dbPath, err)
+			}
+			if info.Size() == 0 {
+				return fmt.Errorf("database at %s is empty: run the gateway first or check storage.db_path", dbPath)
 			}
 			database, err := db.Open(dbPath)
 			if err != nil {
@@ -58,8 +66,9 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			}
 			defer database.Close()
 
+			autoTerms := share.AutoDenyTerms(currentDenyEnv())
 			gate := share.NewGate(share.GateConfig{
-				DenyTerms:    append(append([]string{}, cfg.Share.DenyTerms...), share.AutoDenyTerms(currentDenyEnv())...),
+				DenyTerms:    append(append([]string{}, cfg.Share.DenyTerms...), autoTerms...),
 				URLAllowlist: cfg.Share.URLAllowlist,
 			})
 			ctx := context.Background()
@@ -79,6 +88,7 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			fmt.Println("==================================================================")
 			fmt.Println(" liltok Share Scan (nothing leaves this machine)")
 			fmt.Printf(" Database:                %s\n", dbPath)
+			fmt.Printf(" Deny terms:              %d configured, %d automatic\n", len(cfg.Share.DenyTerms), len(autoTerms))
 			fmt.Printf(" Cache entries scanned:   %d\n", rep.scanned)
 			fmt.Printf(" Skipped:                 %d\n", total(rep.skips))
 			printCounts(rep.skips)
