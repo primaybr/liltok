@@ -48,6 +48,7 @@ var migrations = []migration{
 		{"tools_hash", "TEXT NOT NULL DEFAULT ''"},
 		{"expires_at", "INTEGER"},
 	})},
+	{version: 11, name: "share_candidates", file: "011_share_candidates.sql"},
 }
 
 type columnDef struct {
