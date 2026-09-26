@@ -1,0 +1,63 @@
+{
+  "description": "OpenAI ingress: a provider writes its tool call as DSML text. The client must receive a structured tool_call with finish_reason tool_calls and no DSML markup in the content.",
+  "origin": "M7.3 OpenAI ingress replay",
+  "ingress": "openai",
+  "known_bug": "routed /v1/chat/completions replies send resp.RawResponse (the upstream reply before the router converts text tool calls), so the DSML markup reaches the client as content with finish_reason stop; the sse replay also drops tool_calls",
+  "request": {
+    "model": "gpt-4o",
+    "max_tokens": 1024,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "Read",
+          "description": "Read a file",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "file_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file_path"
+            ]
+          }
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Open main.go."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "I'll open it.\n<｜DSML｜invoke name=\"Read\"><｜DSML｜parameter name=\"file_path\">main.go</｜DSML｜parameter></｜DSML｜invoke>"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_calls",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "I'll open it."
+        ],
+        "excludes": [
+          "DSML"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "main.go"
+        }
+      }
+    ]
+  }
+}

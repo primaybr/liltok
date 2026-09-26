@@ -1,0 +1,76 @@
+{
+  "description": "The reply is cut off by the token limit inside a heredoc: the bash fence and the EOF terminator are both missing. The unclosed fence still becomes a Bash tool call and the heredoc is closed with EOF.",
+  "origin": "M7.3 heredoc repair (repairBashCommand, unclosed markdown bash block)",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write a setup script under scripts/."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Writing the setup script now.\n```bash\ncat << 'EOF' > scripts/setup.sh\n#!/bin/sh\nset -e\necho \"installing\"",
+      "finish_reason": "length"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Writing the setup script now."
+        ],
+        "excludes": [
+          "```bash",
+          "cat <<"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "cat << 'EOF' > scripts/setup.sh\n#!/bin/sh\nset -e\necho \"installing\"\nEOF\n"
+        }
+      }
+    ]
+  }
+}

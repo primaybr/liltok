@@ -1,0 +1,63 @@
+{
+  "description": "OpenAI ingress: a provider writes its tool call inside a <tool_call> block. The client must receive a structured tool_call with finish_reason tool_calls and no <tool_call> markup in the content.",
+  "origin": "M7.3 OpenAI ingress replay",
+  "ingress": "openai",
+  "known_bug": "routed /v1/chat/completions replies send resp.RawResponse (the upstream reply before the router converts text tool calls), so the <tool_call> block reaches the client as content with finish_reason stop; the sse replay also drops tool_calls",
+  "request": {
+    "model": "gpt-4o",
+    "max_tokens": 1024,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "Read",
+          "description": "Read a file",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "file_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file_path"
+            ]
+          }
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Show me go.mod."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Reading it now.\n<tool_call>{\"name\": \"Read\", \"arguments\": {\"file_path\": \"go.mod\"}}</tool_call>"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_calls",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Reading it now."
+        ],
+        "excludes": [
+          "<tool_call>"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Read",
+        "input": {
+          "file_path": "go.mod"
+        }
+      }
+    ]
+  }
+}

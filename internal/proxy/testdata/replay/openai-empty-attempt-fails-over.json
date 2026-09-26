@@ -1,0 +1,35 @@
+{
+  "description": "OpenAI ingress: the first provider returns an empty completion, the router fails over, and the client receives the second provider's text reply.",
+  "origin": "M7.3 OpenAI ingress replay",
+  "ingress": "openai",
+  "request": {
+    "model": "gpt-4o",
+    "max_tokens": 1024,
+    "messages": [
+      {
+        "role": "user",
+        "content": "Summarize the release notes in one sentence."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": ""
+    },
+    {
+      "content": "This release adds per-key daily budgets and faster cache search."
+    }
+  ],
+  "expect": {
+    "attempts": 2,
+    "stop_reason": "stop",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "This release adds per-key daily budgets and faster cache search."
+        ]
+      }
+    ]
+  }
+}

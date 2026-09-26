@@ -1,0 +1,74 @@
+{
+  "description": "A DSML Bash invoke writes a file through a heredoc that is never closed. The structured Bash call gets its MAKE terminator appended (the repair reuses the heredoc's own delimiter); no DSML markup reaches the client.",
+  "origin": "M7.3 heredoc repair (repairBashCommand, DSML path)",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Create a Makefile with a test target."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Creating the Makefile.\n<｜DSML｜invoke name=\"Bash\"><｜DSML｜parameter name=\"command\" string=\"true\">cat << 'MAKE' > Makefile\ntest:\n\tgo test ./...</｜DSML｜parameter></｜DSML｜invoke>"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Creating the Makefile."
+        ],
+        "excludes": [
+          "DSML"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "cat << 'MAKE' > Makefile\ntest:\n\tgo test ./...\nMAKE\n"
+        }
+      }
+    ]
+  }
+}

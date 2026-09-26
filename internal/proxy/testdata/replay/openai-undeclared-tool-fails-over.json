@@ -1,0 +1,65 @@
+{
+  "description": "OpenAI ingress: the first provider calls a tool the client never declared (Global for Glob), the router fails over, and the client receives the second provider's reply instead of the bad call.",
+  "origin": "M7.3 OpenAI ingress replay",
+  "ingress": "openai",
+  "request": {
+    "model": "gpt-4o",
+    "max_tokens": 1024,
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "Glob",
+          "description": "Find files by pattern",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pattern"
+            ]
+          }
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "How many Go packages are there?"
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "tool_calls": [
+        {
+          "name": "Global",
+          "arguments": {
+            "pattern": "**/*.go"
+          }
+        }
+      ]
+    },
+    {
+      "content": "There are twelve Go packages under internal/."
+    }
+  ],
+  "expect": {
+    "attempts": 2,
+    "stop_reason": "stop",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "There are twelve Go packages under internal/."
+        ],
+        "excludes": [
+          "Global"
+        ]
+      }
+    ]
+  }
+}

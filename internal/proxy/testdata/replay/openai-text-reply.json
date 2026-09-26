@@ -1,0 +1,40 @@
+{
+  "description": "OpenAI ingress: a plain text reply from a routed provider reaches a /v1/chat/completions client as an OpenAI chat completion with finish_reason stop.",
+  "origin": "M7.3 OpenAI ingress replay",
+  "ingress": "openai",
+  "request": {
+    "model": "gpt-4o",
+    "max_tokens": 1024,
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Does the build pass?"
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Yes, the build passes on the current commit."
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "stop",
+    "upstream_contains": [
+      "You are a helpful assistant.",
+      "Does the build pass?"
+    ],
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Yes, the build passes on the current commit."
+        ]
+      }
+    ]
+  }
+}

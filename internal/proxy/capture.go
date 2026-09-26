@@ -17,11 +17,18 @@ import (
 // testdata/replay; routes.capture_dir records new ones from live traffic.
 
 type replayFixture struct {
-	Description string            `json:"description"`
-	Origin      string            `json:"origin"`
-	Request     json.RawMessage   `json:"request"`
-	Attempts    []replayAttempt   `json:"attempts"`
-	Expect      replayExpectation `json:"expect"`
+	Description string `json:"description"`
+	Origin      string `json:"origin"`
+	// Ingress selects the client endpoint: empty for Anthropic /v1/messages, "openai" for
+	// /v1/chat/completions, where Request is an OpenAI chat.completions body and the response is
+	// read as an OpenAI chat completion. Captures only record Anthropic traffic and leave it empty.
+	Ingress string `json:"ingress,omitempty"`
+	// KnownBug skips the fixture with this reason. The expectations describe the correct
+	// behaviour; delete the field once the bug is fixed.
+	KnownBug string            `json:"known_bug,omitempty"`
+	Request  json.RawMessage   `json:"request"`
+	Attempts []replayAttempt   `json:"attempts"`
+	Expect   replayExpectation `json:"expect"`
 }
 
 type replayAttempt struct {
@@ -39,11 +46,14 @@ type replayToolCall struct {
 }
 
 type replayExpectation struct {
-	Status         int           `json:"status,omitempty"`
-	Attempts       int           `json:"attempts,omitempty"`
-	DirectUpstream bool          `json:"direct_upstream,omitempty"`
-	StopReason     string        `json:"stop_reason,omitempty"`
-	Blocks         []replayBlock `json:"blocks,omitempty"`
+	Status         int  `json:"status,omitempty"`
+	Attempts       int  `json:"attempts,omitempty"`
+	DirectUpstream bool `json:"direct_upstream,omitempty"`
+	// StopReason is the Anthropic stop_reason, or the OpenAI finish_reason for the openai ingress.
+	StopReason string `json:"stop_reason,omitempty"`
+	// Blocks are the Anthropic content blocks. For the openai ingress, reasoning_content maps to a
+	// thinking block, message content to a text block and each tool_call to a tool_use block.
+	Blocks []replayBlock `json:"blocks,omitempty"`
 	// UpstreamContains lists raw substrings every upstream attempt's system prompt or message text must contain.
 	UpstreamContains []string `json:"upstream_contains,omitempty"`
 	// LiveCommits says whether, with routes.live_streaming on, the reply streams live (true) or is

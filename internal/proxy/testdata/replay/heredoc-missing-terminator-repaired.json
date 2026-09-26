@@ -1,0 +1,79 @@
+{
+  "description": "A fenced bash block writes a file with cat << 'EOF' but never closes the heredoc. The Bash tool call gets the EOF terminator appended so the command does not hang waiting for input.",
+  "origin": "M7.3 heredoc repair (repairBashCommand, markdown bash path)",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Create hello.py that prints hello."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "I'll create the script.\n```bash\ncat << 'EOF' > hello.py\nprint('hello')\n```\n"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "I'll create the script."
+        ],
+        "excludes": [
+          "```bash",
+          "cat <<"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "cat << 'EOF' > hello.py\nprint('hello')\nEOF\n"
+        }
+      }
+    ]
+  }
+}

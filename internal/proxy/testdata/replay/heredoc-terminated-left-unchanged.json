@@ -1,0 +1,56 @@
+{
+  "description": "Control for the heredoc repair: a fenced bash block whose heredoc is already closed is passed through as the Bash command without a second EOF.",
+  "origin": "M7.3 heredoc repair (repairBashCommand, no-op path)",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Add a config file and show it."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Creating the config.\n```bash\ncat <<EOF > config.yaml\nport: 8080\nEOF\ncat config.yaml\n```"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Creating the config."
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "cat <<EOF > config.yaml\nport: 8080\nEOF\ncat config.yaml"
+        }
+      }
+    ]
+  }
+}
