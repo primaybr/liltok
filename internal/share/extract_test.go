@@ -2,6 +2,7 @@ package share_test
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/primaybr/liltok/internal/share"
@@ -85,5 +86,58 @@ func TestQuestionIDNormalizes(t *testing.T) {
 	}
 	if share.QuestionID("a b") == share.QuestionID("a c") {
 		t.Error("different questions must get different IDs")
+	}
+}
+
+// TestExtractMultiChoiceAnswerSkips pins that an OpenAI-shaped answer carrying more than one
+// choice is never treated as a single complete text answer, even when every choice looks
+// complete on its own (both here end with finish_reason "stop").
+func TestExtractMultiChoiceAnswerSkips(t *testing.T) {
+	answer := `{"choices":[` +
+		`{"message":{"role":"assistant","content":"Use slices.Reverse."},"finish_reason":"stop"},` +
+		`{"message":{"role":"assistant","content":"Or copy it into a new slice."},"finish_reason":"stop"}` +
+		`]}`
+	prompt := mustJSON(t, map[string]interface{}{"model": "gpt-4o", "messages": []interface{}{
+		map[string]string{"role": "user", "content": question},
+	}})
+	c, skip := share.Extract(share.ExtractInput{NormalizedPrompt: prompt, ResponsePayload: answer})
+	if skip != share.SkipNonTextAnswer {
+		t.Errorf("got skip %q, want %q", skip, share.SkipNonTextAnswer)
+	}
+	if c.Question != "" {
+		t.Errorf("got Question %q, want empty", c.Question)
+	}
+}
+
+// TestExtractSplitWrapperTagSkips pins that a wrapper tag's delimiter split across two Anthropic
+// content blocks is still recognized as a tag (via anyTag, since the joined text no longer forms
+// a clean <system-reminder>...</system-reminder> pair for wrapperBlocks to strip) and rejected as
+// an unknown tag rather than silently let through with the wrapper's contents attached.
+func TestExtractSplitWrapperTagSkips(t *testing.T) {
+	prompt := anthReq(t, user([]interface{}{
+		text("<system-remind"),
+		text("er>SECRET-TEXT</system-reminder>"),
+		text(question),
+	}))
+	c, skip := share.Extract(share.ExtractInput{NormalizedPrompt: prompt, ResponsePayload: anthAnswer})
+	if skip != share.SkipUnknownTag {
+		t.Errorf("got skip %q, want %q", skip, share.SkipUnknownTag)
+	}
+	if strings.Contains(c.Question, "SECRET") {
+		t.Errorf("Question leaked wrapper content: %q", c.Question)
+	}
+}
+
+// TestExtractUnclosedWrapperTagSkips pins that an unclosed <system-reminder> (no matching closing
+// tag, so wrapperBlocks' non-greedy pattern cannot match a pair to strip) is still caught by
+// anyTag and rejected, rather than passed through with its contents intact.
+func TestExtractUnclosedWrapperTagSkips(t *testing.T) {
+	prompt := anthReq(t, user("<system-reminder>SECRET-TEXT\n"+question))
+	c, skip := share.Extract(share.ExtractInput{NormalizedPrompt: prompt, ResponsePayload: anthAnswer})
+	if skip != share.SkipUnknownTag {
+		t.Errorf("got skip %q, want %q", skip, share.SkipUnknownTag)
+	}
+	if strings.Contains(c.Question, "SECRET") {
+		t.Errorf("Question leaked wrapper content: %q", c.Question)
 	}
 }
