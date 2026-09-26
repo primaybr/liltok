@@ -30,7 +30,9 @@ func TestRouteStatusOnline(t *testing.T) {
 			"default_strategy": "free-first",
 			"routes": [
 				{"id": "auto-resilient", "description": "Balanced", "targets": ["a", "b"]},
-				{"id": "free-first", "description": "Zero cost", "targets": ["groq", "gemini"]}
+				{"id": "free-first", "description": "Zero cost", "targets": ["groq", "gemini"]},
+				{"id": "premium-only", "description": "Paid", "strategy": "fallback", "targets": ["openai/gpt"], "built_in": true, "customized": true},
+				{"id": "cheap", "description": "Mine", "strategy": "least_cost", "targets": ["groq/llama"], "built_in": false, "customized": false}
 			],
 			"circuit_breakers": [{"provider": "groq", "state": "closed"}]
 		}`))
@@ -44,9 +46,12 @@ func TestRouteStatusOnline(t *testing.T) {
 	}
 	assertContains(t, out,
 		"Active Routing Strategy: FREE-FIRST",
-		"  [auto-resilient] Balanced",
+		"  [auto-resilient] Balanced\n",
 		"* [free-first] Zero cost",
 		"Targets: groq -> gemini",
+		"Strategy: fallback",
+		"  [premium-only] Paid  (edited)\n    Strategy: fallback\n",
+		"  [cheap] Mine  (custom)\n    Strategy: least_cost\n",
 		"Circuit Breakers:",
 		"groq",
 		"closed",

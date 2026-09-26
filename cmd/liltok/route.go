@@ -15,12 +15,14 @@ import (
 func newRouteCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "route",
-		Short: "Inspect and switch AI routing priority strategies",
-		Long:  "Manage Liltok routing strategies (auto-resilient, free-first, premium-only) dynamically.",
+		Short: "Inspect, switch and edit AI routing strategies",
+		Long:  "Manage Liltok routing strategies (auto-resilient, free-first, premium-only) dynamically, and create, replace or reset named routes on the running gateway.",
 	}
 
 	cmd.AddCommand(newRouteStatusCommand())
 	cmd.AddCommand(newRouteSwitchCommand())
+	cmd.AddCommand(newRouteSetCommand())
+	cmd.AddCommand(newRouteResetCommand())
 
 	return cmd
 }
@@ -46,12 +48,8 @@ func newRouteStatusCommand() *cobra.Command {
 			defer resp.Body.Close()
 
 			var data struct {
-				DefaultStrategy string `json:"default_strategy"`
-				Routes          []struct {
-					ID          string   `json:"id"`
-					Description string   `json:"description"`
-					Targets     []string `json:"targets"`
-				} `json:"routes"`
+				DefaultStrategy string      `json:"default_strategy"`
+				Routes          []routeInfo `json:"routes"`
 				CircuitBreakers []struct {
 					Provider string `json:"provider"`
 					State    string `json:"state"`
@@ -70,7 +68,8 @@ func newRouteStatusCommand() *cobra.Command {
 				if r.ID == data.DefaultStrategy {
 					marker = "* "
 				}
-				fmt.Printf("%s[%s] %s\n", marker, r.ID, r.Description)
+				fmt.Printf("%s[%s] %s%s\n", marker, r.ID, r.Description, r.tag())
+				fmt.Printf("    Strategy: %s\n", r.strategy())
 				fmt.Printf("    Targets: %s\n", strings.Join(r.Targets, " -> "))
 			}
 
