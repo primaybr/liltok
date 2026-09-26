@@ -1,0 +1,56 @@
+{
+  "description": "A cat <<- heredoc is closed by a tab-indented terminator, which bash accepts because <<- strips leading tabs. The heredoc repair must leave the command alone instead of appending a second terminator that bash would then run as a command.",
+  "origin": "M7.3 heredoc repair (repairBashCommand, <<- with tab-indented terminator)",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Write notes.txt from inside the if block."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "Writing the notes.\n```bash\nif true; then\n\tcat <<-EOF > notes.txt\n\tfirst line\n\tEOF\nfi\n```"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "Writing the notes."
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "if true; then\n\tcat <<-EOF > notes.txt\n\tfirst line\n\tEOF\nfi"
+        }
+      }
+    ]
+  }
+}

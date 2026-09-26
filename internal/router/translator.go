@@ -793,19 +793,24 @@ func sanitizeJSON(raw string) string {
 }
 
 func repairBashCommand(cmd string) string {
-	heredocRegex := regexp.MustCompile(`(?m)cat\s*<<-?\s*['"]?([a-zA-Z0-9_]+)['"]?`)
+	heredocRegex := regexp.MustCompile(`(?m)cat\s*<<(-?)\s*['"]?([a-zA-Z0-9_]+)['"]?`)
 	matches := heredocRegex.FindAllStringSubmatchIndex(cmd, -1)
 	if len(matches) == 0 {
 		return cmd
 	}
 
 	for _, m := range matches {
-		if len(m) < 4 {
+		if len(m) < 6 {
 			continue
 		}
-		delim := cmd[m[2]:m[3]]
+		delim := cmd[m[4]:m[5]]
 		afterHeredoc := cmd[m[1]:]
-		delimRegex := regexp.MustCompile(`(?m)^` + regexp.QuoteMeta(delim) + `\s*$`)
+		// With <<- the shell strips leading tabs, so a tab-indented terminator closes the heredoc.
+		indent := ""
+		if m[3] > m[2] {
+			indent = `\t*`
+		}
+		delimRegex := regexp.MustCompile(`(?m)^` + indent + regexp.QuoteMeta(delim) + `\s*$`)
 		if !delimRegex.MatchString(afterHeredoc) {
 			if !strings.HasSuffix(cmd, "\n") {
 				cmd += "\n"
