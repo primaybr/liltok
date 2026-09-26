@@ -27,8 +27,15 @@ var isolatedEnvVars = []string{
 	"NVIDIA_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY",
 	"LILTOK_SYNC_URL", "LILTOK_AUTO_SYNC", "LILTOK_CAPTURE_DIR",
 	"LILTOK_MAINTAINER_MODE", "LILTOK_MAINTAINER_KEY_FILE", "LILTOK_MAINTAINER_PUBKEY",
-	"LILTOK_SHARE_DENY_TERMS", "LILTOK_SHARE_URL_ALLOWLIST",
 }
+
+// unsetEnvVars are isolated by unsetting rather than clearing to "": config.applyEnvOverrides
+// treats an explicitly empty value as an instruction to clear the corresponding config list
+// (share.deny_terms, share.url_allowlist), so setting them to "" here would silently override a
+// value a test configures through its own YAML config, before the config ever reaches the gate.
+// Unsetting instead makes the variable absent, so the YAML config wins, exactly as it would in a
+// developer shell that never set the variable at all.
+var unsetEnvVars = []string{"LILTOK_SHARE_DENY_TERMS", "LILTOK_SHARE_URL_ALLOWLIST"}
 
 // newTestEnv creates a temp workspace and writes a config whose db_path points inside it.
 // extraYAML is appended to the generated config verbatim.
@@ -40,6 +47,19 @@ func newTestEnv(t *testing.T, extraYAML string) *testEnv {
 	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
 	for _, k := range isolatedEnvVars {
 		t.Setenv(k, "")
+	}
+	for _, k := range unsetEnvVars {
+		old, had := os.LookupEnv(k)
+		if err := os.Unsetenv(k); err != nil {
+			t.Fatalf("unset %s: %v", k, err)
+		}
+		t.Cleanup(func() {
+			if had {
+				_ = os.Setenv(k, old)
+			} else {
+				_ = os.Unsetenv(k)
+			}
+		})
 	}
 
 	env := &testEnv{

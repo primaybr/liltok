@@ -23,11 +23,6 @@ func shareReq(t *testing.T, msgs ...map[string]interface{}) string {
 
 func TestShareScan(t *testing.T) {
 	env := newTestEnv(t, "share:\n  deny_terms: ['acme-billing']\n")
-	// newTestEnv clears LILTOK_SHARE_DENY_TERMS (isolatedEnvVars) to keep tests isolated from a
-	// developer shell, but an explicitly empty env value takes precedence over the YAML config
-	// (config.applyEnvOverrides, pinned by TestShareConfigEmptyEnvClearsLists) and would silently
-	// wipe out the deny_terms set above. Set it back to the value this test relies on.
-	t.Setenv("LILTOK_SHARE_DENY_TERMS", "acme-billing")
 	orig := currentDenyEnv
 	currentDenyEnv = func() share.DenyEnv { return share.DenyEnv{} }
 	t.Cleanup(func() { currentDenyEnv = orig })
