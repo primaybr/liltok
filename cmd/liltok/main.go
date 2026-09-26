@@ -93,6 +93,11 @@ and resilient routing.`,
 			}
 			defer database.Close()
 
+			// Keep the cache search index (liltok_cache_search, dashboard search) current in the background.
+			indexCtx, stopIndexer := context.WithCancel(context.Background())
+			defer stopIndexer()
+			go database.RunSearchIndexer(indexCtx, 30*time.Second)
+
 			// Initialize Tier-1 Exact Match Cache
 			cacheStore, err := exact.NewTieredStore(database, cfg.Cache.L1MaxEntries)
 			if err != nil {

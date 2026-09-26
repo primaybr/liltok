@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -368,7 +369,12 @@ func searchLiltokCache(gatewayURL, query string) toolCallResult {
 					PromptPreview string `json:"prompt_preview"`
 					HitCount      int    `json:"hit_count"`
 				}
-				if err := json.NewDecoder(resp.Body).Decode(&items); err == nil && len(items) > 0 {
+				if err := json.NewDecoder(resp.Body).Decode(&items); err == nil {
+					// The gateway answered: an empty result is the answer. Falling back to the local
+					// database here would rescan it while the gateway holds it.
+					if len(items) == 0 {
+						return toolText(fmt.Sprintf("No cached entries match '%s'.", query))
+					}
 					var sb strings.Builder
 					sb.WriteString(fmt.Sprintf("Search results for '%s' in Liltok cache:\n\n", query))
 					for i, item := range items {
@@ -399,13 +405,37 @@ func searchLiltokCache(gatewayURL, query string) toolCallResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := database.QueryContext(ctx, `
-		SELECT hash, model, normalized_prompt, response_payload, hit_count, last_accessed_at
-		FROM cache_entries
-		WHERE normalized_prompt LIKE ?
-		ORDER BY hit_count DESC
-		LIMIT 5
-	`, "%"+query+"%")
+	// Match through the cache_search index the gateway maintains. A database whose index was never
+	// built (the gateway has not run since the index was added) falls back to scanning prompts.
+	var rows *sql.Rows
+	hashes, err := database.SearchCacheHashes(ctx, query, 5)
+	if err != nil {
+		return toolError(fmt.Sprintf("cache search query failed: %v", err))
+	}
+	var indexed bool
+	_ = database.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM cache_search)`).Scan(&indexed)
+	switch {
+	case len(hashes) > 0:
+		args := make([]interface{}, len(hashes))
+		for i, h := range hashes {
+			args[i] = h
+		}
+		rows, err = database.QueryContext(ctx, `
+			SELECT hash, model, normalized_prompt, response_payload, hit_count, last_accessed_at
+			FROM cache_entries
+			WHERE hash IN (`+strings.TrimSuffix(strings.Repeat("?,", len(hashes)), ",")+`)
+			ORDER BY hit_count DESC`, args...)
+	case indexed:
+		return toolText(fmt.Sprintf("No cached entries match '%s' in the local cache.", query))
+	default:
+		rows, err = database.QueryContext(ctx, `
+			SELECT hash, model, normalized_prompt, response_payload, hit_count, last_accessed_at
+			FROM cache_entries
+			WHERE normalized_prompt LIKE ?
+			ORDER BY hit_count DESC
+			LIMIT 5
+		`, "%"+query+"%")
+	}
 	if err != nil {
 		return toolError(fmt.Sprintf("cache search query failed: %v", err))
 	}

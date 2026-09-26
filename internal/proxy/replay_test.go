@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/ledger"
@@ -54,8 +55,40 @@ func (s *scriptedProvider) CheckHealth(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// StreamChat streams the next scripted attempt the way the adapters do: reasoning as thinking
+// deltas, the text in small chunks, then each tool call, a finish carrying usage, and done. It is
+// used by the live-streaming replay mode; the script is the same one SendChat returns whole.
 func (s *scriptedProvider) StreamChat(ctx context.Context, req *provider.UnifiedChatRequest) (<-chan provider.UnifiedSSEEvent, <-chan error, error) {
-	return nil, nil, errors.New("replay: StreamChat is not scripted")
+	resp, err := s.SendChat(ctx, req)
+	if err != nil {
+		return nil, nil, err
+	}
+	var evs []provider.UnifiedSSEEvent
+	if resp.ReasoningContent != "" {
+		evs = append(evs, provider.UnifiedSSEEvent{Type: "thinking_delta", DeltaText: resp.ReasoningContent})
+	}
+	for text := resp.Content; text != ""; {
+		n := min(len(text), 48)
+		for n < len(text) && !utf8.RuneStart(text[n]) {
+			n++
+		}
+		evs = append(evs, provider.UnifiedSSEEvent{Type: "text_delta", DeltaText: text[:n]})
+		text = text[n:]
+	}
+	for _, tc := range resp.ToolCalls {
+		evs = append(evs, provider.UnifiedSSEEvent{Type: "tool_call", ToolCalls: []provider.UnifiedToolCall{tc}})
+	}
+	usage := resp.Usage
+	evs = append(evs, provider.UnifiedSSEEvent{Type: "finish", FinishReason: resp.FinishReason, Usage: &usage}, provider.UnifiedSSEEvent{Type: "done"})
+
+	events := make(chan provider.UnifiedSSEEvent, len(evs))
+	for _, ev := range evs {
+		events <- ev
+	}
+	close(events)
+	errs := make(chan error)
+	close(errs)
+	return events, errs, nil
 }
 
 func (s *scriptedProvider) SendChat(ctx context.Context, req *provider.UnifiedChatRequest) (*provider.UnifiedChatResponse, error) {
@@ -120,20 +153,27 @@ func TestReplayFixtures(t *testing.T) {
 			t.Fatalf("%s: invalid fixture: %v", path, err)
 		}
 		name := strings.TrimSuffix(filepath.Base(path), ".json")
-		for _, stream := range []bool{false, true} {
-			mode := "json"
-			if stream {
-				mode = "sse"
-			}
-			t.Run(name+"/"+mode, func(t *testing.T) {
-				runReplayFixture(t, fx, stream, "")
+		// Every fixture must give the same response whole (json), replayed as SSE (sse), and with
+		// routes.live_streaming on (live), where attempts stream and long prose commits early.
+		for _, mode := range []replayMode{modeJSON, modeSSE, modeLive} {
+			t.Run(name+"/"+string(mode), func(t *testing.T) {
+				runReplayFixture(t, fx, mode, "")
 			})
 		}
 	}
 }
 
-func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir string) {
+type replayMode string
+
+const (
+	modeJSON replayMode = "json"
+	modeSSE  replayMode = "sse"
+	modeLive replayMode = "live"
+)
+
+func runReplayFixture(t *testing.T, fx replayFixture, mode replayMode, captureDir string) {
 	t.Helper()
+	stream := mode != modeJSON
 	if fx.Description != "" {
 		t.Log(fx.Description)
 	}
@@ -158,6 +198,7 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 	cfg.Providers.OpenAI.BaseURL = direct.URL
 	cfg.Providers.OpenAI.APIKey = "replay-openai-key"
 	cfg.Routes.CaptureDir = captureDir
+	cfg.Routes.LiveStreaming = mode == modeLive
 
 	rtr := router.NewRouter(cfg)
 	scripted := &scriptedProvider{attempts: fx.Attempts}
@@ -228,6 +269,11 @@ func runReplayFixture(t *testing.T, fx replayFixture, stream bool, captureDir st
 	if wantStatus != http.StatusOK {
 		return
 	}
+	if mode == modeLive {
+		if live := strings.Contains(rec.Body.String(), "msg_live_"); live != exp.LiveCommits {
+			t.Errorf("reply streamed live = %v, want %v", live, exp.LiveCommits)
+		}
+	}
 
 	var msg replayMessage
 	var err error
@@ -260,7 +306,7 @@ func TestReplayCaptureRoundTrip(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	runReplayFixture(t, source, true, dir)
+	runReplayFixture(t, source, modeSSE, dir)
 
 	files, _ := filepath.Glob(filepath.Join(dir, "*.json"))
 	if len(files) != 1 {
@@ -284,7 +330,11 @@ func TestReplayCaptureRoundTrip(t *testing.T) {
 	}
 
 	for _, stream := range []bool{false, true} {
-		runReplayFixture(t, captured, stream, "")
+		mode := modeJSON
+		if stream {
+			mode = modeSSE
+		}
+		runReplayFixture(t, captured, mode, "")
 	}
 }
 

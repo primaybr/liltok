@@ -981,8 +981,25 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 	var whereArgs []interface{}
 
 	if query != "" {
-		whereClauses = append(whereClauses, "(normalized_prompt LIKE ? OR hash LIKE ?)")
-		whereArgs = append(whereArgs, "%"+query+"%", query+"%")
+		// Text matches come from the cache_search index (every word must appear); a hash prefix
+		// also matches, for looking up an entry by the hash shown in the dashboard.
+		hashes, err := h.database.SearchCacheHashes(r.Context(), query, 200)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		clause := "hash LIKE ?"
+		args := []interface{}{query + "%"}
+		if len(hashes) > 0 {
+			clause = "(hash IN (" + strings.TrimSuffix(strings.Repeat("?,", len(hashes)), ",") + ") OR hash LIKE ?)"
+			args = args[:0]
+			for _, hs := range hashes {
+				args = append(args, hs)
+			}
+			args = append(args, query+"%")
+		}
+		whereClauses = append(whereClauses, clause)
+		whereArgs = append(whereArgs, args...)
 	}
 	if modelFilter != "" && modelFilter != "all" {
 		whereClauses = append(whereClauses, "model = ?")
@@ -1001,10 +1018,12 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	// Count total matching
+	// Count total matching; only the paginated dashboard view needs it.
 	var totalMatching int64
-	countQuery := "SELECT COUNT(*) FROM cache_entries " + whereSQL
-	_ = h.database.QueryRowContext(r.Context(), countQuery, whereArgs...).Scan(&totalMatching)
+	if paginate {
+		countQuery := "SELECT COUNT(*) FROM cache_entries " + whereSQL
+		_ = h.database.QueryRowContext(r.Context(), countQuery, whereArgs...).Scan(&totalMatching)
+	}
 
 	// Determine sort order
 	orderBy := "last_accessed_at DESC"
@@ -1024,7 +1043,7 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selectSQL := fmt.Sprintf(`
-		SELECT hash, model, normalized_prompt, prompt_tokens, completion_tokens,
+		SELECT hash, model, substr(normalized_prompt, 1, 200), prompt_tokens, completion_tokens,
 		       hit_count, created_at, last_accessed_at, ttl_seconds, is_semantic, is_pinned
 		FROM cache_entries
 		%s
@@ -1082,6 +1101,24 @@ func (h *AdminHandler) HandleListCache(w http.ResponseWriter, r *http.Request) {
 	}
 	if items == nil {
 		items = []cacheItem{}
+	}
+	// Prefer the indexed user-message summary over the start of the raw request JSON as a preview.
+	hashes := make([]string, len(items))
+	for i := range items {
+		hashes[i] = items[i].Hash
+	}
+	if texts, err := h.database.SearchTexts(r.Context(), hashes); err == nil {
+		for i := range items {
+			if t := strings.TrimSpace(texts[items[i].Hash]); t != "" {
+				if len(t) > 120 {
+					t = t[:120] + "..."
+				}
+				items[i].PromptPreview = t
+			}
+		}
+	}
+	if !paginate {
+		totalMatching = int64(len(items))
 	}
 
 	w.Header().Set("X-Total-Count", strconv.FormatInt(totalMatching, 10))

@@ -75,6 +75,7 @@
           "handlePlanMode"
         ]
       }
-    ]
+    ],
+    "live_commits": true
   }
 }

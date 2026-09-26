@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -489,13 +490,22 @@ func TestLiltokCacheSearchLocalFallback(t *testing.T) {
 	}
 	database.Close()
 
-	// The gateway answers with an empty list, so the search falls through to SQLite.
+	// An empty answer from a running gateway is final: no fallback scan of the database it holds.
 	empty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("[]"))
 	}))
 	defer empty.Close()
+	if res := searchLiltokCache(empty.URL, "needle"); res.IsError || !strings.Contains(res.Content[0].Text, "No cached entries match 'needle'.") {
+		t.Fatalf("empty gateway answer = %+v, want a no-match result", res)
+	}
 
-	res := searchLiltokCache(empty.URL, "needle")
+	// With the gateway offline, the search reads SQLite. This database has no search index yet (the
+	// gateway builds it), so the prompts themselves are scanned.
+	offline := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	offlineURL := offline.URL
+	offline.Close()
+
+	res := searchLiltokCache(offlineURL, "needle")
 	if res.IsError {
 		t.Fatalf("local search failed: %+v", res)
 	}
@@ -552,5 +562,46 @@ func TestLiltokCacheSearchDatabaseError(t *testing.T) {
 	res := searchLiltokCache("", "needle")
 	if !res.IsError || !strings.Contains(res.Content[0].Text, "failed to open cache db") {
 		t.Errorf("db error result = %+v", res)
+	}
+}
+
+// TestLiltokCacheSearchLocalIndexed checks the offline search through the cache_search index: every
+// query word must match the indexed user text, and an indexed database with no match says so
+// instead of scanning prompts.
+func TestLiltokCacheSearchLocalIndexed(t *testing.T) {
+	env := newTestEnv(t, "")
+	configPath = env.cfgPath
+	t.Cleanup(func() { configPath = "" })
+
+	database := env.openDB(t)
+	for _, r := range []struct{ hash, question string }{
+		{"indexedhandler0001", "How do I add a timeout to a Go HTTP handler?"},
+		{"indexedsql00000002", "Explain SQL window functions"},
+	} {
+		prompt := `{"messages":[{"role":"user","content":"` + r.question + `"}]}`
+		if _, err := database.Exec(`INSERT INTO cache_entries (hash, model, normalized_prompt, response_payload, hit_count) VALUES (?, 'gpt-4o', ?, ?, 1)`,
+			r.hash, prompt, []byte(`{"choices":[{"message":{"content":"answer for `+r.hash+`"}}]}`)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := database.IndexCacheSearch(context.Background(), 10); err != nil || n != 2 {
+		t.Fatalf("indexed %d (%v), want 2", n, err)
+	}
+	database.Close()
+
+	offline := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	offlineURL := offline.URL
+	offline.Close()
+
+	res := searchLiltokCache(offlineURL, "go timeout handler")
+	if res.IsError {
+		t.Fatalf("search failed: %+v", res)
+	}
+	assertContains(t, res.Content[0].Text, "indexedhand", "answer for indexedhandler0001")
+	if strings.Contains(res.Content[0].Text, "indexedsql") {
+		t.Errorf("an entry missing a query word was returned:\n%s", res.Content[0].Text)
+	}
+	if res := searchLiltokCache(offlineURL, "kubernetes operator"); !strings.Contains(res.Content[0].Text, "No cached entries match 'kubernetes operator' in the local cache.") {
+		t.Errorf("no-match result = %+v", res)
 	}
 }

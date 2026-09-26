@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Live-Streaming Replay Fixtures (M7.3):** every replay fixture now also runs with `routes.live_streaming` on, so each translation fix is checked on the live path too, and fixtures state whether the reply should stream live (`live_commits`). Four new fixtures cover long prose streaming live, a fenced bash block and DSML markup held back after live prose and still converted into tool calls, and a long repeated turn that must not commit so it still fails over.
+
+### Changed
+- **Cache Search Is Fast and Matches Every Word:** `liltok_cache_search` and the dashboard search matched the query as one substring against every cached request in full, which on a real cache (18,842 entries, 1.3 GB of request text including agent transcripts) took 9-10 s per search. The MCP tool gave the gateway 5 s, then fell back to scanning the database itself, so searches failed with "context deadline exceeded". A new `cache_search` table (migration 009) holds a short summary per entry (the latest and first user messages, without system reminders), filled by a background indexer for entries written by any path; searches match entries containing every query word and take 35-270 ms on the same cache. Dashboard previews show that summary instead of the start of the raw request JSON. The MCP tool no longer falls back to the local database when the gateway answers with no matches, and uses the index when the gateway is offline. The one-time indexing of an existing cache runs in the background after start (about 50 s for the cache above) while the gateway keeps serving.
+
 ### Fixed
 - **Cache Entries Could Outlive Their TTL on Disk:** the SQLite tier stored every entry with its insert time rather than its creation time, and kept the original creation time when an entry was overwritten. The memory and disk tiers could therefore disagree about expiry: an expired entry dropped from memory could still be served from SQLite, and an overwritten entry inherited the previous reply's age. SQLite now stores the entry's own creation time and restarts it on overwrite. Found by an intermittent CI failure.
 

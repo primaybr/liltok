@@ -1,0 +1,132 @@
+{
+  "description": "Prose streams live, but a fenced bash block after it is held back and still converted into a Bash tool call.",
+  "origin": "0.2.4-beta live streaming hold-back",
+  "request": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 4096,
+    "system": "You are Claude Code.",
+    "tools": [
+      {
+        "name": "Read",
+        "description": "Read tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path"
+          ]
+        }
+      },
+      {
+        "name": "Glob",
+        "description": "Glob tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "Bash",
+        "description": "Bash tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "Write",
+        "description": "Write tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "Edit",
+        "description": "Edit tool",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "old_string": {
+              "type": "string"
+            },
+            "new_string": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "old_string",
+            "new_string"
+          ]
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Explain the log, then run the tests."
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "content": "A write-ahead log records every change before it is applied to the main data files. When the database crashes, it replays the log from the last checkpoint, so no committed transaction is lost and no half-applied change survives. Writers append to the end of the log, which is sequential and fast, while the data pages are updated later in the background. Readers can keep using the old pages until the checkpoint moves them forward. The log also makes replication simple, because a replica only needs to apply the same records in the same order. \n```bash\ngo test ./...\n```\n"
+    }
+  ],
+  "expect": {
+    "attempts": 1,
+    "stop_reason": "tool_use",
+    "live_commits": true,
+    "blocks": [
+      {
+        "type": "text",
+        "contains": [
+          "A write-ahead log records every change before it is applied "
+        ],
+        "excludes": [
+          "```bash"
+        ]
+      },
+      {
+        "type": "tool_use",
+        "name": "Bash",
+        "input": {
+          "command": "go test ./..."
+        }
+      }
+    ]
+  }
+}

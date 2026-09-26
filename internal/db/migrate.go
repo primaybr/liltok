@@ -40,6 +40,7 @@ var migrations = []migration{
 	{version: 6, name: "model_catalog", file: "006_model_catalog.sql"},
 	{version: 7, name: "pricing_refresh", file: "007_pricing_refresh.sql"},
 	{version: 8, name: "key_budget_periods", file: "008_key_budget_periods.sql"},
+	{version: 9, name: "cache_search", file: "009_cache_search.sql"},
 }
 
 type columnDef struct {

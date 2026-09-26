@@ -46,6 +46,9 @@ type replayExpectation struct {
 	Blocks         []replayBlock `json:"blocks,omitempty"`
 	// UpstreamContains lists raw substrings every upstream attempt's system prompt or message text must contain.
 	UpstreamContains []string `json:"upstream_contains,omitempty"`
+	// LiveCommits says whether, with routes.live_streaming on, the reply streams live (true) or is
+	// replayed whole (false, the default: short replies, tool calls, possible markup).
+	LiveCommits bool `json:"live_commits,omitempty"`
 }
 
 type replayBlock struct {
