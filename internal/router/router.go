@@ -887,6 +887,22 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				return cont, contProvider, nil
 			}
 		}
+		if committed && errors.Is(err, errDegenerateReply) {
+			// The text before the noise already reached the client; end the reply there rather than
+			// with an error. The attempt still failed, so the truncated reply is logged as a failure
+			// and never cached.
+			cb.RecordFailure()
+			resp.FinishReason = "stop"
+			if len(resp.ToolCalls) > 0 {
+				resp.FinishReason = "tool_calls"
+			}
+			_ = sink.Finish(resp, target.ProviderName)
+			telemetry.Log.Warn().
+				Str("failed_provider", target.ProviderName).
+				Str("failed_model", target.UpstreamModel).
+				Msg("Live stream degenerated after output started; reply cut before the noise")
+			return nil, "", &CommittedStreamError{Provider: target.ProviderName, Err: err}
+		}
 		if committed {
 			if isCircuitBreakerError(err) {
 				cb.RecordFailure()
@@ -925,7 +941,8 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 // checkReply repairs a reply in place (text or DSML tool calls turned into structured calls,
 // case-only tool-name mismatches) and returns an error for a reply that must fail over: an
 // unparseable leaked call, no visible text and no tool calls, an undeclared tool, a stalled
-// announcement (wrapping errStalledTurn), an empty plan exit, or a repetition loop.
+// announcement (wrapping errStalledTurn), an empty plan exit, a repetition loop, or text that
+// degenerates into symbol noise (wrapping errDegenerateReply).
 func checkReply(req *provider.UnifiedChatRequest, target TargetSpec, resp *provider.UnifiedChatResponse) error {
 	// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
 	if len(resp.ToolCalls) == 0 && resp.Content != "" {
@@ -963,6 +980,11 @@ func checkReply(req *provider.UnifiedChatRequest, target TargetSpec, resp *provi
 	// the Anthropic translator moves out of the text block (a reply cut off at max_tokens mid-thought).
 	if visibleReplyText(resp) == "" && len(resp.ToolCalls) == 0 {
 		return fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
+	}
+
+	// Reject replies whose text collapses into a long run of punctuation and blank lines
+	if _, bad := degenerateCut(resp.Content); bad {
+		return fmt.Errorf("upstream provider %s model %s %w", target.ProviderName, target.UpstreamModel, errDegenerateReply)
 	}
 
 	// Reject calls to tools the client never declared (e.g. "Global" for "Glob"); repair case-only mismatches

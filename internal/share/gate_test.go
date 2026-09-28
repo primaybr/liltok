@@ -227,6 +227,16 @@ func TestGate(t *testing.T) {
 		// name nothing on that denylist still passes; catching every implausible stdlib subpackage
 		// would need a real list of actual stdlib import paths, which this rule does not have.
 		{"stdlib-prefixed but not a real stdlib subpackage still passes (residual gap)", "Why does os/secretco/billing.Tax fail to compile after the refactor?", ""},
+		// Userinfo on a loopback URL is judged before the loopback exemption.
+		{"loopback url with userinfo rejects", "Why does http://admin@localhost:8080/api return 401 every time?", share.RuleURL},
+		{"loopback url with password is a secret", "Why does http://admin:hunter2@127.0.0.1:8080/api return 401?", share.RuleSecret},
+		// A private-suffix host with a port and no path is still a private host name.
+		{"private-suffix bare host with a port", "Why can't the pod reach billing.corp.internal:5432 after the upgrade?", share.RuleURL},
+		// A credential keyword with a dotted or camelCase suffix is still a credential.
+		{"dotted credential suffix", "The properties file sets secret.key: abcd1234 for the staging profile.", share.RuleSecret},
+		{"camelCase credential suffix", "The YAML loader reads secretKey: abcd1234 from the staging profile.", share.RuleSecret},
+		{"camelCase credential with two suffix words", "The config sets apiTokenProd = x9 before every deploy run.", share.RuleSecret},
+		{"lowercase continuation of a keyword still passes", "The usage report shows tokens: 4096 for every completion call.", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

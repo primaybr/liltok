@@ -77,8 +77,11 @@ var (
 	// still judged a credential; a bare-letter suffix with no separator is not accepted, so
 	// max_tokens: 4096 is not "token" plus a suffix. A lowercase letter immediately before a
 	// capitalized keyword (dbPassword, clientSecret, apiToken) is also a boundary, for a camelCase
-	// name that the non-alphanumeric boundary alone would miss.
-	credentialPattern = regexp.MustCompile(`(?:(?i:(?:^|[^A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token))|[a-z](?:Pass(?:word|wd)?|Pwd|Secret|Api[_-]?Key|Access[_-]?Token|Auth[_-]?Token|Token))(?:[_-][A-Za-z0-9]+)*["']?\s*[:=]\s*\S+`)
+	// name that the non-alphanumeric boundary alone would miss. A suffix may also be joined with a
+	// dot (secret.key:) or glued on as a capitalized camelCase word (secretKey:, apiTokenProd:);
+	// the camelCase suffix is case-sensitive, so a lowercase continuation (tokens:) still does not
+	// count.
+	credentialPattern = regexp.MustCompile(`(?:(?i:(?:^|[^A-Za-z0-9])(?:pass(?:word|wd)?|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|token))|[a-z](?:Pass(?:word|wd)?|Pwd|Secret|Api[_-]?Key|Access[_-]?Token|Auth[_-]?Token|Token))(?:[_.-][A-Za-z0-9]+|[A-Z][A-Za-z0-9]*)*["']?\s*[:=]\s*\S+`)
 	emailPattern      = regexp.MustCompile(`[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}`)
 	// phonePattern uses [ \t] rather than \s so a match cannot span a newline.
 	phonePattern = regexp.MustCompile(`\+?\(?\d[\d \t().\-]{7,}\d`)
@@ -100,7 +103,7 @@ var (
 	// as a private host name even with no path to resolve. "arpa" (reverse-DNS infrastructure, as in
 	// in-addr.arpa) is deliberately excluded, since it names public resolver zones, not a private
 	// host.
-	privateHostSuffixPattern = regexp.MustCompile(`(?i)^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?:internal|corp|local|lan|intranet)$`)
+	privateHostSuffixPattern = regexp.MustCompile(`(?i)^(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\.)+(?:internal|corp|local|lan|intranet)(?::\d+)?$`)
 	contextPattern           = regexp.MustCompile(`(?i)userEmail|claudeMd|gitStatus|today's date is|working directory|<system-reminder`)
 	// isoTimestampPattern catches an ISO-8601 timestamp (a date, a literal "T", then hour:minute):
 	// a question naming one is anchored to a specific run and never reusable, so it is judged
@@ -690,11 +693,15 @@ func (g *Gate) hasForeignURL(q string) bool {
 		if err != nil {
 			return true
 		}
+		// Userinfo is judged before the loopback exemption, so http://admin@localhost/ still rejects.
+		if u.User != nil {
+			return true
+		}
 		host := strings.ToLower(u.Hostname())
 		if isLoopbackHost(host) {
 			continue
 		}
-		if u.User != nil || !g.hostAllowed(host) {
+		if !g.hostAllowed(host) {
 			return true
 		}
 	}

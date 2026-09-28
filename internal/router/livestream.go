@@ -44,7 +44,8 @@ func liveSinkFrom(ctx context.Context) LiveSink {
 }
 
 // CommittedStreamError is returned when an attempt failed after its reply had started streaming
-// to the client. The sink has already been told (Fail), and there is no failover.
+// to the client. The sink has already been told (Fail, or Finish with the text cut before a
+// degenerate run), and there is no failover.
 type CommittedStreamError struct {
 	Provider string
 	Err      error
@@ -85,6 +86,7 @@ type liveGate struct {
 	text      strings.Builder
 	sent      int // bytes of text already passed to the sink
 	committed bool
+	cut       int // where the degenerate run starts, once addText has returned errDegenerateReply
 }
 
 func newLiveGate(req *provider.UnifiedChatRequest, sink LiveSink) *liveGate {
@@ -132,8 +134,14 @@ func (g *liveGate) addThinking(delta string) {
 	}
 }
 
+// addText takes the next text delta and passes on what can be sent. It returns errDegenerateReply
+// once the text ends in a degenerate run (see degenerateCut); g.cut then holds where it starts.
 func (g *liveGate) addText(delta string) error {
 	g.text.WriteString(delta)
+	if cut, bad := degenerateCut(g.text.String()); bad {
+		g.cut = cut
+		return errDegenerateReply
+	}
 	if !g.committed {
 		if !g.shouldCommit() {
 			return nil
@@ -151,12 +159,16 @@ func (g *liveGate) addText(delta string) error {
 	return g.flush()
 }
 
-// flush sends the text that can no longer turn out to be markup.
+// flush sends the text that can no longer turn out to be markup or the start of a degenerate run:
+// a trailing run with no word in it is held back until a word follows it.
 func (g *liveGate) flush() error {
 	text := g.text.String()
 	end := len(text) - liveHoldback
 	if m := firstMarker(text); m >= 0 && m < end {
 		end = m
+	}
+	if w := wordlessTail(text); w < end {
+		end = w
 	}
 	for end > g.sent && end < len(text) && !utf8.RuneStart(text[end]) {
 		end--
@@ -191,6 +203,20 @@ func (r *Router) streamAttempt(ctx context.Context, p provider.ProviderClient, t
 	}
 	timeout := func() error {
 		return fmt.Errorf("upstream provider %s model %s did not respond within %s", target.ProviderName, target.UpstreamModel, idle)
+	}
+	// addText passes a delta to the gate. On a degenerate reply it cuts resp.Content where the noise
+	// starts and stops reading the stream.
+	addText := func(delta string) error {
+		err := gate.addText(delta)
+		switch {
+		case err == nil:
+			return nil
+		case errors.Is(err, errDegenerateReply):
+			resp.Content = gate.text.String()[:gate.cut]
+			return fmt.Errorf("upstream provider %s model %s %w", target.ProviderName, target.UpstreamModel, err)
+		default:
+			return fmt.Errorf("client stopped receiving the live stream: %w", err)
+		}
 	}
 
 	type opened struct {
@@ -239,16 +265,16 @@ func (r *Router) streamAttempt(ctx context.Context, p provider.ProviderClient, t
 				gate.addThinking(ev.DeltaText)
 			case "text_delta":
 				if ev.DeltaText != "" {
-					if err := gate.addText(ev.DeltaText); err != nil {
-						return resp, gate.committed, fmt.Errorf("client stopped receiving the live stream: %w", err)
+					if err := addText(ev.DeltaText); err != nil {
+						return resp, gate.committed, err
 					}
 				}
 			case "tool_call":
 				resp.ToolCalls = append(resp.ToolCalls, ev.ToolCalls...)
 			case "finish":
 				if ev.DeltaText != "" {
-					if err := gate.addText(ev.DeltaText); err != nil {
-						return resp, gate.committed, fmt.Errorf("client stopped receiving the live stream: %w", err)
+					if err := addText(ev.DeltaText); err != nil {
+						return resp, gate.committed, err
 					}
 				}
 				resp.FinishReason = ev.FinishReason
