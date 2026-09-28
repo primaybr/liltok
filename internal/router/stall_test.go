@@ -27,6 +27,13 @@ func TestIsStalledAgentTurn(t *testing.T) {
 		{"no tools declared", noTools, "Let me read the file.", 0, false},
 		{"long answer ending in announce", withTools, longAnswer + " Let me check one more thing.", 0, false},
 		{"announcement mid-text only", withTools, "Let me explain. The router retries each target in order.", 0, false},
+		// Replies that ended a real agent run early (2026-09-28 free-first session).
+		{"long plan ending in an announcement", withTools, longAnswer + "\n\n---\n\nLet's examine `internal/share/gate.go` around `isLoopbackHost`, `hasForeignURL`, and `credentialPattern` to make the targeted edits.", 0, true},
+		{"announces continue", withTools, "Let's continue checking the rest of the tests to verify everything passes.", 0, true},
+		{"announces perform", withTools, "Let's enhance the pattern.\n\nLet's perform the edit on `internal/share/gate.go`.", 0, true},
+		{"modifier words before the verb", withTools, "Now let me also update the credential pattern to catch camelCase names.", 0, true},
+		{"waits on purpose", withTools, "The plan is above. I'll wait for your go-ahead before editing.", 0, false},
+		{"long closing paragraph", withTools, "Summary.\n\n" + longAnswer + " Let me check one more thing.", 0, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -38,6 +45,19 @@ func TestIsStalledAgentTurn(t *testing.T) {
 				t.Errorf("isStalledAgentTurn(%q) = %v, want %v", tc.text, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestVisibleReplyTextDropsCopiedReasoning(t *testing.T) {
+	// The OpenAI adapter copies reasoning into the content when a model sent none (a reply cut off
+	// at max_tokens mid-thought); the translator then emits only a thinking block.
+	resp := &provider.UnifiedChatResponse{Content: "Let me analyze this transcript.", ReasoningContent: "Let me analyze this transcript."}
+	if got := visibleReplyText(resp); got != "" {
+		t.Fatalf("copied reasoning must not count as visible text, got %q", got)
+	}
+	resp = &provider.UnifiedChatResponse{Content: "<severity>0</severity>", ReasoningContent: "Scoring it."}
+	if got := visibleReplyText(resp); got != "<severity>0</severity>" {
+		t.Fatalf("a real answer next to reasoning must stay visible, got %q", got)
 	}
 }
 

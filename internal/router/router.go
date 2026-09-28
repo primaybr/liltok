@@ -744,7 +744,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	}
 
 	var lastErr error
-	for _, target := range candidateTargets {
+	for i, target := range candidateTargets {
 		// Stop the chain once the client has gone: later attempts would fail instantly with
 		// "context canceled" and nobody is left to receive a reply.
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -855,65 +855,7 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			err = fmt.Errorf("upstream provider %s routed to excluded model %s", target.ProviderName, resp.Model)
 		}
 		if err == nil {
-			// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
-			if len(resp.ToolCalls) == 0 && resp.Content != "" {
-				cleanText, extracted := ExtractTextToolCalls(resp.Content)
-				if len(extracted) > 0 {
-					resp.Content = cleanText
-					resp.ToolCalls = extracted
-					resp.FinishReason = "tool_calls"
-				} else {
-					// Clean any orphan DSML fragments from text
-					resp.Content = cleanText
-				}
-			} else if len(resp.ToolCalls) > 0 && resp.Content != "" {
-				// Strip leaked DSML tags if model returned both structured calls and raw DSML text
-				if strings.Contains(resp.Content, "DSML") {
-					resp.Content = StripDSMLTags(resp.Content)
-				}
-			}
-
-			// Recover call:Name{...} tool calls written as text; unparseable ones would otherwise reach the
-			// client as a final answer and end an agent run early.
-			if len(resp.ToolCalls) == 0 {
-				cleanText, calls, leaked := extractLeakedCalls(resp.Content, req.Tools)
-				if len(calls) > 0 {
-					resp.Content = cleanText
-					resp.ToolCalls = calls
-					resp.FinishReason = "tool_calls"
-				} else if leaked {
-					err = fmt.Errorf("upstream provider %s model %s wrote an unparseable tool call as text", target.ProviderName, target.UpstreamModel)
-				}
-			}
-
-			// Reject silent empty or corrupted completions (0 visible text and 0 tool calls) to trigger failover.
-			// Visible text excludes <think> blocks, which the Anthropic translator moves out of the text block.
-			_, visibleText := extractThinkingBlocks(resp.Content)
-			if strings.TrimSpace(visibleText) == "" && len(resp.ToolCalls) == 0 {
-				err = fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
-			}
-
-			// Reject calls to tools the client never declared (e.g. "Global" for "Glob"); repair case-only mismatches
-			if err == nil {
-				if bad := reconcileToolNames(req.Tools, resp.ToolCalls); bad != "" {
-					err = fmt.Errorf("upstream provider %s model %s called undeclared tool %q", target.ProviderName, target.UpstreamModel, bad)
-				}
-			}
-
-			// Reject turns that announce a tool action without calling it; the client would end the run
-			if err == nil && isStalledAgentTurn(req, resp) {
-				err = fmt.Errorf("upstream provider %s model %s announced a tool action without calling a tool", target.ProviderName, target.UpstreamModel)
-			}
-
-			// Reject ExitPlanMode calls that skip writing the plan and carry no plan text to write
-			if err == nil && isEmptyExitPlanMode(req, resp) {
-				err = fmt.Errorf("upstream provider %s model %s called ExitPlanMode without writing or providing a plan", target.ProviderName, target.UpstreamModel)
-			}
-
-			// Reject completions stuck in an in-context repetition loop to trigger rolling failover
-			if err == nil && isRepetitionLoop(req, resp) {
-				err = fmt.Errorf("upstream provider %s model %s stuck in repetition loop with identical content/tool calls", target.ProviderName, target.UpstreamModel)
-			}
+			err = checkReply(req, target, resp)
 		}
 
 		observeAttempt(ctx, AttemptResult{
@@ -936,6 +878,14 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		}
 		if reason, gone := modelGoneReason(err); gone {
 			r.catalog.MarkInactive(target.ProviderName, target.UpstreamModel, reason)
+		}
+		if committed && errors.Is(err, errStalledTurn) {
+			// The announcement already reached the client, so failing over would repeat it and
+			// failing the turn would end the agent run. Ask for the announced tool call instead.
+			if cont, contProvider := r.continueStalledTurn(ctx, req, resp, target, candidateTargets[i+1:], approxTokens); cont != nil {
+				_ = sink.Finish(cont, contProvider)
+				return cont, contProvider, nil
+			}
 		}
 		if committed {
 			if isCircuitBreakerError(err) {
@@ -970,6 +920,71 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		return nil, "", errors.New("all providers in fallback chain failed: every target was skipped (context window, inactive model, excluded model or open circuit breaker)")
 	}
 	return nil, "", fmt.Errorf("all providers in fallback chain failed: %w", lastErr)
+}
+
+// checkReply repairs a reply in place (text or DSML tool calls turned into structured calls,
+// case-only tool-name mismatches) and returns an error for a reply that must fail over: an
+// unparseable leaked call, no visible text and no tool calls, an undeclared tool, a stalled
+// announcement (wrapping errStalledTurn), an empty plan exit, or a repetition loop.
+func checkReply(req *provider.UnifiedChatRequest, target TargetSpec, resp *provider.UnifiedChatResponse) error {
+	// Fallback Interceptor: Convert text/DSML tool calls to structured ToolCalls
+	if len(resp.ToolCalls) == 0 && resp.Content != "" {
+		cleanText, extracted := ExtractTextToolCalls(resp.Content)
+		if len(extracted) > 0 {
+			resp.Content = cleanText
+			resp.ToolCalls = extracted
+			resp.FinishReason = "tool_calls"
+		} else {
+			// Clean any orphan DSML fragments from text
+			resp.Content = cleanText
+		}
+	} else if len(resp.ToolCalls) > 0 && resp.Content != "" {
+		// Strip leaked DSML tags if model returned both structured calls and raw DSML text
+		if strings.Contains(resp.Content, "DSML") {
+			resp.Content = StripDSMLTags(resp.Content)
+		}
+	}
+
+	// Recover call:Name{...} tool calls written as text; unparseable ones would otherwise reach the
+	// client as a final answer and end an agent run early.
+	if len(resp.ToolCalls) == 0 {
+		cleanText, calls, leaked := extractLeakedCalls(resp.Content, req.Tools)
+		if len(calls) > 0 {
+			resp.Content = cleanText
+			resp.ToolCalls = calls
+			resp.FinishReason = "tool_calls"
+		} else if leaked {
+			return fmt.Errorf("upstream provider %s model %s wrote an unparseable tool call as text", target.ProviderName, target.UpstreamModel)
+		}
+	}
+
+	// Reject silent empty or corrupted completions (0 visible text and 0 tool calls) to trigger failover.
+	// Visible text excludes <think> blocks and content that only repeats the reasoning, both of which
+	// the Anthropic translator moves out of the text block (a reply cut off at max_tokens mid-thought).
+	if visibleReplyText(resp) == "" && len(resp.ToolCalls) == 0 {
+		return fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
+	}
+
+	// Reject calls to tools the client never declared (e.g. "Global" for "Glob"); repair case-only mismatches
+	if bad := reconcileToolNames(req.Tools, resp.ToolCalls); bad != "" {
+		return fmt.Errorf("upstream provider %s model %s called undeclared tool %q", target.ProviderName, target.UpstreamModel, bad)
+	}
+
+	// Reject turns that announce a tool action without calling it; the client would end the run
+	if isStalledAgentTurn(req, resp) {
+		return fmt.Errorf("upstream provider %s model %s %w", target.ProviderName, target.UpstreamModel, errStalledTurn)
+	}
+
+	// Reject ExitPlanMode calls that skip writing the plan and carry no plan text to write
+	if isEmptyExitPlanMode(req, resp) {
+		return fmt.Errorf("upstream provider %s model %s called ExitPlanMode without writing or providing a plan", target.ProviderName, target.UpstreamModel)
+	}
+
+	// Reject completions stuck in an in-context repetition loop to trigger rolling failover
+	if isRepetitionLoop(req, resp) {
+		return fmt.Errorf("upstream provider %s model %s stuck in repetition loop with identical content/tool calls", target.ProviderName, target.UpstreamModel)
+	}
+	return nil
 }
 
 // ResetCircuitBreakers resets all circuit breakers to CLOSED.
