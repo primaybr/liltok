@@ -686,7 +686,8 @@ func isExemptOrdinaryWords(tok string, segs []string) bool {
 // also treats a scheme-less "host.tld/path" mention as a URL, since a reader still resolves it as
 // a link, and a scheme-less hostname ending in a private-network suffix even with no path (see
 // privateHostSuffixPattern). A loopback host (localhost, 127.0.0.1, or the IPv6 loopback) is exempt
-// either way, the same way a bare loopback address is already exempt from the pii rule.
+// either way, the same way a bare loopback address is already exempt from the pii rule, and so is a
+// fixed container host name (see containerHostNames).
 func (g *Gate) hasForeignURL(q string) bool {
 	for _, raw := range urlPattern.FindAllString(q, -1) {
 		u, err := url.Parse(strings.TrimRight(raw, ".,:;!?"))
@@ -698,7 +699,7 @@ func (g *Gate) hasForeignURL(q string) bool {
 			return true
 		}
 		host := strings.ToLower(u.Hostname())
-		if isLoopbackHost(host) {
+		if isLoopbackHost(host) || containerHostNames[host] {
 			continue
 		}
 		if !g.hostAllowed(host) {
@@ -730,7 +731,7 @@ func (g *Gate) hasForeignURL(q string) bool {
 			host = host[:i]
 		}
 		host = strings.ToLower(host)
-		if isLoopbackHost(host) {
+		if isLoopbackHost(host) || containerHostNames[host] {
 			continue
 		}
 		if !g.hostAllowed(host) {
@@ -750,6 +751,17 @@ func (g *Gate) hostAllowed(host string) bool {
 		}
 	}
 	return false
+}
+
+// containerHostNames are the host names Docker Desktop and Podman define identically on every
+// install to reach the host machine or its gateway from inside a container. Like loopback, they
+// name no one's network. Only these exact names are exempt: a subdomain of one, or a cluster
+// service name such as "billing.payments.svc.cluster.local", still names a private host.
+var containerHostNames = map[string]bool{
+	"host.docker.internal":       true,
+	"gateway.docker.internal":    true,
+	"kubernetes.docker.internal": true,
+	"host.containers.internal":   true,
 }
 
 // isLoopbackHost reports whether host (already lowercased) names the local machine: "localhost", or

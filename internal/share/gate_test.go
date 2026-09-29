@@ -237,6 +237,19 @@ func TestGate(t *testing.T) {
 		{"camelCase credential suffix", "The YAML loader reads secretKey: abcd1234 from the staging profile.", share.RuleSecret},
 		{"camelCase credential with two suffix words", "The config sets apiTokenProd = x9 before every deploy run.", share.RuleSecret},
 		{"lowercase continuation of a keyword still passes", "The usage report shows tokens: 4096 for every completion call.", ""},
+		// The fixed host names Docker and Podman give every install name no one's network, so they
+		// are exempt like loopback. Cluster service names and look-alikes still reject.
+		{"docker host name passes", "Why can't my container reach host.docker.internal on Linux?", ""},
+		{"docker host url passes", "How do I call http://host.docker.internal:8080/api from a container?", ""},
+		{"docker gateway name passes", "What does gateway.docker.internal resolve to inside a container?", ""},
+		{"podman host name passes", "Is host.containers.internal the Podman equivalent of host.docker.internal?", ""},
+		// Accepted residual (fails closed): a bare host:port token this long reads as a random key
+		// to the secret rule's entropy check, which runs before the url rule.
+		{"docker host name with a port rejects as secret (residual)", "Why does host.docker.internal:5432 refuse connections from the app container?", share.RuleSecret},
+		// Userinfo on a container host reads as an email address, so pii rejects it first.
+		{"docker host url with userinfo rejects", "Why does http://admin@host.docker.internal/api return 401?", share.RulePII},
+		{"subdomain of a docker host name rejects", "Why can't I reach billing.host.docker.internal from the pod?", share.RuleURL},
+		{"cluster service name rejects", "Why can't the pod resolve billing.payments.svc.cluster.local after the upgrade?", share.RuleURL},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
