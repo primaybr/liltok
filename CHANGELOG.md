@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Share Scan Discarded Approved Questions Whose Cache Entry Was Purged:** a scan deleted every pending or approved candidate it did not return, which includes a question whose cache entry had since been purged, expired or evicted. Such a candidate is now judged again against the current gate and deleted only if it fails; a passing one keeps its status (an approval survives) or goes back to pending when it was gated under an older gate version. The report gains a `kept (source gone)` line.
 - **Truncated Gemini Replies Reported as Finished:** Gemini's `MAX_TOKENS` finish reason reached the translator as `max_tokens` instead of OpenAI's `length`, so a reply cut off by the output limit went to the client as `stop_reason: end_turn`. It now arrives as `max_tokens`, streaming and non-streaming. Gemini 3.x thinking tokens count against `maxOutputTokens`, so a small `max_tokens` can cut the visible text after a few words.
 
 ## [0.2.6-beta] - 2026-09-29

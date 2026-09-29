@@ -76,7 +76,7 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			if err != nil {
 				return err
 			}
-			res, err := database.ReconcileShareCandidates(ctx, survivors, share.GateVersion)
+			res, err := database.ReconcileShareCandidates(ctx, survivors, share.GateVersion, func(q string) bool { return gate.Check(q).Passed() })
 			if err != nil {
 				return fmt.Errorf("failed to store candidates: %w", err)
 			}
@@ -98,6 +98,7 @@ pending candidates for review. Nothing leaves this machine, and the report shows
 			fmt.Printf("   %-22s %d\n", "added:", res.Added)
 			fmt.Printf("   %-22s %d\n", "requeued:", res.Requeued)
 			fmt.Printf("   %-22s %d\n", "dropped:", res.Dropped)
+			fmt.Printf("   %-22s %d\n", "kept (source gone):", res.Retained)
 			fmt.Printf(" Pending review:          %d\n", counts[db.ShareStatusPending])
 			fmt.Println("==================================================================")
 			return nil

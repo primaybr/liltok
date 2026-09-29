@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/primaybr/liltok/internal/db"
 	"github.com/primaybr/liltok/internal/miner"
 	"github.com/primaybr/liltok/internal/share"
 )
@@ -87,6 +89,50 @@ func TestShareScan(t *testing.T) {
 		t.Fatalf("second share scan: %v", err)
 	}
 	assertContains(t, out, countLine("added", 0), countLine("dropped", 0), "Pending review:          1")
+}
+
+// TestShareScanKeepsCandidatesWhoseCacheEntryWasPurged covers a question the scan no longer returns
+// because its cache entry is gone: an approval must survive while the question still passes the gate,
+// and a stored question that would now be rejected is still deleted.
+func TestShareScanKeepsCandidatesWhoseCacheEntryWasPurged(t *testing.T) {
+	env := newTestEnv(t, "")
+	orig := currentDenyEnv
+	currentDenyEnv = func() share.DenyEnv { return share.DenyEnv{} }
+	t.Cleanup(func() { currentDenyEnv = orig })
+
+	answer := `{"type":"message","content":[{"type":"text","text":"An answer."}],"stop_reason":"end_turn"}`
+	u := func(text string) map[string]interface{} { return map[string]interface{}{"role": "user", "content": text} }
+	env.insertEntry(t, "keep", "claude-sonnet-5", shareReq(t, u("How do I reverse a slice in Go without allocating a new one?")), answer, 0, false)
+	env.insertEntry(t, "leak", "claude-sonnet-5", shareReq(t, u("What is the difference between a mutex and a channel in Go?")), answer, 0, false)
+	if _, err := env.run(t, "share", "scan"); err != nil {
+		t.Fatalf("first share scan: %v", err)
+	}
+
+	// Approve both, then purge both cache entries and make one stored question fail the gate.
+	database := env.openDB(t)
+	for _, q := range []string{
+		`UPDATE share_candidates SET status = 'approved'`,
+		`UPDATE share_candidates SET question = 'Why does dev@corp.example.com not receive the reset email?' WHERE question LIKE '%mutex%'`,
+		`DELETE FROM cache_entries`,
+	} {
+		if _, err := database.Exec(q); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	database.Close()
+
+	out, err := env.run(t, "share", "scan")
+	if err != nil {
+		t.Fatalf("second share scan: %v", err)
+	}
+	assertContains(t, out, "Unique candidates:       0", countLine("kept (source gone)", 1), countLine("dropped", 1))
+
+	database = env.openDB(t)
+	defer database.Close()
+	counts, err := database.CountShareCandidates(context.Background())
+	if err != nil || counts[db.ShareStatusApproved] != 1 || counts[db.ShareStatusPending] != 0 {
+		t.Errorf("counts = %v, %v; want the passing question still approved and the other deleted", counts, err)
+	}
 }
 
 // TestShareScanMissingDatabase covers a storage.db_path that does not point at an existing file:
