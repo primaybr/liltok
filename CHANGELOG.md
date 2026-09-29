@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Truncated Gemini Replies Reported as Finished:** Gemini's `MAX_TOKENS` finish reason reached the translator as `max_tokens` instead of OpenAI's `length`, so a reply cut off by the output limit went to the client as `stop_reason: end_turn`. It now arrives as `max_tokens`, streaming and non-streaming. Gemini 3.x thinking tokens count against `maxOutputTokens`, so a small `max_tokens` can cut the visible text after a few words.
+
 ## [0.2.6-beta] - 2026-09-29
 
 ### Added

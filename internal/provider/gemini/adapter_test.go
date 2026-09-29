@@ -52,6 +52,34 @@ func TestGeminiAdapterSendChat(t *testing.T) {
 	}
 }
 
+// Gemini reports a cut-off reply as MAX_TOKENS; it must reach the translator as OpenAI's "length"
+// so the client sees stop_reason max_tokens instead of a truncated reply marked end_turn.
+func TestGeminiMaxTokensFinishReasonIsLength(t *testing.T) {
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"candidates": [{
+				"content": {"parts": [{"text": "The demoteLastResort method on Router"}], "role": "model"},
+				"finishReason": "MAX_TOKENS"
+			}],
+			"usageMetadata": {"promptTokenCount": 30, "candidatesTokenCount": 12, "totalTokenCount": 42}
+		}`))
+	}))
+	defer mockServer.Close()
+
+	adapter := NewAdapter(mockServer.URL, "gem-key")
+	resp, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{
+		Model:    "gemini-3.8-flash",
+		Messages: []provider.UnifiedChatMessage{{Role: "user", Content: "hello gemini"}},
+	})
+	if err != nil {
+		t.Fatalf("send chat failed: %v", err)
+	}
+	if resp.FinishReason != "length" {
+		t.Errorf("finish reason = %q, want %q", resp.FinishReason, "length")
+	}
+}
+
 func TestGeminiMultiKeyFailover(t *testing.T) {
 	key1Hit := false
 	key2Hit := false

@@ -317,6 +317,10 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			}
 			if len(toolCalls) == 0 && c.FinishReason != "" {
 				finishReason = strings.ToLower(c.FinishReason)
+				// The translator reads OpenAI's "length" as a cut-off reply (stop_reason max_tokens).
+				if finishReason == "max_tokens" {
+					finishReason = "length"
+				}
 			}
 		}
 

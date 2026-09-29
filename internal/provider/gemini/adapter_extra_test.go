@@ -196,7 +196,7 @@ func TestSendChat_RequestShape(t *testing.T) {
 		t.Errorf("tools = %s", tools)
 	}
 
-	if resp.Content != "ab" || resp.FinishReason != "max_tokens" || resp.Model != "gemini-flash" || resp.Role != "assistant" {
+	if resp.Content != "ab" || resp.FinishReason != "length" || resp.Model != "gemini-flash" || resp.Role != "assistant" {
 		t.Errorf("response = %+v", resp)
 	}
 	if resp.Usage != (provider.UnifiedUsage{PromptTokens: 1, CompletionTokens: 2, TotalTokens: 3}) {
