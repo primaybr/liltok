@@ -37,9 +37,14 @@ var (
 	// claimOutcome is what a build or test run is said to have done.
 	claimOutcome = `(?:pass\w*|succe\w+|green|clean|(?:no|zero|0)\s+(?:errors?|failures?))`
 
+	// claimGap is what may sit between the run named and its outcome: punctuation and a few short
+	// connector words ("the build is now passing", "go vet: clean"). Anything else, such as "this
+	// check affects every reply that passes", is a sentence about something else.
+	claimGap = `(?:[\s:,\-]+(?:is|are|was|were|now|all|also|both|still|again|successfully|fully|completely|the|and|it|its|whole|entire|full|project|suite|everything|go|make|npm|cargo)\b)*[\s:,\-]+`
+
 	// claimPatterns match a sentence that says a build, compile, test, vet or lint run succeeded.
 	claimPatterns = []*regexp.Regexp{
-		regexp.MustCompile(`\b(?:build\w*|compil\w*|tests?|test suite|vet|lint\w*|checks?)\b[^.!?\n]{0,40}\b` + claimOutcome + `\b`),
+		regexp.MustCompile(`\b(?:build\w*|compil\w*|tests?|test suite|vet|lint\w*|checks?)\b` + claimGap + claimOutcome + `\b`),
 		regexp.MustCompile(`\b(?:builds?|compiles?)\s+(?:cleanly|successfully|without\s+errors?)`),
 		regexp.MustCompile(`\ball\s+(?:the\s+)?tests?\s+(?:now\s+)?pass`),
 	}

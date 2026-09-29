@@ -59,6 +59,11 @@ func TestClaimsSuccess(t *testing.T) {
 		{"The build passes but one test failed.", false},
 		{"This function returns clean output when the build flag is set.", false},
 		{"There are no errors in the log format spec.", false},
+		// Found by the transcript replay: "check" and "passes" far apart in a sentence about something else.
+		{"A mistake in this check affects every free-model reply that passes through the gateway.", false},
+		{"The test helper passes the request to the router.", false},
+		{"All checks pass.", true},
+		{"The whole build now passes.", true},
 		{"", false},
 	}
 	for _, tc := range cases {
