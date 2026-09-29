@@ -17,20 +17,21 @@ const maxContinuationAttempts = 3
 const continuationPrompt = "[System Reminder] Your previous message announced its next step but did not call a tool, " +
 	"so nothing ran. Make that tool call now. Reply with the tool call only; do not repeat the message."
 
-// continueStalledTurn finishes a live-streamed turn that ended by announcing a tool action without
-// calling a tool. The client already has the announcement, so instead of failing the turn (which
-// ends the agent run) it asks for the announced call: the conversation plus the streamed text as
-// an assistant turn plus continuationPrompt, sent first to the target that stalled, then to rest,
-// the chain's later targets. The returned reply keeps the streamed text and carries the new tool calls; the
-// continuation's own text is dropped so the client does not see the step announced twice. It
+// continueTurn finishes a live-streamed turn whose text already reached the client but must not be
+// the end of the run: a stalled turn that announced a tool action without calling it, or a final
+// reply that claimed a passing build or test run nobody verified. Instead of failing the turn
+// (which ends the agent run) it asks for the missing call: the conversation plus the streamed text
+// as an assistant turn plus prompt, sent first to the target that produced the reply, then to
+// rest, the chain's later targets. The returned reply keeps the streamed text and carries the new
+// tool calls; the continuation's own text is dropped so the client does not see the step twice. It
 // returns nil when no target produced a valid tool call.
-func (r *Router) continueStalledTurn(ctx context.Context, req *provider.UnifiedChatRequest, stalled *provider.UnifiedChatResponse, current TargetSpec, rest []TargetSpec, approxTokens int) (*provider.UnifiedChatResponse, string) {
+func (r *Router) continueTurn(ctx context.Context, req *provider.UnifiedChatRequest, stalled *provider.UnifiedChatResponse, current TargetSpec, rest []TargetSpec, approxTokens int, prompt string) (*provider.UnifiedChatResponse, string) {
 	contReq := *req
 	contReq.RawPayload = nil // providers pass a raw OpenAI payload through; build from Messages instead
 	contReq.Stream = false
 	contReq.Messages = append(append([]provider.UnifiedChatMessage(nil), req.Messages...),
 		provider.UnifiedChatMessage{Role: "assistant", Content: visibleReplyText(stalled)},
-		provider.UnifiedChatMessage{Role: "user", Content: continuationPrompt},
+		provider.UnifiedChatMessage{Role: "user", Content: prompt},
 	)
 
 	order := append([]TargetSpec{current}, rest...)
@@ -60,7 +61,7 @@ func (r *Router) continueStalledTurn(ctx context.Context, req *provider.UnifiedC
 			err = checkReply(&contReq, target, resp)
 		}
 		if err == nil && len(resp.ToolCalls) == 0 {
-			err = errors.New("continuation of a stalled turn made no tool call")
+			err = errors.New("continuation made no tool call")
 		}
 		observeAttempt(ctx, AttemptResult{Provider: target.ProviderName, Model: target.UpstreamModel, Response: raw, Err: err, Latency: time.Since(start)})
 		if err != nil {
@@ -71,7 +72,7 @@ func (r *Router) continueStalledTurn(ctx context.Context, req *provider.UnifiedC
 				Str("provider", target.ProviderName).
 				Str("model", target.UpstreamModel).
 				Err(err).
-				Msg("Continuation of a stalled live turn failed")
+				Msg("Continuation of a live turn failed")
 			continue
 		}
 		cb.RecordSuccess()
@@ -87,7 +88,7 @@ func (r *Router) continueStalledTurn(ctx context.Context, req *provider.UnifiedC
 			Str("provider", target.ProviderName).
 			Str("model", target.UpstreamModel).
 			Str("tool", resp.ToolCalls[0].Function.Name).
-			Msg("Recovered a stalled live turn with a continuation tool call")
+			Msg("Recovered a live turn with a continuation tool call")
 		return &merged, target.ProviderName
 	}
 	return nil, ""

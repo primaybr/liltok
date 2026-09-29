@@ -920,10 +920,21 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if committed && errors.Is(err, errStalledTurn) {
 			// The announcement already reached the client, so failing over would repeat it and
 			// failing the turn would end the agent run. Ask for the announced tool call instead.
-			if cont, contProvider := r.continueStalledTurn(ctx, req, resp, target, candidateTargets[i+1:], approxTokens); cont != nil {
+			if cont, contProvider := r.continueTurn(ctx, req, resp, target, candidateTargets[i+1:], approxTokens, continuationPrompt); cont != nil {
 				_ = sink.Finish(cont, contProvider)
 				return cont, contProvider, nil
 			}
+		}
+		if committed && errors.As(err, &claimErr) {
+			// The claim already reached the client. Ask for the missing build or test call; if no
+			// target makes one, end the reply with the notice instead of failing the turn.
+			if cont, contProvider := r.continueTurn(ctx, req, resp, target, candidateTargets[i+1:], approxTokens, verifyReminderPrompt); cont != nil {
+				_ = sink.Finish(cont, contProvider)
+				return cont, contProvider, nil
+			}
+			resp.Content += unverifiedNotice(claimErr.verdict)
+			_ = sink.Finish(resp, target.ProviderName)
+			return resp, target.ProviderName, nil
 		}
 		if committed && errors.Is(err, errDegenerateReply) {
 			// The text before the noise already reached the client; end the reply there rather than
