@@ -41,6 +41,17 @@ func (pe *PrometheusExporter) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	b.WriteString("# TYPE liltok_uptime_seconds gauge\n")
 	b.WriteString(fmt.Sprintf("liltok_uptime_seconds %.2f\n\n", uptime))
 
+	if pe.router != nil {
+		if counts := pe.router.UnverifiedClaimCounts(); len(counts) > 0 {
+			b.WriteString("# HELP liltok_unverified_claims_total Final replies that claimed a passing build or test run the conversation did not support.\n")
+			b.WriteString("# TYPE liltok_unverified_claims_total counter\n")
+			for _, c := range counts {
+				b.WriteString(fmt.Sprintf("liltok_unverified_claims_total{model=%q,verdict=%q} %d\n", c.Model, c.Verdict, c.Count))
+			}
+			b.WriteString("\n")
+		}
+	}
+
 	if pe.database != nil {
 		// Cache entries count
 		var cacheEntries int64

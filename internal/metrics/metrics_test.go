@@ -68,3 +68,31 @@ func TestPrometheusExporter(t *testing.T) {
 		t.Errorf("expected circuit breaker state in output: %s", body)
 	}
 }
+
+func TestPrometheusExporterUnverifiedClaims(t *testing.T) {
+	rtr := router.NewRouter(config.DefaultConfig())
+	rtr.RecordUnverifiedClaim("nvidia/nemotron-3.5-lightning:free", "unverified")
+	rtr.RecordUnverifiedClaim("nvidia/nemotron-3.5-lightning:free", "unverified")
+	rtr.RecordUnverifiedClaim("kilo-auto/free", "contradicted")
+
+	database, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open memory db: %v", err)
+	}
+	defer database.Close()
+
+	exporter := metrics.NewPrometheusExporter(database, rtr)
+	rec := httptest.NewRecorder()
+	exporter.ServeHTTP(rec, httptest.NewRequest("GET", "/metrics", nil))
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		"# TYPE liltok_unverified_claims_total counter",
+		`liltok_unverified_claims_total{model="nvidia/nemotron-3.5-lightning:free",verdict="unverified"} 2`,
+		`liltok_unverified_claims_total{model="kilo-auto/free",verdict="contradicted"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics output is missing %q:\n%s", want, body)
+		}
+	}
+}
