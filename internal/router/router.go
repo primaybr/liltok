@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -172,6 +173,12 @@ type Router struct {
 	builtInRoutes map[string]Route
 	// routeStore persists routes edited at runtime; nil keeps edits in memory only.
 	routeStore RouteStore
+
+	// verifyClaims, verifyCommands and claimCounts back the false-success check (see verify.go).
+	verifyClaims   bool
+	verifyCommands []*regexp.Regexp
+	claimMu        sync.Mutex
+	claimCounts    map[claimCountKey]int
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.
@@ -188,6 +195,11 @@ func NewRouter(cfg *config.Config) *Router {
 		r.attemptTimeout = time.Duration(cfg.Routes.AttemptTimeoutSeconds) * time.Second
 	}
 	r.excluded, r.lastResort = make(map[string]bool), make(map[string]bool)
+	r.claimCounts = make(map[claimCountKey]int)
+	if cfg != nil {
+		r.verifyClaims = cfg.Routes.VerifyClaims
+		r.verifyCommands = compileVerifyCommands(cfg.Routes.VerifyCommands)
+	}
 	recheck := time.Duration(0)
 	if cfg != nil && cfg.Routes.ModelRecheckHours > 0 {
 		recheck = time.Duration(cfg.Routes.ModelRecheckHours) * time.Hour
@@ -744,6 +756,11 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 	}
 
 	var lastErr error
+	// The last reply that claimed a passing build or test run nobody verified; it is returned with a
+	// notice if no target produces anything better.
+	var claimed *provider.UnifiedChatResponse
+	var claimedProvider string
+	var claimedErr *unverifiedClaimError
 	for i, target := range candidateTargets {
 		// Stop the chain once the client has gone: later attempts would fail instantly with
 		// "context canceled" and nobody is left to receive a reply.
@@ -857,6 +874,9 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 		if err == nil {
 			err = checkReply(req, target, resp)
 		}
+		if err == nil {
+			err = r.verifyReply(req, target, p, resp)
+		}
 
 		observeAttempt(ctx, AttemptResult{
 			Provider: target.ProviderName,
@@ -875,6 +895,24 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 				_ = sink.Finish(resp, target.ProviderName)
 			}
 			return resp, target.ProviderName, nil
+		}
+		var claimErr *unverifiedClaimError
+		if errors.As(err, &claimErr) && !committed {
+			// The model is not broken, so the circuit breaker is left alone. Ask this target once for
+			// the missing build or test call; without one, remember the reply and try the next target.
+			if fixed := r.remindToVerify(ctx, req, resp, target, p, approxTokens); fixed != nil {
+				cb.RecordSuccess()
+				r.catalog.MarkActive(target.ProviderName, target.UpstreamModel)
+				return fixed, target.ProviderName, nil
+			}
+			claimed, claimedProvider, claimedErr = resp, target.ProviderName, claimErr
+			lastErr = err
+			telemetry.Log.Warn().
+				Str("failed_provider", target.ProviderName).
+				Str("failed_model", target.UpstreamModel).
+				Str("verdict", claimErr.verdict.String()).
+				Msg("Reply reported a passing build or test run nobody verified; trying the next target")
+			continue
 		}
 		if reason, gone := modelGoneReason(err); gone {
 			r.catalog.MarkInactive(target.ProviderName, target.UpstreamModel, reason)
@@ -932,6 +970,12 @@ func (r *Router) DispatchChat(ctx context.Context, req *provider.UnifiedChatRequ
 			Msg("Provider target failed, failing over to next target in rolling sequence")
 	}
 
+	if claimed != nil {
+		// Nothing verified the claim. A failed turn would end the agent run, so deliver the reply
+		// with a label instead of a silent false report.
+		claimed.Content += unverifiedNotice(claimedErr.verdict)
+		return claimed, claimedProvider, nil
+	}
 	if lastErr == nil {
 		return nil, "", errors.New("all providers in fallback chain failed: every target was skipped (context window, inactive model, excluded model or open circuit breaker)")
 	}
