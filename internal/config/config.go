@@ -99,6 +99,13 @@ type RouteConfig struct {
 	// once a reply has passed the checks that would fail it over. A failure after that point ends
 	// the turn with an error instead of failing over. Off by default.
 	LiveStreaming bool `yaml:"live_streaming"`
+	// VerifyClaims makes the router check a final reply from a non-premium target that reports a
+	// passing build or test run. A reply the conversation does not support gets one reminder to the
+	// same target, then failover, then a notice appended to the last such reply.
+	VerifyClaims bool `yaml:"verify_claims"`
+	// VerifyCommands adds regular expressions matching shell commands that count as a build or test
+	// run, on top of the built-in list.
+	VerifyCommands []string `yaml:"verify_commands"`
 }
 
 // MaintainerConfig controls local moderation and encrypted cache curation settings.
@@ -270,6 +277,14 @@ func applyEnvOverrides(cfg *Config) {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cfg.Routes.LiveStreaming = b
 		}
+	}
+	if v := os.Getenv("LILTOK_VERIFY_CLAIMS"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			cfg.Routes.VerifyClaims = b
+		}
+	}
+	if v, ok := os.LookupEnv("LILTOK_VERIFY_COMMANDS"); ok {
+		cfg.Routes.VerifyCommands = splitModelList(v)
 	}
 	if v := os.Getenv("LILTOK_MODEL_RECHECK_HOURS"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 {

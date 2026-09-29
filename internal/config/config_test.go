@@ -284,3 +284,48 @@ func TestModelListDefaultsAndOverrides(t *testing.T) {
 		t.Errorf("env last-resort override = %v, want [slow-model]", cfg.Routes.LastResortModels)
 	}
 }
+
+func TestVerifyClaimsConfig(t *testing.T) {
+	write := func(name, body string) string {
+		p := filepath.Join(t.TempDir(), name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+
+	cfg, err := Load(write("old.yaml", "routes:\n  default_strategy: \"free-first\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Routes.VerifyClaims {
+		t.Error("verify_claims should default to true")
+	}
+	if len(cfg.Routes.VerifyCommands) != 0 {
+		t.Errorf("verify_commands should default to empty, got %v", cfg.Routes.VerifyCommands)
+	}
+
+	cfg, err = Load(write("off.yaml", "routes:\n  verify_claims: false\n  verify_commands: [\"just test\"]\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Routes.VerifyClaims {
+		t.Error("verify_claims: false must turn the check off")
+	}
+	if len(cfg.Routes.VerifyCommands) != 1 || cfg.Routes.VerifyCommands[0] != "just test" {
+		t.Errorf("verify_commands = %v, want [just test]", cfg.Routes.VerifyCommands)
+	}
+
+	t.Setenv("LILTOK_VERIFY_CLAIMS", "true")
+	t.Setenv("LILTOK_VERIFY_COMMANDS", "just test, task check ,")
+	cfg, err = Load(write("env.yaml", "routes:\n  verify_claims: false\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Routes.VerifyClaims {
+		t.Error("LILTOK_VERIFY_CLAIMS=true must override the file")
+	}
+	if len(cfg.Routes.VerifyCommands) != 2 || cfg.Routes.VerifyCommands[1] != "task check" {
+		t.Errorf("env verify_commands = %v, want [just test task check]", cfg.Routes.VerifyCommands)
+	}
+}

@@ -59,6 +59,8 @@ routes:
   last_resort_models: ["gemini-3.5-flash-lite"] # tried only after every other target failed or was skipped
   model_recheck_hours: 24 # a model that answered "not found"/"decommissioned" is skipped this long, then re-checked once
   live_streaming: false # stream free-model replies as they arrive once they pass the failover checks; a later failure ends the turn with an error
+  verify_claims: true # a free-model final reply claiming a passing build or test run that no command in the conversation supports gets one reminder, then failover, then a notice
+  verify_commands: [] # extra regular expressions for shell commands that count as a build or test run
 
 share:
   # Names that identify you (projects, employers, clients, people). A question containing one is
