@@ -35,7 +35,7 @@ var (
 	claimSentenceSplit = regexp.MustCompile(`[.!?]+\s+|\n+`)
 
 	// claimOutcome is what a build or test run is said to have done.
-	claimOutcome = `(?:pass\w*|succe\w+|green|clean|(?:no|zero|0)\s+(?:errors?|failures?))`
+	claimOutcome = `(?:pass(?:es|ed|ing)?|succe\w+|green|clean|(?:no|zero|0)\s+(?:errors?|failures?))`
 
 	// claimGap is what may sit between the run named and its outcome: punctuation and a few short
 	// connector words ("the build is now passing", "go vet: clean"). Anything else, such as "this
@@ -46,7 +46,7 @@ var (
 	claimPatterns = []*regexp.Regexp{
 		regexp.MustCompile(`\b(?:build\w*|compil\w*|tests?|test suite|vet|lint\w*|checks?)\b` + claimGap + claimOutcome + `\b`),
 		regexp.MustCompile(`\b(?:builds?|compiles?)\s+(?:cleanly|successfully|without\s+errors?)`),
-		regexp.MustCompile(`\ball\s+(?:the\s+)?tests?\s+(?:now\s+)?pass`),
+		regexp.MustCompile(`\ball\s+(?:the\s+)?tests?\s+(?:now\s+)?pass(?:es|ed|ing)?\b`),
 	}
 
 	// claimHedge marks a sentence that negates, hedges or predicts instead of reporting.
@@ -56,17 +56,28 @@ var (
 // claimsSuccess reports whether text states, in a sentence that is not hedged or negated, that a
 // build, compile, test, vet or lint run passed.
 func claimsSuccess(text string) bool {
-	for _, s := range claimSentenceSplit.Split(strings.ToLower(text), -1) {
-		if s = strings.TrimSpace(s); s == "" || claimHedge.MatchString(s) {
-			continue
+	lower := strings.ToLower(text)
+	start := 0
+	// judge tests one sentence; a question ("Do the tests pass on your machine?") reports nothing.
+	judge := func(s string, question bool) bool {
+		s = strings.TrimSpace(s)
+		if s == "" || question || strings.HasSuffix(s, "?") || claimHedge.MatchString(s) {
+			return false
 		}
 		for _, p := range claimPatterns {
 			if p.MatchString(s) {
 				return true
 			}
 		}
+		return false
 	}
-	return false
+	for _, loc := range claimSentenceSplit.FindAllStringIndex(lower, -1) {
+		if judge(lower[start:loc[0]], strings.Contains(lower[loc[0]:loc[1]], "?")) {
+			return true
+		}
+		start = loc[1]
+	}
+	return judge(lower[start:], false)
 }
 
 // shellToolNames are the tool names, lower-cased, that run a shell command.
@@ -101,8 +112,18 @@ func shellCommand(call provider.UnifiedToolCall) (command string, isShell bool) 
 		return call.Function.Arguments, true
 	}
 	for _, k := range []string{"command", "cmd", "script"} {
-		if s, ok := args[k].(string); ok {
-			return s, true
+		switch v := args[k].(type) {
+		case string:
+			return v, true
+		case []interface{}:
+			// An argv array, as some shell tools take: ["bash", "-lc", "go test ./..."].
+			parts := make([]string, 0, len(v))
+			for _, a := range v {
+				if s, ok := a.(string); ok {
+					parts = append(parts, s)
+				}
+			}
+			return strings.Join(parts, " "), true
 		}
 	}
 	return "", true

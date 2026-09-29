@@ -62,7 +62,9 @@ func compileVerifyCommands(patterns []string) []*regexp.Regexp {
 // verifyReply returns an *unverifiedClaimError for a final reply from a non-premium target that
 // reports a passing build or test run the conversation does not support, and counts the detection.
 func (r *Router) verifyReply(req *provider.UnifiedChatRequest, target TargetSpec, p provider.ProviderClient, resp *provider.UnifiedChatResponse) error {
-	if !r.verifyClaims || p == nil || p.Tier() == provider.TierPremium {
+	// Plan mode ends its plan with expected outcomes ("all tests pass") that are not reports, and
+	// the translator writes the reply text into the plan file.
+	if !r.verifyClaims || p == nil || p.Tier() == provider.TierPremium || extractPlanModeContext(req).Active {
 		return nil
 	}
 	v := assessClaim(req, resp, r.verifyCommands)

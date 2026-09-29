@@ -56,6 +56,7 @@ func (r *Router) continueTurn(ctx context.Context, req *provider.UnifiedChatRequ
 		start := time.Now()
 		resp, err := p.SendChat(attemptCtx, &targetReq)
 		cancel()
+		sendFailed := err != nil
 		raw := snapshotResponse(resp)
 		if err == nil {
 			err = checkReply(&contReq, target, resp)
@@ -65,7 +66,10 @@ func (r *Router) continueTurn(ctx context.Context, req *provider.UnifiedChatRequ
 		}
 		observeAttempt(ctx, AttemptResult{Provider: target.ProviderName, Model: target.UpstreamModel, Response: raw, Err: err, Latency: time.Since(start)})
 		if err != nil {
-			if isCircuitBreakerError(err) && !errors.Is(err, errStalledTurn) {
+			// A target that declines the verification reminder (text only, or a repeat of its claim)
+			// has not failed; only a transport error may count against its breaker.
+			declined := prompt == verifyReminderPrompt && !sendFailed
+			if isCircuitBreakerError(err) && !errors.Is(err, errStalledTurn) && !declined {
 				cb.RecordFailure()
 			}
 			telemetry.Log.Warn().

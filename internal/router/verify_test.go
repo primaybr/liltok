@@ -61,6 +61,10 @@ func TestClaimsSuccess(t *testing.T) {
 		{"There are no errors in the log format spec.", false},
 		// Found by the transcript replay: "check" and "passes" far apart in a sentence about something else.
 		{"A mistake in this check affects every free-model reply that passes through the gateway.", false},
+		{"The test password is hunter2.", false},
+		{"Do the tests pass on your machine?", false},
+		{"Everything is done. Do the tests pass on your machine?", false},
+		{"The tests passed.", true},
 		{"The test helper passes the request to the router.", false},
 		{"All checks pass.", true},
 		{"The whole build now passes.", true},
@@ -96,6 +100,8 @@ func TestShellCommandAndVerification(t *testing.T) {
 		{"non-JSON arguments are used as the command", verifyCall("1", "Bash", "go vet ./..."), true},
 		{"unknown argument shape", verifyCall("1", "Bash", `{"weird":1}`), false},
 		{"empty arguments", verifyCall("1", "Bash", ""), false},
+		{"argv array command", verifyCall("1", "shell", `{"command":["bash","-lc","go test ./..."]}`), true},
+		{"argv array that is not a verification", verifyCall("1", "shell", `{"command":["ls","-la"]}`), false},
 	}
 	for _, tc := range cases {
 		cmd, isShell := shellCommand(tc.call)

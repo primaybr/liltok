@@ -237,3 +237,21 @@ func TestRecordUnverifiedClaimIsConcurrencySafe(t *testing.T) {
 		t.Fatalf("counts = %+v, want m-a 50 and m-b 50 in that order", counts)
 	}
 }
+
+// Plan mode ends its plan with expected outcomes ("all tests pass") that are not reports, and the
+// translator writes the reply text into the plan file, so the check must leave plan turns alone.
+func TestVerifySkippedInPlanMode(t *testing.T) {
+	plan := claimReply()
+	plan.Content = "Step 1: change the gate.\n\n- go vet is clean\n- all tests pass"
+	p1 := newScripted("vp1", plan)
+	r := verifyRouter(t, nil, p1)
+	req := &provider.UnifiedChatRequest{Model: "claude-sonnet-5", Tools: verifyTools(), Messages: []provider.UnifiedChatMessage{
+		verifyUser("plan the gate change"),
+		verifyUser("<system-reminder>\nPlan mode is active. You should create your plan at /plans/gate.md using the Write tool.\n</system-reminder>"),
+	}}
+
+	resp, _, err := r.DispatchChat(context.Background(), req, "verify")
+	if err != nil || resp.Content != plan.Content || len(p1.got) != 1 {
+		t.Fatalf("a plan-mode reply must pass through untouched: %v %q requests %d", err, resp.Content, len(p1.got))
+	}
+}

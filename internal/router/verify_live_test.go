@@ -50,3 +50,24 @@ func TestLiveFalseClaimWithNoVerificationEndsWithANotice(t *testing.T) {
 		t.Fatalf("the streamed reply must end with the notice: %q", sink.finished.Content)
 	}
 }
+
+// A target that declines the verification reminder has not failed; only a transport error may
+// count against its circuit breaker.
+func TestLiveDeclinedVerificationDoesNotChargeTheBreaker(t *testing.T) {
+	decline := &provider.UnifiedChatResponse{Content: "Nothing more to run.", FinishReason: "stop"}
+	r, _ := continuationRouter(t, claimingStream, map[string]*provider.UnifiedChatResponse{"m1": decline, "m2": decline}, "m1", "m2")
+	sink := &recordingSink{}
+
+	if _, _, err := liveDispatch(r, sink, unverifiedRequest()); err != nil || sink.failed != nil {
+		t.Fatalf("the turn must end normally: err %v failed %v", err, sink.failed)
+	}
+	for _, name := range []string{"streamer/m1", "streamer/m2"} {
+		cb, ok := r.GetBreaker(name)
+		if !ok {
+			continue
+		}
+		if _, failures := cb.State(); failures != 0 {
+			t.Errorf("breaker %s has %d failures after declining a verification reminder; want 0", name, failures)
+		}
+	}
+}
