@@ -101,7 +101,9 @@ func TestShareScanKeepsCandidatesWhoseCacheEntryWasPurged(t *testing.T) {
 	t.Cleanup(func() { currentDenyEnv = orig })
 
 	answer := `{"type":"message","content":[{"type":"text","text":"An answer."}],"stop_reason":"end_turn"}`
-	u := func(text string) map[string]interface{} { return map[string]interface{}{"role": "user", "content": text} }
+	u := func(text string) map[string]interface{} {
+		return map[string]interface{}{"role": "user", "content": text}
+	}
 	env.insertEntry(t, "keep", "claude-sonnet-5", shareReq(t, u("How do I reverse a slice in Go without allocating a new one?")), answer, 0, false)
 	env.insertEntry(t, "leak", "claude-sonnet-5", shareReq(t, u("What is the difference between a mutex and a channel in Go?")), answer, 0, false)
 	if _, err := env.run(t, "share", "scan"); err != nil {

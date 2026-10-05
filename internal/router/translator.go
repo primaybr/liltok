@@ -218,11 +218,11 @@ var (
 	hermesToolsTagRegex = regexp.MustCompile(`(?s)<\/?tools\b[^>]*>`)
 
 	// Matches scratchpad thinking blocks
-	scratchpadRegex = regexp.MustCompile(`(?s)<scratchpad>(.*?)<\/scratchpad>`)
+	scratchpadRegex         = regexp.MustCompile(`(?s)<scratchpad>(.*?)<\/scratchpad>`)
 	unclosedScratchpadRegex = regexp.MustCompile(`(?s)<scratchpad>(.*)$`)
 
 	// Matches thought thinking blocks
-	thoughtBlockRegex = regexp.MustCompile(`(?s)<thought>(.*?)<\/thought>`)
+	thoughtBlockRegex    = regexp.MustCompile(`(?s)<thought>(.*?)<\/thought>`)
 	unclosedThoughtRegex = regexp.MustCompile(`(?s)<thought>(.*)$`)
 
 	// Matches markdown JSON or tool_call code blocks: ```json {...} ``` or unclosed
