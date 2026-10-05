@@ -744,3 +744,271 @@ func TestTranslator_ExitPlanMode_PassesThroughWhenPlanFileWritten(t *testing.T) 
 		t.Errorf("expected ExitPlanMode to pass through once the plan file exists")
 	}
 }
+
+func TestTranslator_HermesXML_StandardAndAttributeStyle(t *testing.T) {
+	translator := NewTranslator()
+	content := "I will query weather and list files.\n" +
+		"<tool_call>\n{\"name\": \"get_weather\", \"arguments\": {\"location\": \"Tokyo\"}}\n</tool_call>\n" +
+		"<tool_call name=\"list_directory\">\n{\"path\": \"/src\"}\n</tool_call>"
+
+	resp := &provider.UnifiedChatResponse{
+		ID:           "test_hermes_style",
+		Role:         "assistant",
+		Content:      content,
+		FinishReason: "stop",
+	}
+
+	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
+	}
+
+	var parsed struct {
+		StopReason string `json:"stop_reason"`
+		Content    []struct {
+			Type  string                 `json:"type"`
+			Text  string                 `json:"text"`
+			Name  string                 `json:"name"`
+			Input map[string]interface{} `json:"input"`
+		} `json:"content"`
+	}
+
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("failed to unmarshal: %v", err)
+	}
+
+	if parsed.StopReason != "tool_use" {
+		t.Errorf("expected stop_reason 'tool_use', got %q", parsed.StopReason)
+	}
+
+	var foundWeather, foundList bool
+	for _, b := range parsed.Content {
+		if b.Type == "text" {
+			if strings.Contains(b.Text, "<tool_call") {
+				t.Errorf("tool_call tag leaked into text: %q", b.Text)
+			}
+		} else if b.Type == "tool_use" {
+			if b.Name == "get_weather" {
+				foundWeather = true
+				if loc, _ := b.Input["location"].(string); loc != "Tokyo" {
+					t.Errorf("expected location 'Tokyo', got %v", loc)
+				}
+			}
+			if b.Name == "list_directory" {
+				foundList = true
+				if p, _ := b.Input["path"].(string); p != "/src" {
+					t.Errorf("expected path '/src', got %v", p)
+				}
+			}
+		}
+	}
+
+	if !foundWeather {
+		t.Errorf("expected get_weather tool call, not found")
+	}
+	if !foundList {
+		t.Errorf("expected list_directory tool call, not found")
+	}
+}
+
+func TestTranslator_HermesXML_ParametersAndArgsKeys(t *testing.T) {
+	translator := NewTranslator()
+	content := "<tool_call>\n{\"name\": \"exec_test\", \"parameters\": {\"suite\": \"unit\"}}\n</tool_call>\n" +
+		"<tool_call>\n{\"name\": \"run_lint\", \"args\": {\"fix\": true}}\n</tool_call>"
+
+	resp := &provider.UnifiedChatResponse{
+		ID:           "test_hermes_keys",
+		Role:         "assistant",
+		Content:      content,
+		FinishReason: "stop",
+	}
+
+	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
+	}
+
+	var parsed struct {
+		Content []struct {
+			Type  string                 `json:"type"`
+			Name  string                 `json:"name"`
+			Input map[string]interface{} `json:"input"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	var foundExec, foundLint bool
+	for _, b := range parsed.Content {
+		if b.Type == "tool_use" {
+			if b.Name == "exec_test" && b.Input["suite"] == "unit" {
+				foundExec = true
+			}
+			if b.Name == "run_lint" && b.Input["fix"] == true {
+				foundLint = true
+			}
+		}
+	}
+
+	if !foundExec || !foundLint {
+		t.Errorf("expected both exec_test and run_lint with alternate keys to be extracted, got %+v", parsed.Content)
+	}
+}
+
+func TestTranslator_HermesXML_ScratchpadAndThought(t *testing.T) {
+	translator := NewTranslator()
+	content := "<scratchpad>\nAnalyzing dependency graph for cyclic imports...\n</scratchpad>\n" +
+		"<thought>\nConfirmed cycles between pkg/a and pkg/b.\n</thought>\n" +
+		"Here is the cyclic import resolution plan."
+
+	resp := &provider.UnifiedChatResponse{
+		ID:           "test_scratchpad",
+		Role:         "assistant",
+		Content:      content,
+		FinishReason: "stop",
+	}
+
+	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
+	}
+
+	var parsed struct {
+		Content []struct {
+			Type     string `json:"type"`
+			Thinking string `json:"thinking,omitempty"`
+			Text     string `json:"text,omitempty"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	var foundThinking, foundText bool
+	for _, b := range parsed.Content {
+		if b.Type == "thinking" {
+			foundThinking = true
+			if !strings.Contains(b.Thinking, "Analyzing dependency graph") || !strings.Contains(b.Thinking, "Confirmed cycles") {
+				t.Errorf("expected combined scratchpad and thought in thinking, got %q", b.Thinking)
+			}
+		}
+		if b.Type == "text" {
+			foundText = true
+			if strings.Contains(b.Text, "<scratchpad>") || strings.Contains(b.Text, "<thought>") {
+				t.Errorf("thinking tags leaked into text: %q", b.Text)
+			}
+			if !strings.Contains(b.Text, "Here is the cyclic import resolution plan.") {
+				t.Errorf("expected clean message text, got %q", b.Text)
+			}
+		}
+	}
+
+	if !foundThinking {
+		t.Errorf("expected thinking block from scratchpad and thought tags")
+	}
+	if !foundText {
+		t.Errorf("expected clean text block")
+	}
+}
+
+func TestTranslator_HermesXML_TagStripping(t *testing.T) {
+	translator := NewTranslator()
+	content := "<tools>\n{\"type\": \"function\", \"function\": {\"name\": \"foo\"}}\n</tools>\n" +
+		"<tool_response>\n{\"name\": \"foo\", \"content\": \"bar\"}\n</tool_response>\n" +
+		"All checks passed successfully."
+
+	resp := &provider.UnifiedChatResponse{
+		ID:           "test_stripping",
+		Role:         "assistant",
+		Content:      content,
+		FinishReason: "stop",
+	}
+
+	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
+	}
+
+	var parsed struct {
+		Content []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	for _, b := range parsed.Content {
+		if b.Type == "text" {
+			if strings.Contains(b.Text, "<tools>") || strings.Contains(b.Text, "</tools>") ||
+				strings.Contains(b.Text, "<tool_response>") || strings.Contains(b.Text, "</tool_response>") {
+				t.Errorf("Hermes tags leaked into text: %q", b.Text)
+			}
+			if !strings.Contains(b.Text, "All checks passed successfully.") {
+				t.Errorf("expected preserved text, got: %q", b.Text)
+			}
+		}
+	}
+}
+
+func TestTranslator_HermesXML_MultipleWithTrailingUnclosed(t *testing.T) {
+	translator := NewTranslator()
+	content := "Executing multi-tool sequence:\n" +
+		"<tool_call>\n{\"name\": \"read_file\", \"arguments\": {\"file\": \"main.go\"}}\n</tool_call>\n" +
+		"<tool_call name=\"write_file\">\n{\"file\": \"main.go\", \"content\": \"package main\\n"
+
+	resp := &provider.UnifiedChatResponse{
+		ID:           "test_multi_unclosed",
+		Role:         "assistant",
+		Content:      content,
+		FinishReason: "length",
+	}
+
+	raw, err := translator.ConvertOpenAIToAnthropicResponse(resp, "claude-sonnet-5")
+	if err != nil {
+		t.Fatalf("ConvertOpenAIToAnthropicResponse failed: %v", err)
+	}
+
+	var parsed struct {
+		StopReason string `json:"stop_reason"`
+		Content    []struct {
+			Type  string                 `json:"type"`
+			Text  string                 `json:"text"`
+			Name  string                 `json:"name"`
+			Input map[string]interface{} `json:"input"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if parsed.StopReason != "tool_use" {
+		t.Errorf("expected stop_reason 'tool_use', got %q", parsed.StopReason)
+	}
+
+	var foundRead, foundWrite bool
+	for _, b := range parsed.Content {
+		if b.Type == "text" {
+			if strings.Contains(b.Text, "<tool_call") || strings.Contains(b.Text, "read_file") || strings.Contains(b.Text, "write_file") {
+				t.Errorf("tool syntax leaked into text: %q", b.Text)
+			}
+		}
+		if b.Type == "tool_use" {
+			if b.Name == "read_file" {
+				foundRead = true
+			}
+			if b.Name == "write_file" {
+				foundWrite = true
+			}
+		}
+	}
+
+	if !foundRead {
+		t.Errorf("expected closed read_file call to be captured")
+	}
+	if !foundWrite {
+		t.Errorf("expected trailing unclosed write_file call to be recovered")
+	}
+}

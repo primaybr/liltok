@@ -69,6 +69,9 @@ func NewServer(sc ServerConfig) *Server {
 	r.Use(middleware.NewAuth(sc.KeyManager, sc.QuotaEnforcer))
 
 	p := proxy.NewProxy(sc.Config, sc.CacheStore, sc.SemanticCache, sc.Router, sc.Ledger, sc.Pricing)
+	if sc.Database != nil {
+		p.SetDatabase(sc.Database)
+	}
 	if sc.Broadcaster != nil {
 		p.SetBroadcaster(sc.Broadcaster)
 	}

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "skill-hermes-git-rebase-conflict",
+    "category": "skills",
+    "system_prompt": "You are an autonomous software engineering agent running multi-turn diagnostics.",
+    "user_prompt": "When a git interactive rebase conflicts across multiple commits, what is the exact step-by-step diagnostic workflow to inspect conflicting hunks, resolve conflicts preserving semantic intent, and continue rebase without losing detached work?",
+    "tags": ["skills", "hermes", "git", "rebase", "conflict-resolution"]
+  },
+  {
+    "id": "skill-hermes-env-discovery",
+    "category": "skills",
+    "system_prompt": "You are an autonomous systems engineering agent.",
+    "user_prompt": "What standard read-only tool inspection sequence should an agent execute upon entering an unfamiliar repository to discover project layout, build tools, package managers, and test runners with minimal token overhead?",
+    "tags": ["skills", "hermes", "discovery", "environment", "repo-inspection"]
+  },
+  {
+    "id": "skill-hermes-service-socket-probe",
+    "category": "skills",
+    "system_prompt": "You are an autonomous site reliability agent diagnosing container network failures.",
+    "user_prompt": "How should an agent systematically diagnose a service failing with ECONNREFUSED between containers, verifying DNS resolution, port binding, firewall rules, and loopback isolation?",
+    "tags": ["skills", "hermes", "networking", "diagnostics", "sockets"]
+  },
+  {
+    "id": "skill-hermes-docker-crashloop",
+    "category": "skills",
+    "system_prompt": "You are an autonomous infrastructure diagnostic agent.",
+    "user_prompt": "Provide the triage and diagnostic flow for a container trapped in CrashLoopBackOff: inspecting previous exit codes, checking OOM-killer status, evaluating probe timings, and capturing startup crash backtraces.",
+    "tags": ["skills", "hermes", "docker", "kubernetes", "crashloop"]
+  },
+  {
+    "id": "skill-hermes-git-bisect-automated",
+    "category": "skills",
+    "system_prompt": "You are an autonomous software engineering agent.",
+    "user_prompt": "How can an agent automate git bisect with a custom test script to pinpoint the exact commit introducing a flaky test or regression, handling unbuildable intermediate commits with git bisect skip?",
+    "tags": ["skills", "hermes", "git", "bisect", "regression-hunting"]
+  }
+]

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/primaybr/liltok/internal/cache/prune"
 	"github.com/primaybr/liltok/internal/cache/semantic"
 	"github.com/primaybr/liltok/internal/config"
+	"github.com/primaybr/liltok/internal/db"
 	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/primaybr/liltok/internal/provider"
 	"github.com/primaybr/liltok/internal/router"
@@ -37,6 +39,7 @@ type Proxy struct {
 	httpClient      *http.Client
 	broadcaster     *admin.Broadcaster
 	coalescer       *InFlightCoalescer
+	database        *db.DB
 	// onFailover, when set (by tests), receives each failed attempt reported to the live feed.
 	onFailover func(*ledger.RequestLog)
 	// keepAliveDelay and keepAliveInterval control the SSE keep-alive sent to streaming clients
@@ -93,6 +96,11 @@ func (p *Proxy) SetBroadcaster(b *admin.Broadcaster) {
 // SetRouter attaches a router to the proxy.
 func (p *Proxy) SetRouter(r *router.Router) {
 	p.router = r
+}
+
+// SetDatabase attaches a persistent database to the proxy for memory enrichment.
+func (p *Proxy) SetDatabase(d *db.DB) {
+	p.database = d
 }
 
 func (p *Proxy) recordLog(item *ledger.RequestLog) {
@@ -269,6 +277,11 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			item.PrunedTokens = prunedTokensCount
 			p.recordLog(item)
 		}
+	}
+
+	// 0.5. Persistent Gateway Memory Enrichment (Hermes Agent pattern)
+	if !strings.EqualFold(r.Header.Get("X-Liltok-Memory"), "false") && len(bodyBytes) > 0 {
+		bodyBytes = p.enrichWithMemories(r, bodyBytes)
 	}
 
 	// Extract prompt details for guardrails and semantic caching
@@ -517,8 +530,22 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				w.Header().Set("X-Liltok-Cache-Tier", "NONE")
 				w.Header().Set("X-Liltok-Provider", winningProvider)
 
-				var finalBytes []byte
 				liveSent := live != nil && live.committed
+
+				// In-Proxy Read-Only Tool Execution & Autonomous Continuation (Hermes Agent Pattern)
+				allowInProxy := !strings.EqualFold(r.Header.Get("X-Liltok-Inproxy-Tools"), "false")
+				if allowInProxy && !liveSent && len(resp.ToolCalls) > 0 && AreAllInProxyTools(resp.ToolCalls) {
+					if inResp, inProvider, turns, inErr := p.executeInProxyLoop(dispatchCtx, unifiedReq, resp, routeAlias); inErr == nil && turns > 0 {
+						resp = inResp
+						if inProvider != "" {
+							winningProvider = inProvider
+							w.Header().Set("X-Liltok-Provider", winningProvider)
+						}
+						w.Header().Set("X-Liltok-Inproxy-Executed", strconv.Itoa(turns))
+					}
+				}
+
+				var finalBytes []byte
 				if liveSent {
 					// The sink already streamed the reply; keep its translated form for the log and cache.
 					finalBytes = live.finalBytes
@@ -1184,4 +1211,82 @@ func buildOpenAICompletion(resp *provider.UnifiedChatResponse) []byte {
 		},
 	})
 	return out
+}
+
+func (p *Proxy) enrichWithMemories(r *http.Request, bodyBytes []byte) []byte {
+	if p.database == nil || len(bodyBytes) == 0 {
+		return bodyBytes
+	}
+
+	projectKey := strings.TrimSpace(r.Header.Get("X-Liltok-Project"))
+	if projectKey == "" {
+		projectKey = strings.TrimSpace(r.Header.Get("X-Project-Key"))
+	}
+	if projectKey == "" {
+		projectKey = "global"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 50*time.Millisecond)
+	defer cancel()
+
+	memories, err := p.database.ListMemories(ctx, projectKey, 10)
+	if err != nil || len(memories) == 0 {
+		return bodyBytes
+	}
+
+	promptBlock := db.FormatMemoriesForPrompt(memories, 1000)
+	if promptBlock == "" {
+		return bodyBytes
+	}
+
+	var root map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &root); err != nil {
+		return bodyBytes
+	}
+
+	injected := false
+
+	// Anthropic format: top-level "system"
+	if sys, hasSys := root["system"]; hasSys {
+		switch s := sys.(type) {
+		case string:
+			if !strings.Contains(s, "[Gateway Memory") {
+				root["system"] = promptBlock + "\n\n" + s
+				injected = true
+			}
+		case []interface{}:
+			block := map[string]interface{}{
+				"type": "text",
+				"text": promptBlock,
+			}
+			root["system"] = append([]interface{}{block}, s...)
+			injected = true
+		}
+	} else if msgs, ok := root["messages"].([]interface{}); ok && len(msgs) > 0 {
+		// OpenAI format
+		if firstMap, ok := msgs[0].(map[string]interface{}); ok {
+			if role, _ := firstMap["role"].(string); role == "system" {
+				if c, ok := firstMap["content"].(string); ok && !strings.Contains(c, "[Gateway Memory") {
+					firstMap["content"] = promptBlock + "\n\n" + c
+					injected = true
+				}
+			}
+		}
+		if !injected {
+			sysMsg := map[string]interface{}{
+				"role":    "system",
+				"content": promptBlock,
+			}
+			root["messages"] = append([]interface{}{sysMsg}, msgs...)
+			injected = true
+		}
+	}
+
+	if injected {
+		if b, err := json.Marshal(root); err == nil {
+			return b
+		}
+	}
+
+	return bodyBytes
 }

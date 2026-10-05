@@ -22,6 +22,7 @@ import (
 	"github.com/primaybr/liltok/internal/miner"
 	"github.com/primaybr/liltok/internal/router"
 	"github.com/primaybr/liltok/internal/server/middleware"
+	"github.com/primaybr/liltok/internal/telemetry"
 	"github.com/primaybr/liltok/internal/tokens"
 )
 
@@ -99,6 +100,8 @@ func (h *AdminHandler) RegisterRoutes(r chi.Router) {
 		r.Post("/cache/purge", h.HandlePurgeCache)
 		r.Post("/cache/pack", h.HandlePackStarterCache)
 		r.Get("/routes", h.HandleRoutes)
+		r.Get("/routes/optimize", h.HandleRoutesOptimize)
+		r.Post("/routes/optimize", h.HandleApplyRouteOptimization)
 		r.Put("/routes", h.HandleUpsertRoute)
 		r.Delete("/routes/{id}", h.HandleResetRoute)
 		r.Post("/routes/strategy", h.HandleSetRouteStrategy)
@@ -158,7 +161,7 @@ func (h *AdminHandler) HandleOverview(w http.ResponseWriter, r *http.Request) {
 
 	resp := map[string]interface{}{
 		"status":                    "healthy",
-		"version":                   "0.2.6-beta",
+		"version":                   "0.2.7-beta",
 		"uptime_seconds":            int64(time.Since(h.startTime).Seconds()),
 		"total_requests":            overview.TotalRequests,
 		"total_hits":                overview.TotalHits,
@@ -1457,6 +1460,135 @@ func (h *AdminHandler) HandleRoutes(w http.ResponseWriter, r *http.Request) {
 		"default_strategy": defaultStrategy,
 		"routes":           routes,
 		"circuit_breakers": breakers,
+	})
+}
+
+// HandleRoutesOptimize computes telemetry-grounded fitness scores and optimized rankings for routes.
+func (h *AdminHandler) HandleRoutesOptimize(w http.ResponseWriter, r *http.Request) {
+	if h.router == nil {
+		writeError(w, http.StatusServiceUnavailable, "router is not available")
+		return
+	}
+
+	routeID := strings.TrimSpace(r.URL.Query().Get("route"))
+	lookbackHours := 24
+	if l := r.URL.Query().Get("lookback_hours"); l != "" {
+		if val, err := strconv.Atoi(l); err == nil && val >= 0 {
+			lookbackHours = val
+		}
+	}
+
+	var stats map[string]*ledger.ModelPerformance
+	if h.ledger != nil {
+		var err error
+		stats, err = h.ledger.GetModelPerformanceStats(r.Context(), lookbackHours)
+		if err != nil {
+			telemetry.Log.Warn().Err(err).Msg("Failed to query model performance stats for route optimization")
+		}
+	}
+
+	type routeOptimizationResult struct {
+		RouteID        string                 `json:"route_id"`
+		RankedTargets  []router.TargetFitness `json:"ranked_targets"`
+		CurrentTargets []string               `json:"current_targets"`
+	}
+
+	var results []routeOptimizationResult
+	routes := h.router.Routes()
+	for _, info := range routes {
+		if routeID != "" && info.ID != routeID {
+			continue
+		}
+		ranked, err := h.router.OptimizeRoute(r.Context(), info.ID, stats)
+		if err != nil {
+			continue
+		}
+		current := make([]string, 0, len(info.Targets))
+		for _, t := range info.Targets {
+			current = append(current, t.ProviderName+"/"+t.UpstreamModel)
+		}
+		results = append(results, routeOptimizationResult{
+			RouteID:        info.ID,
+			RankedTargets:  ranked,
+			CurrentTargets: current,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"lookback_hours": lookbackHours,
+		"optimizations":  results,
+	})
+}
+
+// HandleApplyRouteOptimization reorders the targets of a route according to evolutionary fitness.
+func (h *AdminHandler) HandleApplyRouteOptimization(w http.ResponseWriter, r *http.Request) {
+	if h.router == nil {
+		writeError(w, http.StatusServiceUnavailable, "router is not available")
+		return
+	}
+
+	var req struct {
+		RouteID       string `json:"route_id"`
+		LookbackHours int    `json:"lookback_hours"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid JSON body: "+err.Error())
+		return
+	}
+	if req.RouteID == "" {
+		writeError(w, http.StatusBadRequest, "route_id is required")
+		return
+	}
+
+	lookback := req.LookbackHours
+	if lookback <= 0 {
+		lookback = 24
+	}
+
+	var stats map[string]*ledger.ModelPerformance
+	if h.ledger != nil {
+		var err error
+		stats, err = h.ledger.GetModelPerformanceStats(r.Context(), lookback)
+		if err != nil {
+			telemetry.Log.Warn().Err(err).Msg("Failed to query model performance stats for route optimization")
+		}
+	}
+
+	ranked, err := h.router.OptimizeRoute(r.Context(), req.RouteID, stats)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Find the existing route to preserve description and strategy
+	var targetRoute *router.Route
+	for _, rInfo := range h.router.Routes() {
+		if rInfo.ID == req.RouteID {
+			cp := rInfo.Route
+			targetRoute = &cp
+			break
+		}
+	}
+	if targetRoute == nil {
+		writeError(w, http.StatusNotFound, "route not found")
+		return
+	}
+
+	newTargets := make([]router.TargetSpec, 0, len(ranked))
+	for _, rf := range ranked {
+		newTargets = append(newTargets, rf.Target)
+	}
+	targetRoute.Targets = newTargets
+
+	if err := h.router.UpsertRoute(r.Context(), *targetRoute); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to apply optimized route: "+err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":         "success",
+		"message":        fmt.Sprintf("Route %s optimized and updated with %d targets", req.RouteID, len(newTargets)),
+		"ranked_targets": ranked,
 	})
 }
 

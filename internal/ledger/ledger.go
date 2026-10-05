@@ -2,7 +2,9 @@ package ledger
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -58,6 +60,19 @@ type OverviewStats struct {
 	TotalPrunedTokens      int64            `json:"total_pruned_tokens"`
 	AvgLatencyMs           float64          `json:"avg_latency_ms"`
 	ProviderCounts         map[string]int64 `json:"provider_counts"`
+}
+
+// ModelPerformance contains telemetry aggregations for an upstream provider/model pair.
+type ModelPerformance struct {
+	Provider      string  `json:"provider"`
+	Model         string  `json:"model"`
+	TotalCalls    int64   `json:"total_calls"`
+	SuccessCalls  int64   `json:"success_calls"`
+	FailedCalls   int64   `json:"failed_calls"`
+	SuccessRate   float64 `json:"success_rate"`
+	AvgLatencyMs  float64 `json:"avg_latency_ms"`
+	AvgCostUSD    float64 `json:"avg_cost_usd"`
+	TotalSavedUSD float64 `json:"total_saved_usd"`
 }
 
 const (
@@ -358,6 +373,62 @@ func (s *sqlNullFloat64) Scan(value interface{}) error {
 	}
 	s.Float64, s.Valid = 0.0, false
 	return nil
+}
+
+// GetModelPerformanceStats computes performance and reliability metrics per provider/model over an optional lookback window (hours).
+func (l *Ledger) GetModelPerformanceStats(ctx context.Context, lookbackHours int) (map[string]*ModelPerformance, error) {
+	out := make(map[string]*ModelPerformance)
+	if l.db == nil {
+		return out, nil
+	}
+
+	baseQuery := `
+		SELECT
+			provider,
+			model,
+			COUNT(*),
+			SUM(CASE WHEN status_code = 200 AND (error_message IS NULL OR error_message = '') THEN 1 ELSE 0 END),
+			SUM(CASE WHEN status_code != 200 OR (error_message IS NOT NULL AND error_message != '') THEN 1 ELSE 0 END),
+			COALESCE(AVG(latency_ms), 0.0),
+			COALESCE(AVG(cost_usd), 0.0),
+			COALESCE(SUM(saved_usd), 0.0)
+		FROM request_logs
+	`
+	var rows *sql.Rows
+	var err error
+	if lookbackHours > 0 {
+		cutoff := time.Now().Add(-time.Duration(lookbackHours) * time.Hour).UTC().Format(time.RFC3339)
+		query := baseQuery + ` WHERE timestamp >= ? GROUP BY provider, model`
+		rows, err = l.db.QueryContext(ctx, query, cutoff)
+	} else {
+		query := baseQuery + ` GROUP BY provider, model`
+		rows, err = l.db.QueryContext(ctx, query)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to query model performance stats: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var p ModelPerformance
+		var total, success, failed sqlNullInt64
+		var avgLatency, avgCost, totalSaved sqlNullFloat64
+
+		if err := rows.Scan(&p.Provider, &p.Model, &total, &success, &failed, &avgLatency, &avgCost, &totalSaved); err == nil {
+			p.TotalCalls = total.Int64
+			p.SuccessCalls = success.Int64
+			p.FailedCalls = failed.Int64
+			p.AvgLatencyMs = avgLatency.Float64
+			p.AvgCostUSD = avgCost.Float64
+			p.TotalSavedUSD = totalSaved.Float64
+			if p.TotalCalls > 0 {
+				p.SuccessRate = float64(p.SuccessCalls) / float64(p.TotalCalls)
+			}
+			key := strings.ToLower(p.Provider) + "/" + strings.ToLower(p.Model)
+			out[key] = &p
+		}
+	}
+	return out, nil
 }
 
 // Close flushes all queued audit entries and terminates the background worker.

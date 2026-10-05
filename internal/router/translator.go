@@ -51,10 +51,13 @@ func (t *Translator) ConvertOpenAIToAnthropicResponseForRequest(resp *provider.U
 
 	// 2. Fallback Interceptor: If model generated plain-text tool calls, extract them into structured tool calls
 	if len(toolCalls) == 0 && textContent != "" {
-		if cleanText2, extracted := extractTextToolCalls(textContent); len(extracted) > 0 {
-			textContent = cleanText2
+		cleanText2, extracted := extractTextToolCalls(textContent)
+		if len(extracted) > 0 {
 			toolCalls = extracted
 		}
+		textContent = cleanText2
+	} else if textContent != "" {
+		textContent = StripHermesTags(StripDSMLTags(textContent))
 	}
 
 	// 2.5. Claude Code Plan Mode Interceptor: Ensure implementation plan is presented in chat text
@@ -193,8 +196,34 @@ var (
 	// Matches any orphan or residual DSML tags: opening, closing, or self-closing
 	dsmlOrphanTagRegex = regexp.MustCompile(`<\/?(?:\||｜)+DSML(?:\||｜)+[^>]*>`)
 
-	// Matches standard closed <tool_call> JSON blocks (e.g. Qwen / Hermes / Llama)
-	toolCallBlockRegex = regexp.MustCompile(`(?s)<tool_call>\s*(.*?)\s*<\/tool_call>`)
+	// Matches standard closed <tool_call> JSON blocks (e.g. Qwen / Hermes / Llama) with optional name attribute
+	toolCallBlockRegex = regexp.MustCompile(`(?s)<tool_call(?:\s+name=["']([^"']+)["'])?\s*>(.*?)\s*<\/tool_call>`)
+
+	// Matches unclosed <tool_call> terminating at end of string with optional name attribute
+	toolCallUnclosedRegex = regexp.MustCompile(`(?s)<tool_call(?:\s+name=["']([^"']+)["'])?\s*>(.*)$`)
+
+	// Matches Hermes and standard <tool_response>...</tool_response>
+	hermesToolResponseRegex = regexp.MustCompile(`(?s)<tool_response\s*(?:[^>]*?)>(.*?)<\/tool_response>`)
+
+	// Matches unclosed <tool_response> up to end of string
+	hermesUnclosedToolResponseRegex = regexp.MustCompile(`(?s)<tool_response\s*(?:[^>]*?)>(.*)$`)
+
+	// Matches full <tools>...</tools> definition blocks echoed by models
+	hermesToolsBlockRegex = regexp.MustCompile(`(?s)<tools\b[^>]*>(.*?)<\/tools>`)
+
+	// Matches unclosed <tools> definition block up to end of string
+	hermesUnclosedToolsBlockRegex = regexp.MustCompile(`(?s)<tools\b[^>]*>(.*)$`)
+
+	// Matches orphan <tools> or </tools> tags
+	hermesToolsTagRegex = regexp.MustCompile(`(?s)<\/?tools\b[^>]*>`)
+
+	// Matches scratchpad thinking blocks
+	scratchpadRegex = regexp.MustCompile(`(?s)<scratchpad>(.*?)<\/scratchpad>`)
+	unclosedScratchpadRegex = regexp.MustCompile(`(?s)<scratchpad>(.*)$`)
+
+	// Matches thought thinking blocks
+	thoughtBlockRegex = regexp.MustCompile(`(?s)<thought>(.*?)<\/thought>`)
+	unclosedThoughtRegex = regexp.MustCompile(`(?s)<thought>(.*)$`)
 
 	// Matches markdown JSON or tool_call code blocks: ```json {...} ``` or unclosed
 	markdownJSONBlockRegex = regexp.MustCompile("(?s)```(?:json|tool_call)?\\s*([{\\[].*?)(?:```|$)")
@@ -443,11 +472,15 @@ func extractTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
 		return cleaned, nil
 	}
 
-	// 2. Check for <tool_call> blocks (both closed and unclosed)
-	if strings.Contains(content, "<tool_call>") {
+	// 2. Check for Hermes tool markup (calls, responses, definitions)
+	if strings.Contains(content, "<tool_call") || strings.Contains(content, "<tool_response") || strings.Contains(content, "<tools") {
 		if cleanText, tc := parseToolCallBlocks(content); len(tc) > 0 {
 			return cleanText, tc
 		}
+		// If Hermes tags were present but no valid calls could be extracted,
+		// strip residual Hermes tags so corrupted fragments do not leak to client
+		cleaned := StripHermesTags(content)
+		return cleaned, nil
 	}
 
 	// 3. Check for Markdown JSON tool calls (```json {"name": "Bash", ...} ```)
@@ -468,31 +501,141 @@ func extractTextToolCalls(content string) (string, []provider.UnifiedToolCall) {
 	return content, nil
 }
 
+// StripHermesTags removes residual Hermes XML markup (<tool_call>, <tool_response>, <tools>) from output text.
+func StripHermesTags(content string) string {
+	cleaned := toolCallBlockRegex.ReplaceAllString(content, "")
+	cleaned = toolCallUnclosedRegex.ReplaceAllString(cleaned, "")
+	cleaned = hermesToolResponseRegex.ReplaceAllString(cleaned, "")
+	cleaned = hermesUnclosedToolResponseRegex.ReplaceAllString(cleaned, "")
+	cleaned = hermesToolsBlockRegex.ReplaceAllString(cleaned, "")
+	cleaned = hermesUnclosedToolsBlockRegex.ReplaceAllString(cleaned, "")
+	cleaned = hermesToolsTagRegex.ReplaceAllString(cleaned, "")
+	return strings.TrimSpace(cleaned)
+}
+
 func parseToolCallBlocks(content string) (string, []provider.UnifiedToolCall) {
-	matches := toolCallBlockRegex.FindAllStringSubmatch(content, -1)
+	// First strip any echoed <tool_response> blocks or <tools> tags
+	workingContent := hermesToolResponseRegex.ReplaceAllString(content, "")
+	workingContent = hermesUnclosedToolResponseRegex.ReplaceAllString(workingContent, "")
+	workingContent = hermesToolsBlockRegex.ReplaceAllString(workingContent, "")
+	workingContent = hermesUnclosedToolsBlockRegex.ReplaceAllString(workingContent, "")
+	workingContent = hermesToolsTagRegex.ReplaceAllString(workingContent, "")
+
+	matches := toolCallBlockRegex.FindAllStringSubmatchIndex(workingContent, -1)
 	var toolCalls []provider.UnifiedToolCall
 
-	if len(matches) > 0 {
-		for i, m := range matches {
-			if len(m) < 2 {
-				continue
+	for i, m := range matches {
+		if len(m) < 6 {
+			continue
+		}
+		attrName := ""
+		if m[2] >= 0 && m[3] >= 0 {
+			attrName = strings.TrimSpace(workingContent[m[2]:m[3]])
+		}
+		rawBody := strings.TrimSpace(workingContent[m[4]:m[5]])
+		repaired := RepairJSON(rawBody)
+
+		var parsed struct {
+			Name       string      `json:"name"`
+			Arguments  interface{} `json:"arguments"`
+			Parameters interface{} `json:"parameters"`
+			Args       interface{} `json:"args"`
+			Input      interface{} `json:"input"`
+		}
+		_ = json.Unmarshal([]byte(repaired), &parsed)
+
+		toolName := parsed.Name
+		if toolName == "" {
+			toolName = attrName
+		}
+		if toolName == "" {
+			continue
+		}
+
+		argsObj := parsed.Arguments
+		if argsObj == nil {
+			argsObj = parsed.Parameters
+		}
+		if argsObj == nil {
+			argsObj = parsed.Args
+		}
+		if argsObj == nil {
+			argsObj = parsed.Input
+		}
+		if argsObj == nil && attrName != "" {
+			var directMap map[string]interface{}
+			if err := json.Unmarshal([]byte(repaired), &directMap); err == nil && len(directMap) > 0 {
+				argsObj = directMap
 			}
-			rawJSON := strings.TrimSpace(m[1])
-			repaired := RepairJSON(rawJSON)
-			var parsed struct {
-				Name      string      `json:"name"`
-				Arguments interface{} `json:"arguments"`
-				Input     interface{} `json:"input"`
+		}
+
+		argsStr := "{}"
+		switch a := argsObj.(type) {
+		case string:
+			argsStr = a
+		case map[string]interface{}:
+			if b, err := json.Marshal(a); err == nil {
+				argsStr = string(b)
 			}
-			if err := json.Unmarshal([]byte(repaired), &parsed); err != nil || parsed.Name == "" {
-				continue
+		}
+
+		callID := fmt.Sprintf("call_tc_%x_%d", time.Now().UnixNano(), i)
+		toolCalls = append(toolCalls, provider.UnifiedToolCall{
+			ID:   callID,
+			Type: "function",
+			Function: struct {
+				Name      string `json:"name"`
+				Arguments string `json:"arguments"`
+			}{
+				Name:      toolName,
+				Arguments: argsStr,
+			},
+		})
+	}
+
+	cleaned := toolCallBlockRegex.ReplaceAllString(workingContent, "")
+
+	// Check for trailing unclosed <tool_call... terminating at end of string
+	if unclosedMatches := toolCallUnclosedRegex.FindStringSubmatchIndex(cleaned); len(unclosedMatches) >= 6 {
+		attrName := ""
+		if unclosedMatches[2] >= 0 && unclosedMatches[3] >= 0 {
+			attrName = strings.TrimSpace(cleaned[unclosedMatches[2]:unclosedMatches[3]])
+		}
+		rawBody := strings.TrimSpace(cleaned[unclosedMatches[4]:unclosedMatches[5]])
+		repaired := RepairJSON(rawBody)
+
+		var parsed struct {
+			Name       string      `json:"name"`
+			Arguments  interface{} `json:"arguments"`
+			Parameters interface{} `json:"parameters"`
+			Args       interface{} `json:"args"`
+			Input      interface{} `json:"input"`
+		}
+		_ = json.Unmarshal([]byte(repaired), &parsed)
+
+		toolName := parsed.Name
+		if toolName == "" {
+			toolName = attrName
+		}
+		if toolName != "" {
+			argsObj := parsed.Arguments
+			if argsObj == nil {
+				argsObj = parsed.Parameters
+			}
+			if argsObj == nil {
+				argsObj = parsed.Args
+			}
+			if argsObj == nil {
+				argsObj = parsed.Input
+			}
+			if argsObj == nil && attrName != "" {
+				var directMap map[string]interface{}
+				if err := json.Unmarshal([]byte(repaired), &directMap); err == nil && len(directMap) > 0 {
+					argsObj = directMap
+				}
 			}
 
 			argsStr := "{}"
-			argsObj := parsed.Arguments
-			if argsObj == nil && parsed.Input != nil {
-				argsObj = parsed.Input
-			}
 			switch a := argsObj.(type) {
 			case string:
 				argsStr = a
@@ -502,7 +645,7 @@ func parseToolCallBlocks(content string) (string, []provider.UnifiedToolCall) {
 				}
 			}
 
-			callID := fmt.Sprintf("call_tc_%x_%d", time.Now().UnixNano(), i)
+			callID := fmt.Sprintf("call_tc_%x_%d", time.Now().UnixNano(), len(toolCalls))
 			toolCalls = append(toolCalls, provider.UnifiedToolCall{
 				ID:   callID,
 				Type: "function",
@@ -510,57 +653,17 @@ func parseToolCallBlocks(content string) (string, []provider.UnifiedToolCall) {
 					Name      string `json:"name"`
 					Arguments string `json:"arguments"`
 				}{
-					Name:      parsed.Name,
+					Name:      toolName,
 					Arguments: argsStr,
 				},
 			})
-		}
-
-		if len(toolCalls) > 0 {
-			cleaned := toolCallBlockRegex.ReplaceAllString(content, "")
-			return strings.TrimSpace(cleaned), toolCalls
+			cleaned = cleaned[:unclosedMatches[0]]
 		}
 	}
 
-	// Fallback: check unclosed <tool_call>... terminating at end of string
-	if strings.Contains(content, "<tool_call>") {
-		idx := strings.Index(content, "<tool_call>")
-		raw := strings.TrimSpace(content[idx+len("<tool_call>"):])
-		repaired := RepairJSON(raw)
-		var parsed struct {
-			Name      string      `json:"name"`
-			Arguments interface{} `json:"arguments"`
-			Input     interface{} `json:"input"`
-		}
-		if err := json.Unmarshal([]byte(repaired), &parsed); err == nil && parsed.Name != "" {
-			argsStr := "{}"
-			argsObj := parsed.Arguments
-			if argsObj == nil && parsed.Input != nil {
-				argsObj = parsed.Input
-			}
-			switch a := argsObj.(type) {
-			case string:
-				argsStr = a
-			case map[string]interface{}:
-				if b, err := json.Marshal(a); err == nil {
-					argsStr = string(b)
-				}
-			}
-			callID := fmt.Sprintf("call_tc_%x_0", time.Now().UnixNano())
-			toolCalls = append(toolCalls, provider.UnifiedToolCall{
-				ID:   callID,
-				Type: "function",
-				Function: struct {
-					Name      string `json:"name"`
-					Arguments string `json:"arguments"`
-				}{
-					Name:      parsed.Name,
-					Arguments: argsStr,
-				},
-			})
-			cleaned := strings.TrimSpace(content[:idx])
-			return cleaned, toolCalls
-		}
+	if len(toolCalls) > 0 {
+		cleaned = StripHermesTags(cleaned)
+		return strings.TrimSpace(cleaned), toolCalls
 	}
 
 	return content, nil
@@ -939,32 +1042,73 @@ func RepairJSON(raw string) string {
 }
 
 func extractThinkingBlocks(content string) (string, string) {
-	if !strings.Contains(content, "<think>") {
+	if !strings.Contains(content, "<think>") && !strings.Contains(content, "<scratchpad>") && !strings.Contains(content, "<thought>") {
 		return "", content
 	}
 
 	var thinkParts []string
 
-	// 1. Extract closed <think>...</think>
-	matches := thinkBlockRegex.FindAllStringSubmatch(content, -1)
-	for _, m := range matches {
-		if len(m) > 1 && strings.TrimSpace(m[1]) != "" {
-			thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
-		}
-	}
-	cleaned := thinkBlockRegex.ReplaceAllString(content, "")
-
-	// 2. Extract unclosed <think>... up to end of string
-	if strings.Contains(cleaned, "<think>") {
-		if m := unclosedThinkRegex.FindStringSubmatch(cleaned); len(m) > 1 {
-			if strings.TrimSpace(m[1]) != "" {
+	// 1. Extract closed and unclosed <think>...</think>
+	if strings.Contains(content, "<think>") {
+		matches := thinkBlockRegex.FindAllStringSubmatch(content, -1)
+		for _, m := range matches {
+			if len(m) > 1 && strings.TrimSpace(m[1]) != "" {
 				thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
 			}
 		}
-		cleaned = unclosedThinkRegex.ReplaceAllString(cleaned, "")
+		content = thinkBlockRegex.ReplaceAllString(content, "")
+
+		if strings.Contains(content, "<think>") {
+			if m := unclosedThinkRegex.FindStringSubmatch(content); len(m) > 1 {
+				if strings.TrimSpace(m[1]) != "" {
+					thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
+				}
+			}
+			content = unclosedThinkRegex.ReplaceAllString(content, "")
+		}
 	}
 
-	cleaned = strings.TrimSpace(cleaned)
+	// 2. Extract closed and unclosed <scratchpad>...</scratchpad>
+	if strings.Contains(content, "<scratchpad>") {
+		matches := scratchpadRegex.FindAllStringSubmatch(content, -1)
+		for _, m := range matches {
+			if len(m) > 1 && strings.TrimSpace(m[1]) != "" {
+				thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
+			}
+		}
+		content = scratchpadRegex.ReplaceAllString(content, "")
+
+		if strings.Contains(content, "<scratchpad>") {
+			if m := unclosedScratchpadRegex.FindStringSubmatch(content); len(m) > 1 {
+				if strings.TrimSpace(m[1]) != "" {
+					thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
+				}
+			}
+			content = unclosedScratchpadRegex.ReplaceAllString(content, "")
+		}
+	}
+
+	// 3. Extract closed and unclosed <thought>...</thought>
+	if strings.Contains(content, "<thought>") {
+		matches := thoughtBlockRegex.FindAllStringSubmatch(content, -1)
+		for _, m := range matches {
+			if len(m) > 1 && strings.TrimSpace(m[1]) != "" {
+				thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
+			}
+		}
+		content = thoughtBlockRegex.ReplaceAllString(content, "")
+
+		if strings.Contains(content, "<thought>") {
+			if m := unclosedThoughtRegex.FindStringSubmatch(content); len(m) > 1 {
+				if strings.TrimSpace(m[1]) != "" {
+					thinkParts = append(thinkParts, strings.TrimSpace(m[1]))
+				}
+			}
+			content = unclosedThoughtRegex.ReplaceAllString(content, "")
+		}
+	}
+
+	cleaned := strings.TrimSpace(content)
 	thinkingText := strings.Join(thinkParts, "\n\n")
 	return thinkingText, cleaned
 }

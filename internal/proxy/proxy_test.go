@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -671,5 +672,75 @@ func TestProxyFreeFirstBypassesPaidUpstreamFallback(t *testing.T) {
 	}
 	if upstreamCalled {
 		t.Errorf("paid direct upstream was contacted despite X-Liltok-Route: free-first")
+	}
+}
+
+func TestProxy_GatewayMemoryEnrichment(t *testing.T) {
+	var capturedPayload []byte
+	mockUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPayload, _ = io.ReadAll(r.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"chatcmpl-mem","choices":[{"message":{"role":"assistant","content":"hello"}}]}`))
+	}))
+	defer mockUpstream.Close()
+
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "proxy_mem.db")
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+	_, err = database.SaveMemory(ctx, "proj-alpha", "convention", "Always run tests with race detector.")
+	if err != nil {
+		t.Fatalf("failed to save memory: %v", err)
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Providers.OpenAI.BaseURL = mockUpstream.URL
+	cfg.Providers.OpenAI.APIKey = "sk-test"
+
+	p := NewProxy(cfg, nil, nil, nil, nil, nil)
+	p.SetDatabase(database)
+
+	handler := middleware.RequestID(http.HandlerFunc(p.HandleChatCompletions))
+
+	// Case 1: Memory injection active
+	reqBody := `{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Liltok-Project", "proj-alpha")
+	req.Header.Set("Authorization", "Bearer sk-test")
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(string(capturedPayload), "[Gateway Memory") || !strings.Contains(string(capturedPayload), "race detector") {
+		t.Errorf("expected memory block in forwarded payload, got: %s", string(capturedPayload))
+	}
+
+	// Case 2: Memory bypass header
+	capturedPayload = nil
+	req2 := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(reqBody))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-Liltok-Project", "proj-alpha")
+	req2.Header.Set("X-Liltok-Memory", "false")
+	req2.Header.Set("Authorization", "Bearer sk-test")
+
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusOK {
+		t.Fatalf("expected status 200 on bypass, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+	if strings.Contains(string(capturedPayload), "[Gateway Memory") {
+		t.Errorf("memory block was not bypassed when X-Liltok-Memory: false was set")
 	}
 }

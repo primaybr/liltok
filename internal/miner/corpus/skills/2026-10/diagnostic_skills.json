@@ -1,0 +1,37 @@
+[
+  {
+    "id": "skill-diag-postgres-pool-exhaustion",
+    "category": "skills",
+    "system_prompt": "You are a database reliability engineer and diagnostic agent.",
+    "user_prompt": "When an application logs 'remaining connection slots are reserved for non-replication superuser connections', what SQL queries and operating system checks isolate whether connections are leaking, waiting on transactions, or blocked by idle-in-transaction sessions?",
+    "tags": ["skills", "hermes", "postgres", "connection-pool", "database"]
+  },
+  {
+    "id": "skill-diag-go-goroutine-leak",
+    "category": "skills",
+    "system_prompt": "You are a Go runtime and performance diagnostic agent.",
+    "user_prompt": "How do you systematically analyze a Go runtime goroutine leak using pprof goroutine stack dumps, identifying blocked channel sends, unbuffered channel deadlocks, and abandoned worker goroutines?",
+    "tags": ["skills", "hermes", "go", "goroutines", "pprof", "memory-leak"]
+  },
+  {
+    "id": "skill-diag-python-asyncio-stall",
+    "category": "skills",
+    "system_prompt": "You are an autonomous Python performance engineer.",
+    "user_prompt": "What diagnostic steps and tooling (such as asyncio debug mode and py-spy) isolate a stalled Python asyncio event loop caused by accidental synchronous blocking I/O, un-awaited coroutines, or thread pool starvation?",
+    "tags": ["skills", "hermes", "python", "asyncio", "event-loop", "profiling"]
+  },
+  {
+    "id": "skill-diag-sqlite-wal-busy",
+    "category": "skills",
+    "system_prompt": "You are an embedded database systems engineer.",
+    "user_prompt": "How do you troubleshoot SQLite 'database is locked' (busy/timeout) errors in multi-process or multi-goroutine applications running in WAL mode, and how do busy_timeout and PRAGMA wal_autocheckpoint resolve them?",
+    "tags": ["skills", "hermes", "sqlite", "wal", "concurrency", "locking"]
+  },
+  {
+    "id": "skill-diag-node-heap-memory-leak",
+    "category": "skills",
+    "system_prompt": "You are a Node.js systems diagnostic agent.",
+    "user_prompt": "How do you capture and compare V8 heap snapshots in Node.js to pinpoint the root cause of slow memory growth caused by retained closures, event emitter listener leaks, or unbounded global cache maps?",
+    "tags": ["skills", "hermes", "nodejs", "v8", "heap-snapshot", "memory-leak"]
+  }
+]

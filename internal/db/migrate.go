@@ -49,6 +49,7 @@ var migrations = []migration{
 		{"expires_at", "INTEGER"},
 	})},
 	{version: 11, name: "share_candidates", file: "011_share_candidates.sql"},
+	{version: 12, name: "gateway_memories", file: "012_gateway_memories.sql"},
 }
 
 type columnDef struct {

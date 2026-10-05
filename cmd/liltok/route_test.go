@@ -190,3 +190,63 @@ func TestAdminClientSendsConfiguredToken(t *testing.T) {
 		t.Fatalf("token leaked to a non-admin path: %q", got)
 	}
 }
+
+func TestRouteOptimizeOnline(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/routes/optimize" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"lookback_hours": 24,
+			"optimizations": [{
+				"route_id": "auto-resilient",
+				"ranked_targets": [{
+					"target": {"ProviderName": "groq", "UpstreamModel": "qwen/qwen3.8-27b"},
+					"total_calls": 50,
+					"success_rate": 1.0,
+					"avg_latency_ms": 120.0,
+					"avg_cost_usd": 0.0,
+					"score": 0.985,
+					"breaker_state": "CLOSED"
+				}]
+			}]
+		}`))
+	}))
+	defer srv.Close()
+
+	env := newTestEnv(t, "")
+	out, err := env.run(t, "route", "optimize", "--gateway-url", srv.URL)
+	if err != nil {
+		t.Fatalf("route optimize: %v", err)
+	}
+	assertContains(t, out, "Evolutionary Route Optimization Analysis", "AUTO-RESILIENT", "groq/qwen/qwen3.8-27b", "0.985")
+}
+
+func TestRouteOptimizeApply(t *testing.T) {
+	var gotBody map[string]interface{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/routes/optimize" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != "POST" {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"success","message":"Route auto-resilient optimized"}`))
+	}))
+	defer srv.Close()
+
+	env := newTestEnv(t, "")
+	out, err := env.run(t, "route", "optimize", "--route", "auto-resilient", "--apply", "--gateway-url", srv.URL)
+	if err != nil {
+		t.Fatalf("route optimize apply: %v", err)
+	}
+	assertContains(t, out, "[OK] Successfully applied evolutionary target ranking to route \"auto-resilient\"")
+	if gotBody["route_id"] != "auto-resilient" {
+		t.Errorf("expected route_id auto-resilient, got %v", gotBody["route_id"])
+	}
+}

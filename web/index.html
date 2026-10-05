@@ -141,7 +141,7 @@
       <div class="logo">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m13 2-2 10h9L7 22l2-10H0z"/></svg>
         <span>liltok</span>
-        <span class="logo-badge">v0.2.6-beta</span>
+        <span class="logo-badge">v0.2.7-beta</span>
         <span style="font-size: 12px; font-weight: 500; color: var(--muted); margin-left: 4px; padding-left: 12px; border-left: 1px solid var(--border); letter-spacing: 0;">Little Token, Big Savings.</span>
       </div>
       <div class="header-right">
@@ -155,6 +155,7 @@
             <option value="auto-resilient" style="background: var(--card); color: var(--text);">Auto-Resilient (Claude + Free)</option>
             <option value="free-first" style="background: var(--card); color: var(--text);">Free-First ($0.00 Spend)</option>
             <option value="premium-only" style="background: var(--card); color: var(--text);">Premium-Only (Frontier)</option>
+            <option value="evolutionary" style="background: var(--card); color: var(--text);">Evolutionary (GEPA Telemetry)</option>
           </select>
           <span id="header-strategy-badge" class="badge" style="font-size: 10px; padding: 2px 6px;">AUTO-RESILIENT</span>
         </div>
@@ -3532,6 +3533,11 @@
           badge.style.color = '#c084fc';
           badge.style.border = '1px solid #a855f7';
           badge.innerText = 'PREMIUM-ONLY';
+        } else if (strategy === 'evolutionary' || strategy === 'gepa' || strategy === 'adaptive') {
+          badge.style.background = 'rgba(245, 158, 11, 0.25)';
+          badge.style.color = '#fbbf24';
+          badge.style.border = '1px solid #f59e0b';
+          badge.innerText = 'EVOLUTIONARY (GEPA)';
         } else {
           badge.style.background = 'rgba(56, 189, 248, 0.25)';
           badge.style.color = '#38bdf8';

@@ -11,6 +11,8 @@ type PruneOptions struct {
 	EnableTree             bool
 	EnableWhitespace       bool
 	EnableSessionCompactor bool
+	EnableToolCompactor    bool
+	CompactorMinTools      int
 	RecentTurnsToKeep      int
 	CompactorHeadBytes     int
 	CompactorTailBytes     int
@@ -25,6 +27,8 @@ func DefaultOptions() PruneOptions {
 		EnableTree:             true,
 		EnableWhitespace:       true,
 		EnableSessionCompactor: true,
+		EnableToolCompactor:    true,
+		CompactorMinTools:      2,
 		RecentTurnsToKeep:      10,
 		CompactorHeadBytes:     1500,
 		CompactorTailBytes:     1500,
@@ -207,6 +211,22 @@ func (p *Pruner) PruneJSONPayloadWithOptions(raw []byte, opts PruneOptions) ([]b
 						}
 					}
 				}
+			}
+		}
+	}
+
+	// Handle tools array (Hermes progressive disclosure)
+	if opts.EnableToolCompactor {
+		if rawTools, hasTools := root["tools"].([]interface{}); hasTools && len(rawTools) >= opts.CompactorMinTools {
+			var msgs []interface{}
+			if rawMsgs, ok := root["messages"].([]interface{}); ok {
+				msgs = rawMsgs
+			}
+			activeTools := ExtractActiveToolNames(msgs)
+			compactedTools, saved := CompactToolDefinitions(rawTools, activeTools)
+			if saved > 0 {
+				root["tools"] = compactedTools
+				modified = true
 			}
 		}
 	}

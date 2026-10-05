@@ -22,14 +22,19 @@ const (
 	// StrategyLeastCost tries the cheapest targets first (stable, so equal-cost targets keep
 	// their listed order).
 	StrategyLeastCost = "least_cost"
+	// StrategyEvolutionary dynamically orders targets by telemetry-grounded fitness scores (GEPA).
+	StrategyEvolutionary = "evolutionary"
 )
 
 // KnownStrategies lists the accepted Route.Strategy values.
-var KnownStrategies = []string{StrategyFallback, StrategyFreeFirst, StrategyRoundRobin, StrategyLeastCost}
+var KnownStrategies = []string{StrategyFallback, StrategyFreeFirst, StrategyRoundRobin, StrategyLeastCost, StrategyEvolutionary}
 
 // IsKnownStrategy reports whether s is an accepted Route.Strategy value. Empty means fallback.
 func IsKnownStrategy(s string) bool {
 	if s == "" {
+		return true
+	}
+	if s == "gepa" || s == "adaptive" {
 		return true
 	}
 	for _, k := range KnownStrategies {
@@ -87,6 +92,14 @@ func (r *Router) orderTargets(routeID, strategy string, targets []TargetSpec) []
 		}
 		sort.SliceStable(out, func(i, j int) bool { return costs[out[i]] < costs[out[j]] })
 		return out
+	case StrategyEvolutionary, "gepa", "adaptive":
+		r.mu.RLock()
+		ranker := r.evolutionaryRanker
+		r.mu.RUnlock()
+		if ranker != nil {
+			return ranker(targets)
+		}
+		return targets
 	default:
 		return targets
 	}

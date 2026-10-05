@@ -36,6 +36,11 @@ func TestGetCuratedPrompts(t *testing.T) {
 	if len(codingOnly) == 0 {
 		t.Errorf("expected coding prompts, got 0")
 	}
+
+	skillsOnly := miner.GetCuratedPrompts("skills")
+	if len(skillsOnly) < 10 {
+		t.Errorf("expected at least 10 skills prompts, got %d", len(skillsOnly))
+	}
 }
 
 func TestGetCuratedPromptsByLanguage(t *testing.T) {

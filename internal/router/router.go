@@ -179,6 +179,9 @@ type Router struct {
 	verifyCommands []*regexp.Regexp
 	claimMu        sync.Mutex
 	claimCounts    map[claimCountKey]int
+
+	// evolutionaryRanker orders targets for evolutionary / gepa routes.
+	evolutionaryRanker func(targets []TargetSpec) []TargetSpec
 }
 
 // NewRouter initializes the router with configured provider clients and default fallback routes.

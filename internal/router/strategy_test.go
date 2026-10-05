@@ -96,7 +96,7 @@ func TestDispatchRoundRobinSpreadsRequests(t *testing.T) {
 }
 
 func TestIsKnownStrategy(t *testing.T) {
-	for _, s := range []string{"", "fallback", "free_first", "round_robin", "least_cost"} {
+	for _, s := range []string{"", "fallback", "free_first", "round_robin", "least_cost", "evolutionary"} {
 		if !IsKnownStrategy(s) {
 			t.Errorf("IsKnownStrategy(%q) = false", s)
 		}

@@ -124,8 +124,9 @@ func TestMCPProtocolMessages(t *testing.T) {
 			t.Errorf("tool %s schema type = %v", tool.Name, tool.InputSchema["type"])
 		}
 	}
-	if strings.Join(names, ",") != "liltok_ask,liltok_cache_search,liltok_stats" {
-		t.Errorf("tools = %v", names)
+	expectedTools := "liltok_ask,liltok_cache_search,liltok_stats,liltok_memory_save,liltok_memory_list,liltok_memory_delete"
+	if strings.Join(names, ",") != expectedTools {
+		t.Errorf("tools = %v, want %s", names, expectedTools)
 	}
 
 	if e := replies[4].Error; e == nil || e.Code != -32601 || !strings.Contains(e.Message, "no/such/method") {
@@ -603,5 +604,63 @@ func TestLiltokCacheSearchLocalIndexed(t *testing.T) {
 	}
 	if res := searchLiltokCache(offlineURL, "kubernetes operator"); !strings.Contains(res.Content[0].Text, "No cached entries match 'kubernetes operator' in the local cache.") {
 		t.Errorf("no-match result = %+v", res)
+	}
+}
+
+func TestMCP_MemoryTools(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "mcp_memories.db")
+	t.Setenv("LILTOK_DB_PATH", dbPath)
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+
+	// 1. Save memory
+	saveRes := executeTool("liltok_memory_save", map[string]interface{}{
+		"project_key": "my-project",
+		"category":    "convention",
+		"content":     "Use standard Go formatting and camelCase variable names.",
+	}, "http://127.0.0.1:0")
+
+	if saveRes.IsError {
+		t.Fatalf("save memory failed: %+v", saveRes)
+	}
+	if !strings.Contains(saveRes.Content[0].Text, "Memory saved successfully") {
+		t.Errorf("expected success message, got: %s", saveRes.Content[0].Text)
+	}
+
+	// 2. List memories
+	listRes := executeTool("liltok_memory_list", map[string]interface{}{
+		"project_key": "my-project",
+	}, "http://127.0.0.1:0")
+
+	if listRes.IsError {
+		t.Fatalf("list memories failed: %+v", listRes)
+	}
+	if !strings.Contains(listRes.Content[0].Text, "Use standard Go formatting") {
+		t.Errorf("expected saved memory in list, got: %s", listRes.Content[0].Text)
+	}
+
+	// 3. Extract ID and delete
+	lines := strings.Split(listRes.Content[0].Text, "\n")
+	var memID string
+	for _, l := range lines {
+		if strings.Contains(l, "ID:") {
+			parts := strings.Split(l, "ID:")
+			if len(parts) > 1 {
+				memID = strings.TrimSpace(parts[1])
+				break
+			}
+		}
+	}
+	if memID == "" {
+		t.Fatalf("could not extract memory ID from listing: %s", listRes.Content[0].Text)
+	}
+
+	delRes := executeTool("liltok_memory_delete", map[string]interface{}{
+		"id": memID,
+	}, "http://127.0.0.1:0")
+	if delRes.IsError {
+		t.Fatalf("delete memory failed: %+v", delRes)
+	}
+	if !strings.Contains(delRes.Content[0].Text, "deleted successfully") {
+		t.Errorf("expected deleted confirmation, got: %s", delRes.Content[0].Text)
 	}
 }

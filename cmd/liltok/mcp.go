@@ -134,6 +134,59 @@ func runMCPLoop(gatewayURL string) error {
 				"properties": map[string]interface{}{},
 			},
 		},
+		{
+			Name:        "liltok_memory_save",
+			Description: "Persist a project-specific convention, architectural rule, environment quirk, or user preference in Liltok's persistent SQLite database across agent sessions (Hermes Agent memory pattern).",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"content": map[string]interface{}{
+						"type":        "string",
+						"description": "The persistent fact, architectural rule, or environment quirk to remember",
+					},
+					"category": map[string]interface{}{
+						"type":        "string",
+						"description": "Category: convention, environment, quirk, architecture, or user (defaults to convention)",
+					},
+					"project_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Project path or repository name (defaults to global)",
+					},
+				},
+				"required": []string{"content"},
+			},
+		},
+		{
+			Name:        "liltok_memory_list",
+			Description: "List persistent project conventions and environment quirks stored in Liltok across sessions.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"project_key": map[string]interface{}{
+						"type":        "string",
+						"description": "Project path or repository name (defaults to global)",
+					},
+					"limit": map[string]interface{}{
+						"type":        "integer",
+						"description": "Maximum number of memories to return (defaults to 50)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "liltok_memory_delete",
+			Description: "Delete an obsolete persistent memory record from Liltok by ID.",
+			InputSchema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"id": map[string]interface{}{
+						"type":        "string",
+						"description": "Unique identifier of the memory entry to delete",
+					},
+				},
+				"required": []string{"id"},
+			},
+		},
 	}
 
 	for scanner.Scan() {
@@ -164,7 +217,7 @@ func handleMCPRequest(req jsonRPCRequest, tools []mcpTool, gatewayURL string) {
 			},
 			"serverInfo": map[string]interface{}{
 				"name":    "liltok",
-				"version": "0.2.6-beta",
+				"version": "0.2.7-beta",
 			},
 		}
 		sendResult(req.ID, res)
@@ -223,6 +276,30 @@ func executeTool(name string, args map[string]interface{}, gatewayURL string) to
 
 	case "liltok_stats":
 		return getLiltokStats(gatewayURL)
+
+	case "liltok_memory_save":
+		content, _ := args["content"].(string)
+		if strings.TrimSpace(content) == "" {
+			return toolError("content parameter is required")
+		}
+		category, _ := args["category"].(string)
+		projectKey, _ := args["project_key"].(string)
+		return saveLiltokMemory(projectKey, category, content)
+
+	case "liltok_memory_list":
+		projectKey, _ := args["project_key"].(string)
+		limit := 50
+		if l, ok := args["limit"].(float64); ok && l > 0 {
+			limit = int(l)
+		}
+		return listLiltokMemories(projectKey, limit)
+
+	case "liltok_memory_delete":
+		id, _ := args["id"].(string)
+		if strings.TrimSpace(id) == "" {
+			return toolError("id parameter is required")
+		}
+		return deleteLiltokMemory(id)
 
 	default:
 		return toolError(fmt.Sprintf("unknown tool: %s", name))
@@ -560,6 +637,72 @@ Active Local Cache Entries: %d`,
 		stats.TotalSavedUSD, stats.TotalCostUSD, stats.AvgLatencyMs, stats.CacheEntries)
 
 	return toolText(report)
+}
+
+func saveLiltokMemory(projectKey, category, content string) toolCallResult {
+	dbPath := resolveDBPath()
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to open database: %v", err))
+	}
+	defer database.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	entry, err := database.SaveMemory(ctx, projectKey, category, content)
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to save memory: %v", err))
+	}
+
+	return toolText(fmt.Sprintf("Memory saved successfully.\nID: %s\nProject: %s\nCategory: %s\nContent: %s",
+		entry.ID, entry.ProjectKey, entry.Category, entry.Content))
+}
+
+func listLiltokMemories(projectKey string, limit int) toolCallResult {
+	dbPath := resolveDBPath()
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to open database: %v", err))
+	}
+	defer database.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	memories, err := database.ListMemories(ctx, projectKey, limit)
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to list memories: %v", err))
+	}
+
+	if len(memories) == 0 {
+		return toolText(fmt.Sprintf("No memories stored for project '%s'.", projectKey))
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Persistent memories for project '%s' (%d records):\n\n", projectKey, len(memories)))
+	for i, m := range memories {
+		sb.WriteString(fmt.Sprintf("%d. [%s] (%s) %s\n   ID: %s\n", i+1, strings.ToUpper(m.Category), m.UpdatedAt.Format("2006-01-02 15:04"), m.Content, m.ID))
+	}
+	return toolText(sb.String())
+}
+
+func deleteLiltokMemory(id string) toolCallResult {
+	dbPath := resolveDBPath()
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return toolError(fmt.Sprintf("failed to open database: %v", err))
+	}
+	defer database.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := database.DeleteMemory(ctx, id); err != nil {
+		return toolError(fmt.Sprintf("failed to delete memory '%s': %v", id, err))
+	}
+
+	return toolText(fmt.Sprintf("Memory '%s' deleted successfully.", id))
 }
 
 func toolText(text string) toolCallResult {

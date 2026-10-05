@@ -23,6 +23,7 @@ func newRouteCommand() *cobra.Command {
 	cmd.AddCommand(newRouteSwitchCommand())
 	cmd.AddCommand(newRouteSetCommand())
 	cmd.AddCommand(newRouteResetCommand())
+	cmd.AddCommand(newRouteOptimizeCommand())
 
 	return cmd
 }
