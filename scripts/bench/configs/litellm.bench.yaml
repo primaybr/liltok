@@ -1,0 +1,14 @@
+# LiteLLM proxy config. Run: litellm --config scripts/bench/configs/litellm.bench.yaml --port 4000
+# Caching is enabled via in-memory cache for the cache-hit scenario.
+model_list:
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_base: http://127.0.0.1:9999/v1
+      api_key: bench-key
+
+litellm_settings:
+  cache: true
+  cache_params:
+    type: local
+  telemetry: false

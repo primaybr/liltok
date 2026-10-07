@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 )
 
 var (
-	version = "0.2.7-beta"
+	version = "0.3.0-beta"
 	commit  = "none"
 	date    = "unknown"
 
@@ -112,10 +113,27 @@ and resilient routing.`,
 			// Initialize Tier-3 Semantic Similarity Cache
 			var semCache *semantic.SemanticCache
 			if cfg.Cache.SemanticCacheEnabled {
-				semCache = semantic.NewSemanticCache(database, semantic.NewFastLocalEmbedder(256), float32(cfg.Cache.SemanticThreshold))
-				log.Info().
-					Float64("threshold", cfg.Cache.SemanticThreshold).
-					Msg("Tier-3 Semantic Similarity Cache enabled")
+				var embedder semantic.Embedder
+				if strings.EqualFold(cfg.Cache.SemanticProvider, "ollama") {
+					timeout := time.Duration(cfg.Cache.SemanticOllamaTimeoutSec) * time.Second
+					if timeout <= 0 {
+						timeout = 3 * time.Second
+					}
+					embedder = semantic.NewOllamaEmbedder(cfg.Cache.SemanticOllamaURL, cfg.Cache.SemanticOllamaModel, timeout)
+					log.Info().
+						Str("provider", "ollama").
+						Str("url", cfg.Cache.SemanticOllamaURL).
+						Str("model", cfg.Cache.SemanticOllamaModel).
+						Float64("threshold", cfg.Cache.SemanticThreshold).
+						Msg("Tier-3 Semantic Similarity Cache enabled via Ollama")
+				} else {
+					embedder = semantic.NewFastLocalEmbedder(256)
+					log.Info().
+						Str("provider", "fastlocal").
+						Float64("threshold", cfg.Cache.SemanticThreshold).
+						Msg("Tier-3 Semantic Similarity Cache enabled via FastLocalEmbedder")
+				}
+				semCache = semantic.NewSemanticCache(database, embedder, float32(cfg.Cache.SemanticThreshold))
 			}
 
 			// Initialize Router with Fallback Chains and Circuit Breakers

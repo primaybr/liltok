@@ -1,0 +1,36 @@
+{
+  "gateway": "liltok",
+  "base_url": "http://127.0.0.1:8181",
+  "model": "gpt-4o-mini",
+  "duration_per_scenario": "15s",
+  "miss_rate_target": 100,
+  "hit_rate_target": 500,
+  "corpus_size": 200,
+  "dropped_iterations": 0,
+  "miss": {
+    "requests": 1501,
+    "throughput_rps": 100.07,
+    "error_rate": 0,
+    "latency_ms": {
+      "avg": 33.11027641572285,
+      "p50": 31.2034,
+      "p90": 38.4411,
+      "p95": 41.0581,
+      "p99": 48.6483,
+      "max": 145.5446
+    }
+  },
+  "cache_hit": {
+    "requests": 7500,
+    "throughput_rps": 500,
+    "error_rate": 0,
+    "latency_ms": {
+      "avg": 0.7144027200000015,
+      "p50": 0.5063,
+      "p90": 0.8308400000000001,
+      "p95": 2.2248049999999955,
+      "p99": 10.387986000000001,
+      "max": 27.1337
+    }
+  }
+}

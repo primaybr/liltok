@@ -1,0 +1,32 @@
+# Liltok config for the benchmark: one provider (the mock upstream), no secrets,
+# no maintainer, no sync. The db lives in the bench results dir.
+server:
+  host: "127.0.0.1"
+  port: 8181
+  read_timeout_seconds: 60
+  write_timeout_seconds: 300
+
+storage:
+  db_path: "scripts/bench/results/liltok-bench.db"
+  wal_mode: true
+
+cache:
+  l1_max_entries: 10000
+  default_ttl_seconds: 3600
+  cache_nonzero_temperature: false
+  semantic_cache_enabled: false
+
+log:
+  level: "warn"
+  format: "console"
+
+providers:
+  openai:
+    api_key: "bench-key"
+    base_url: "http://127.0.0.1:9999/v1"
+
+routes:
+  default_strategy: "auto-resilient"
+
+maintainer:
+  enabled: false

@@ -165,6 +165,15 @@ func (s *Server) Start() error {
 		WriteTimeout: time.Duration(s.cfg.Server.WriteTimeoutSeconds) * time.Second,
 	}
 
+	if s.cfg.Server.TLS.Enabled && s.cfg.Server.TLS.CertFile != "" && s.cfg.Server.TLS.KeyFile != "" {
+		telemetry.Log.Info().
+			Str("addr", addr).
+			Str("cert", s.cfg.Server.TLS.CertFile).
+			Str("key", s.cfg.Server.TLS.KeyFile).
+			Msg("Liltok Gateway server listening with TLS enabled")
+		return s.httpServer.ListenAndServeTLS(s.cfg.Server.TLS.CertFile, s.cfg.Server.TLS.KeyFile)
+	}
+
 	telemetry.Log.Info().
 		Str("addr", addr).
 		Msg("Liltok Gateway server listening")

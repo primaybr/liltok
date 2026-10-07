@@ -80,3 +80,30 @@ func TestGatewayMemories_CRUD(t *testing.T) {
 		}
 	}
 }
+
+func TestGatewayMemories_Guardrails(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_guardrails.db")
+	t.Setenv("LILTOK_SKIP_STARTER_SEED", "1")
+
+	database, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+	defer database.Close()
+
+	ctx := context.Background()
+
+	// 1. Should reject API key secrets
+	_, err = database.SaveMemory(ctx, "proj", "convention", "My secret is sk-proj-1234567890abcdef1234567890")
+	if err == nil || !strings.Contains(err.Error(), "sensitive credential") {
+		t.Fatalf("expected secret error, got: %v", err)
+	}
+
+	// 2. Should reject oversized content (> 4096 bytes)
+	hugeContent := strings.Repeat("A", MaxMemoryContentBytes+10)
+	_, err = database.SaveMemory(ctx, "proj", "convention", hugeContent)
+	if err == nil || !strings.Contains(err.Error(), "exceeds maximum allowed size") {
+		t.Fatalf("expected size error, got: %v", err)
+	}
+}

@@ -8,28 +8,35 @@ func DefaultConfig() *Config {
 			Port:                8080,
 			ReadTimeoutSeconds:  60,
 			WriteTimeoutSeconds: 300,
+			TLS: TLSConfig{
+				Enabled: false,
+			},
 		},
 		Storage: StorageConfig{
 			DBPath:  "~/.liltok/liltok.db",
 			WALMode: true,
 		},
 		Cache: CacheConfig{
-			L1MaxEntries:            10000,
-			DefaultTTLSeconds:       604800, // 7 days
-			MaxPromptBytes:          256 * 1024,
-			CacheNonzeroTemperature: false,
-			SemanticCacheEnabled:    false,
-			SemanticThreshold:       0.95,
-			PruneDiffs:              true,
-			SessionCompactorEnabled: true,
-			RecentTurnsToKeep:       10,
-			CompactorHeadBytes:      1500,
-			CompactorTailBytes:      1500,
-			CompactorMinSizeBytes:   4000,
-			ProtectCodeFiles:        true,
-			AutoSync:                true,
-			SyncURL:                 "https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz",
-			SyncIntervalHours:       24,
+			L1MaxEntries:             10000,
+			DefaultTTLSeconds:        604800, // 7 days
+			MaxPromptBytes:           256 * 1024,
+			CacheNonzeroTemperature:  false,
+			SemanticCacheEnabled:     false,
+			SemanticThreshold:        0.95,
+			SemanticProvider:         "fastlocal",
+			SemanticOllamaURL:        "http://localhost:11434",
+			SemanticOllamaModel:      "all-minilm",
+			SemanticOllamaTimeoutSec: 3,
+			PruneDiffs:               true,
+			SessionCompactorEnabled:  true,
+			RecentTurnsToKeep:        10,
+			CompactorHeadBytes:       1500,
+			CompactorTailBytes:       1500,
+			CompactorMinSizeBytes:    4000,
+			ProtectCodeFiles:         true,
+			AutoSync:                 true,
+			SyncURL:                  "https://github.com/primaybr/liltok/releases/latest/download/starter_cache.json.gz",
+			SyncIntervalHours:        24,
 		},
 		Log: LogConfig{
 			Level:  "info",
@@ -81,6 +88,9 @@ func DefaultConfig() *Config {
 		Share: ShareConfig{
 			URLAllowlist: []string{"go.dev", "pkg.go.dev", "developer.mozilla.org", "docs.python.org", "nodejs.org",
 				"react.dev", "www.typescriptlang.org", "docs.docker.com", "kubernetes.io", "www.postgresql.org", "sqlite.org"},
+		},
+		Guardrails: GuardrailsConfig{
+			RedactSecrets: false,
 		},
 	}
 }

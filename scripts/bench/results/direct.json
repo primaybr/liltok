@@ -1,0 +1,36 @@
+{
+  "gateway": "direct",
+  "base_url": "http://127.0.0.1:9999",
+  "model": "gpt-4o-mini",
+  "duration_per_scenario": "15s",
+  "miss_rate_target": 100,
+  "hit_rate_target": 500,
+  "corpus_size": 200,
+  "dropped_iterations": 0,
+  "miss": {
+    "requests": 1501,
+    "throughput_rps": 100.07,
+    "error_rate": 0,
+    "latency_ms": {
+      "avg": 30.421719653564246,
+      "p50": 30.3994,
+      "p90": 30.7792,
+      "p95": 30.8899,
+      "p99": 31.1624,
+      "max": 32.0514
+    }
+  },
+  "cache_hit": {
+    "requests": 7500,
+    "throughput_rps": 500,
+    "error_rate": 0,
+    "latency_ms": {
+      "avg": 30.371148106666645,
+      "p50": 30.3552,
+      "p90": 30.67241,
+      "p95": 30.808684999999997,
+      "p99": 31.180337,
+      "max": 32.6515
+    }
+  }
+}

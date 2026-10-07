@@ -11,6 +11,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TLSConfig holds TLS server encryption settings.
+type TLSConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	CertFile string `yaml:"cert_file"`
+	KeyFile  string `yaml:"key_file"`
+}
+
 // ServerConfig holds HTTP server network and lifecycle settings.
 type ServerConfig struct {
 	Host                string `yaml:"host"`
@@ -20,7 +27,8 @@ type ServerConfig struct {
 	// AdminToken, when set, is required on every /api/v1 admin API request (header
 	// X-Liltok-Admin-Token or the dashboard login cookie). Empty leaves the admin API open to local
 	// callers, as before.
-	AdminToken string `yaml:"admin_token"`
+	AdminToken string    `yaml:"admin_token"`
+	TLS        TLSConfig `yaml:"tls"`
 }
 
 // StorageConfig holds persistent SQLite database configurations.
@@ -31,18 +39,22 @@ type StorageConfig struct {
 
 // CacheConfig holds multi-tier caching policies and thresholds.
 type CacheConfig struct {
-	L1MaxEntries            int     `yaml:"l1_max_entries"`
-	DefaultTTLSeconds       int     `yaml:"default_ttl_seconds"`
-	CacheNonzeroTemperature bool    `yaml:"cache_nonzero_temperature"`
-	SemanticCacheEnabled    bool    `yaml:"semantic_cache_enabled"`
-	SemanticThreshold       float64 `yaml:"semantic_threshold"`
-	PruneDiffs              bool    `yaml:"prune_diffs"`
-	SessionCompactorEnabled bool    `yaml:"session_compactor_enabled"`
-	RecentTurnsToKeep       int     `yaml:"recent_turns_to_keep"`
-	CompactorHeadBytes      int     `yaml:"compactor_head_bytes"`
-	CompactorTailBytes      int     `yaml:"compactor_tail_bytes"`
-	CompactorMinSizeBytes   int     `yaml:"compactor_min_size_bytes"`
-	ProtectCodeFiles        bool    `yaml:"protect_code_files"`
+	L1MaxEntries             int     `yaml:"l1_max_entries"`
+	DefaultTTLSeconds        int     `yaml:"default_ttl_seconds"`
+	CacheNonzeroTemperature  bool    `yaml:"cache_nonzero_temperature"`
+	SemanticCacheEnabled     bool    `yaml:"semantic_cache_enabled"`
+	SemanticThreshold        float64 `yaml:"semantic_threshold"`
+	SemanticProvider         string  `yaml:"semantic_provider"`           // "fastlocal", "ollama"
+	SemanticOllamaURL        string  `yaml:"semantic_ollama_url"`         // default "http://localhost:11434"
+	SemanticOllamaModel      string  `yaml:"semantic_ollama_model"`       // default "all-minilm"
+	SemanticOllamaTimeoutSec int     `yaml:"semantic_ollama_timeout_sec"` // default 3
+	PruneDiffs               bool    `yaml:"prune_diffs"`
+	SessionCompactorEnabled  bool    `yaml:"session_compactor_enabled"`
+	RecentTurnsToKeep        int     `yaml:"recent_turns_to_keep"`
+	CompactorHeadBytes       int     `yaml:"compactor_head_bytes"`
+	CompactorTailBytes       int     `yaml:"compactor_tail_bytes"`
+	CompactorMinSizeBytes    int     `yaml:"compactor_min_size_bytes"`
+	ProtectCodeFiles         bool    `yaml:"protect_code_files"`
 	// MaxPromptBytes bounds the canonical request size that is cached; larger requests (agent
 	// session transcripts, which essentially never repeat) skip cache lookup and storage. 0 means
 	// no limit.
@@ -130,6 +142,11 @@ type ShareConfig struct {
 	URLAllowlist []string `yaml:"url_allowlist"`
 }
 
+// GuardrailsConfig defines sensitive data protection and secret redaction.
+type GuardrailsConfig struct {
+	RedactSecrets bool `yaml:"redact_secrets"`
+}
+
 // Config represents the complete runtime configuration of Liltok.
 type Config struct {
 	Server     ServerConfig     `yaml:"server"`
@@ -140,6 +157,7 @@ type Config struct {
 	Routes     RouteConfig      `yaml:"routes"`
 	Maintainer MaintainerConfig `yaml:"maintainer"`
 	Share      ShareConfig      `yaml:"share"`
+	Guardrails GuardrailsConfig `yaml:"guardrails"`
 }
 
 // Load loads configuration by cascading Defaults -> Config File (if exists) -> Environment Variables.
@@ -317,6 +335,35 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("LILTOK_MAINTAINER_PUBKEY"); v != "" {
 		cfg.Maintainer.PublicKey = v
+	}
+	if v := os.Getenv("LILTOK_TLS_ENABLED"); v != "" {
+		cfg.Server.TLS.Enabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_TLS_CERT_FILE"); v != "" {
+		cfg.Server.TLS.CertFile = v
+	}
+	if v := os.Getenv("LILTOK_TLS_KEY_FILE"); v != "" {
+		cfg.Server.TLS.KeyFile = v
+	}
+	if v := os.Getenv("LILTOK_SEMANTIC_CACHE_ENABLED"); v != "" {
+		cfg.Cache.SemanticCacheEnabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("LILTOK_SEMANTIC_PROVIDER"); v != "" {
+		cfg.Cache.SemanticProvider = v
+	}
+	if v := os.Getenv("LILTOK_SEMANTIC_OLLAMA_URL"); v != "" {
+		cfg.Cache.SemanticOllamaURL = v
+	}
+	if v := os.Getenv("LILTOK_SEMANTIC_OLLAMA_MODEL"); v != "" {
+		cfg.Cache.SemanticOllamaModel = v
+	}
+	if v := os.Getenv("LILTOK_SEMANTIC_OLLAMA_TIMEOUT_SEC"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			cfg.Cache.SemanticOllamaTimeoutSec = n
+		}
+	}
+	if v := os.Getenv("LILTOK_GUARDRAILS_REDACT_SECRETS"); v != "" {
+		cfg.Guardrails.RedactSecrets = strings.ToLower(v) == "true" || v == "1"
 	}
 }
 

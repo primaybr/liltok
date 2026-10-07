@@ -1,0 +1,11 @@
+﻿{
+    "process":  "liltok-bench",
+    "pid":  18684,
+    "samples":  173,
+    "wall_seconds":  45.5,
+    "peak_rss_mb":  565.6,
+    "avg_rss_mb":  351.6,
+    "cpu_seconds_total":  16.77,
+    "cpu_percent_avg_of_one_core":  36.9,
+    "cpu_percent_peak_of_one_core":  147.7
+}

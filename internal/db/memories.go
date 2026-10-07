@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/primaybr/liltok/internal/guardrails"
 )
 
 // MemoryEntry represents a persistent memory record stored in SQLite.
@@ -47,6 +49,9 @@ func isHex16(s string) bool {
 	return true
 }
 
+// MaxMemoryContentBytes defines the hard size limit (4 KB) for an individual memory entry.
+const MaxMemoryContentBytes = 4096
+
 // SaveMemory inserts or updates a memory entry for a project.
 func (d *DB) SaveMemory(ctx context.Context, projectKey, category, content string) (*MemoryEntry, error) {
 	category = strings.ToLower(strings.TrimSpace(category))
@@ -59,6 +64,12 @@ func (d *DB) SaveMemory(ctx context.Context, projectKey, category, content strin
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return nil, fmt.Errorf("memory content cannot be empty")
+	}
+	if len(content) > MaxMemoryContentBytes {
+		return nil, fmt.Errorf("memory content exceeds maximum allowed size (%d bytes)", MaxMemoryContentBytes)
+	}
+	if guardrails.HasSecrets(content) {
+		return nil, fmt.Errorf("memory rejected: sensitive credential or secret token detected")
 	}
 
 	normKey := NormalizeProjectKey(projectKey)

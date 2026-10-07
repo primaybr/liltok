@@ -1,0 +1,12 @@
+﻿{
+    "captured_utc":  "2026-10-07T16:09:17Z",
+    "os":  "Microsoft Windows 11 Home Single Language 10.0.26200",
+    "cpu_model":  "Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz",
+    "cpu_physical_cores":  6,
+    "cpu_logical_cores":  12,
+    "ram_gb":  31.8,
+    "tools":  {
+                  "go":  "go version go1.27.0 windows/amd64",
+                  "k6":  "k6.exe v2.2.0 (commit/00a9a1b7f5, go1.26.5, windows/amd64)"
+              }
+}

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0-beta] - 2026-10-07
+
+### Added
+- **Ollama Semantic Embedder Integration (M4.4):** connects Tier-3 semantic caching directly to local Ollama embedding instances via `cache.semantic_provider: "ollama"` (`LILTOK_SEMANTIC_PROVIDER`), configured with `cache.semantic_ollama_url` (default `http://localhost:11434`), `cache.semantic_ollama_model` (default `all-minilm`), and `cache.semantic_ollama_timeout_sec` (default 3s). Enables dense vector semantic similarity search using lightweight local embedding models (such as `all-minilm` at ~45 MB or `nomic-embed-text` at ~274 MB) alongside the built-in pure-Go `FastLocalEmbedder`. Outages or timeouts during embedding lookups gracefully result in non-blocking cache misses without interrupting client requests.
+- **Sensitive Credential and Secret Redactor Guardrail:** introduces the `internal/guardrails` package to scan and redact credentials across gateway storage and memory pipelines. Automatically identifies API keys (`sk-...`, `sk-ant-...`), GitHub personal access tokens (`ghp_...`, `github_pat_...`), AWS access key IDs (`AKIA...`), Slack tokens, private keys (`-----BEGIN ... PRIVATE KEY-----`), and generic Authorization Bearer tokens.
+- **Agent Memory Size Limits and Secret Protection:** enforces strict 4,096-byte content caps and automated secret scanning on `SaveMemory` and the `liltok_memory_save` MCP tool. Autonomous coding agents are prevented from persisting API keys, credentials, or massive log payloads into persistent project memory (`gateway_memories` table).
+- **Native HTTPS / TLS Server Support (M0.2):** allows the gateway to serve HTTPS directly via `server.tls.enabled: true` (`LILTOK_TLS_ENABLED`), `server.tls.cert_file` (`LILTOK_TLS_CERT_FILE`), and `server.tls.key_file` (`LILTOK_TLS_KEY_FILE`). Invokes `ListenAndServeTLS` in `internal/server` to facilitate secure LAN and remote team deployments without requiring an external Caddy or Nginx reverse proxy.
+- **Reproducible Gateway Overhead Benchmark Suite:** introduces `scripts/bench` containing an isolated deterministic OpenAI-compatible mock upstream (`mockupstream`), k6 benchmark scenario (`overhead.js`), resource monitor (`monitor.ps1`), host detection, and markdown report generator. Measured on standard hardware: +0.80 ms P50 added latency overhead on cache misses, 0.51 ms P50 latency on cache hits at 500 RPS with 0.00% error rate.
+
 ## [0.2.7-beta] - 2026-10-05
 
 ### Added
