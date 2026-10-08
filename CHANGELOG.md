@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1-beta] - 2026-10-08
+
 ### Fixed
 - **Secret guardrail:** `guardrails.redact_secrets` now takes effect. Requests and responses containing credentials are excluded from the exact and semantic caches on all three store paths. The `github_pat_` pattern now matches variable-length fine-grained tokens.
 - **Ollama embedder:** removed a data race on the stored dimension; the fallback model is now `all-minilm`, matching the config default.
