@@ -744,3 +744,64 @@ func TestProxy_GatewayMemoryEnrichment(t *testing.T) {
 		t.Errorf("memory block was not bypassed when X-Liltok-Memory: false was set")
 	}
 }
+
+func TestProxyRedactSecretsSkipsCache(t *testing.T) {
+	secret := "ghp_" + strings.Repeat("a1B2", 9)
+	cases := []struct {
+		name      string
+		redact    bool
+		reqText   string
+		respText  string
+		wantCalls int64
+	}{
+		{"secret in request, guardrail on", true, "token " + secret, "ok", 2},
+		{"secret in response, guardrail on", true, "plain question", "key " + secret, 2},
+		{"secret in request, guardrail off", false, "token " + secret, "ok", 1},
+		{"no secret, guardrail on", true, "plain question", "ok", 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls int64
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt64(&calls, 1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"id":"c1","choices":[{"message":{"role":"assistant","content":"` + tc.respText + `"}}]}`))
+			}))
+			defer upstream.Close()
+
+			database, err := db.Open(":memory:")
+			if err != nil {
+				t.Fatalf("open db: %v", err)
+			}
+			defer database.Close()
+			store, err := exact.NewTieredStore(database, 100)
+			if err != nil {
+				t.Fatalf("open store: %v", err)
+			}
+			defer store.Close()
+
+			cfg := config.DefaultConfig()
+			cfg.Providers.OpenAI.BaseURL = upstream.URL + "/v1"
+			cfg.Providers.OpenAI.APIKey = "key"
+			cfg.Guardrails.RedactSecrets = tc.redact
+
+			p := NewProxy(cfg, store, nil, nil, nil, nil)
+			handler := middleware.RequestID(http.HandlerFunc(p.HandleChatCompletions))
+			body := `{"model":"gpt-4o","messages":[{"role":"user","content":"` + tc.reqText + `"}],"temperature":0.0}`
+
+			for i := 0; i < 2; i++ {
+				req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				rec := httptest.NewRecorder()
+				handler.ServeHTTP(rec, req)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("call %d failed: %d", i+1, rec.Code)
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			if got := atomic.LoadInt64(&calls); got != tc.wantCalls {
+				t.Errorf("upstream calls = %d, want %d", got, tc.wantCalls)
+			}
+		})
+	}
+}

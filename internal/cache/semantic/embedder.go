@@ -121,7 +121,7 @@ func NewOllamaEmbedder(baseURL, model string, timeout time.Duration) *OllamaEmbe
 		baseURL = "http://localhost:11434"
 	}
 	if model == "" {
-		model = "nomic-embed-text"
+		model = "all-minilm"
 	}
 	if timeout <= 0 {
 		timeout = 5 * time.Second
@@ -132,7 +132,7 @@ func NewOllamaEmbedder(baseURL, model string, timeout time.Duration) *OllamaEmbe
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},
-		dimension: 768,
+		dimension: 384,
 	}
 }
 
@@ -171,8 +171,6 @@ func (o *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode ollama embedding response: %w", err)
 	}
-
-	o.dimension = len(result.Embedding)
 
 	// L2 Normalize
 	var sumSq float64

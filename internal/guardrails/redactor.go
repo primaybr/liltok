@@ -11,7 +11,7 @@ var secretPatterns = []struct {
 	{"anthropic_key", regexp.MustCompile(`\bsk-ant-[A-Za-z0-9_-]{20,}\b`)},
 	{"openai_key", regexp.MustCompile(`\bsk-(?:proj-|admin-)?[A-Za-z0-9]{20,}\b`)},
 	{"github_pat", regexp.MustCompile(`\bghp_[A-Za-z0-9]{36}\b`)},
-	{"github_fine", regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{82}\b`)},
+	{"github_fine", regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,255}\b`)},
 	{"aws_access_key", regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`)},
 	{"slack_token", regexp.MustCompile(`\bxox[baprs]-[A-Za-z0-9_-]{10,}\b`)},
 	{"bearer_token", regexp.MustCompile(`(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}\b`)},

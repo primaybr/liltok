@@ -87,3 +87,10 @@ func TestRedactSecrets(t *testing.T) {
 		t.Errorf("missing github redaction placeholder: %s", redacted)
 	}
 }
+
+func TestGithubFineGrainedPATVariableLength(t *testing.T) {
+	tok := "github_pat_" + strings.Repeat("A", 40)
+	if !HasSecrets(tok) {
+		t.Fatalf("expected %q to be detected", tok)
+	}
+}

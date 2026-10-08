@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"sync"
 	"time"
 
 	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/telemetry"
 )
 
 // SemanticCache provides high-level Tier-3 semantic similarity caching.
@@ -14,6 +16,7 @@ type SemanticCache struct {
 	embedder  Embedder
 	index     *VectorIndex
 	threshold float32
+	purgeOnce sync.Once
 }
 
 // NewSemanticCache creates a new SemanticCache with given DB, embedder, and match threshold.
@@ -52,6 +55,8 @@ func (sc *SemanticCache) Lookup(ctx context.Context, model, systemPrompt, toolsJ
 		return nil, 0, false
 	}
 
+	sc.purgeStale(ctx, len(queryVec))
+
 	sysHash := ComputeHash(systemPrompt)
 	toolsHash := ComputeHash(toolsJSON)
 
@@ -70,6 +75,8 @@ func (sc *SemanticCache) Store(ctx context.Context, hash, model, systemPrompt, t
 		return err
 	}
 
+	sc.purgeStale(ctx, len(vec))
+
 	if ttl <= 0 {
 		ttl = 7 * 24 * time.Hour
 	}
@@ -87,6 +94,18 @@ func (sc *SemanticCache) Store(ctx context.Context, hash, model, systemPrompt, t
 	}
 
 	return sc.index.Insert(ctx, entry)
+}
+
+// purgeStale runs once, after the first successful embedding, and removes stored vectors whose
+// dimension differs from the active embedder's (left over from a different semantic_provider).
+func (sc *SemanticCache) purgeStale(ctx context.Context, dim int) {
+	sc.purgeOnce.Do(func() {
+		if n, err := sc.index.PurgeOtherDimensions(ctx, dim); err != nil {
+			telemetry.Log.Warn().Err(err).Msg("semantic cache: failed to purge stale-dimension vectors")
+		} else if n > 0 {
+			telemetry.Log.Info().Int("purged", n).Int("dimension", dim).Msg("semantic cache: purged vectors from a previous embedder")
+		}
+	})
 }
 
 // Index returns underlying VectorIndex.

@@ -18,6 +18,7 @@ import (
 	"github.com/primaybr/liltok/internal/cache/semantic"
 	"github.com/primaybr/liltok/internal/config"
 	"github.com/primaybr/liltok/internal/db"
+	"github.com/primaybr/liltok/internal/guardrails"
 	"github.com/primaybr/liltok/internal/ledger"
 	"github.com/primaybr/liltok/internal/provider"
 	"github.com/primaybr/liltok/internal/router"
@@ -45,6 +46,12 @@ type Proxy struct {
 	// keepAliveDelay and keepAliveInterval control the SSE keep-alive sent to streaming clients
 	// while a routed dispatch runs (see keepalive.go).
 	keepAliveDelay, keepAliveInterval time.Duration
+}
+
+// responseHasSecrets reports whether a response must stay out of the cache because
+// guardrails.redact_secrets is on and the payload carries a credential.
+func (p *Proxy) responseHasSecrets(payload []byte) bool {
+	return p.cfg.Guardrails.RedactSecrets && guardrails.HasSecrets(string(payload))
 }
 
 // NewProxy creates a new Proxy instance with multi-tier caching, routing, and accounting capabilities.
@@ -307,6 +314,10 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 			// Requests above cache.max_prompt_bytes are agent transcripts that essentially never
 			// repeat; caching them only grows the database, so they skip lookup and storage.
 			if limit := p.cfg.Cache.MaxPromptBytes; limit > 0 && len(normReq.CanonicalJSON) > limit {
+				normReq.IsCacheable = false
+			}
+			// With guardrails.redact_secrets on, requests carrying credentials are never cached.
+			if p.cfg.Guardrails.RedactSecrets && normReq.IsCacheable && guardrails.HasSecrets(normReq.CanonicalJSON) {
 				normReq.IsCacheable = false
 			}
 			if normReq.IsCacheable && p.cacheStore != nil {
@@ -624,7 +635,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 					StatusCode:        http.StatusOK,
 				})
 
-				if normReq != nil && normReq.IsCacheable && len(finalBytes) > 0 {
+				if normReq != nil && normReq.IsCacheable && len(finalBytes) > 0 && !p.responseHasSecrets(finalBytes) {
 					if p.cacheStore != nil {
 						entry := &cache.CacheEntry{
 							Hash:             normReq.Hash,
@@ -921,7 +932,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				StatusCode:        resp.StatusCode,
 			})
 
-			if normReq != nil && normReq.IsCacheable && len(payloadBytes) > 0 {
+			if normReq != nil && normReq.IsCacheable && len(payloadBytes) > 0 && !p.responseHasSecrets(payloadBytes) {
 				if p.cacheStore != nil {
 					entry := &cache.CacheEntry{
 						Hash:             normReq.Hash,
@@ -978,7 +989,7 @@ func (p *Proxy) proxyToTarget(w http.ResponseWriter, r *http.Request, targetProv
 				StatusCode:        resp.StatusCode,
 			})
 
-			if resp.StatusCode == http.StatusOK && normReq != nil && normReq.IsCacheable {
+			if resp.StatusCode == http.StatusOK && normReq != nil && normReq.IsCacheable && !p.responseHasSecrets(respBytes) {
 				if p.cacheStore != nil {
 					entry := &cache.CacheEntry{
 						Hash:             normReq.Hash,

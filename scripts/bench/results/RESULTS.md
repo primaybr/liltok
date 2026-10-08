@@ -1,4 +1,4 @@
-﻿# Benchmark results
+# Benchmark results
 
 Host: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz, 6C/12T, 31.8 GB RAM, Microsoft Windows 11 Home Single Language 10.0.26200
 Tools: go version go1.27.0 windows/amd64; k6.exe v2.2.0 (commit/00a9a1b7f5, go1.26.5, windows/amd64)

@@ -165,7 +165,10 @@ func (s *Server) Start() error {
 		WriteTimeout: time.Duration(s.cfg.Server.WriteTimeoutSeconds) * time.Second,
 	}
 
-	if s.cfg.Server.TLS.Enabled && s.cfg.Server.TLS.CertFile != "" && s.cfg.Server.TLS.KeyFile != "" {
+	if s.cfg.Server.TLS.Enabled {
+		if s.cfg.Server.TLS.CertFile == "" || s.cfg.Server.TLS.KeyFile == "" {
+			return fmt.Errorf("server.tls.enabled is true but cert_file or key_file is empty")
+		}
 		telemetry.Log.Info().
 			Str("addr", addr).
 			Str("cert", s.cfg.Server.TLS.CertFile).

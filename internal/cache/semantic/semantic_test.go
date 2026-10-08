@@ -190,3 +190,13 @@ func TestOllamaEmbedder(t *testing.T) {
 		t.Fatalf("Expected vector length 4, got %d", len(vec))
 	}
 }
+
+func TestPurgeOtherDimensions(t *testing.T) {
+	idx := semantic.NewVectorIndex(nil)
+	_ = idx.Insert(context.Background(), &semantic.SemanticEntry{Hash: "a", Vector: make([]float32, 256)})
+	_ = idx.Insert(context.Background(), &semantic.SemanticEntry{Hash: "b", Vector: make([]float32, 384)})
+	n, err := idx.PurgeOtherDimensions(context.Background(), 384)
+	if err != nil || n != 1 || idx.Size() != 1 {
+		t.Fatalf("purged=%d err=%v size=%d, want 1 nil 1", n, err, idx.Size())
+	}
+}

@@ -205,6 +205,34 @@ func (idx *VectorIndex) Insert(ctx context.Context, entry *SemanticEntry) error 
 	return nil
 }
 
+// PurgeOtherDimensions drops every vector whose length differs from dim, in memory and in
+// semantic_embeddings. Vectors from a previously configured embedder can never match the current
+// one; the underlying cache_entries rows stay, so the exact-match tiers are unaffected. It returns
+// the number of in-memory entries removed.
+func (idx *VectorIndex) PurgeOtherDimensions(ctx context.Context, dim int) (int, error) {
+	idx.mu.Lock()
+	kept := idx.entries[:0]
+	removed := 0
+	for _, e := range idx.entries {
+		if len(e.Vector) == dim {
+			kept = append(kept, e)
+		} else {
+			removed++
+		}
+	}
+	for i := len(kept); i < len(idx.entries); i++ {
+		idx.entries[i] = nil
+	}
+	idx.entries = kept
+	idx.mu.Unlock()
+
+	if idx.db == nil {
+		return removed, nil
+	}
+	_, err := idx.db.ExecContext(ctx, `DELETE FROM semantic_embeddings WHERE dimension != ?`, dim)
+	return removed, err
+}
+
 // Size returns count of active entries.
 func (idx *VectorIndex) Size() int {
 	idx.mu.RLock()
