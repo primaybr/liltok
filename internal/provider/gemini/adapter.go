@@ -265,6 +265,7 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 				Content struct {
 					Parts []struct {
 						Text         string `json:"text"`
+						Thought      bool   `json:"thought"`
 						FunctionCall *struct {
 							Name string                 `json:"name"`
 							Args map[string]interface{} `json:"args"`
@@ -275,6 +276,9 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 				} `json:"content"`
 				FinishReason string `json:"finishReason"`
 			} `json:"candidates"`
+			PromptFeedback *struct {
+				BlockReason string `json:"blockReason"`
+			} `json:"promptFeedback"`
 			UsageMetadata struct {
 				PromptTokenCount     int `json:"promptTokenCount"`
 				CandidatesTokenCount int `json:"candidatesTokenCount"`
@@ -286,13 +290,24 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 			return nil, fmt.Errorf("failed to parse gemini json: %w", err)
 		}
 
+		if geminiResp.PromptFeedback != nil && geminiResp.PromptFeedback.BlockReason != "" && geminiResp.PromptFeedback.BlockReason != "BLOCK_REASON_UNSPECIFIED" {
+			return nil, fmt.Errorf("gemini blocked prompt: %s", geminiResp.PromptFeedback.BlockReason)
+		}
+
 		content := ""
+		reasoningContent := ""
 		finishReason := "stop"
 		var toolCalls []provider.UnifiedToolCall
 		if len(geminiResp.Candidates) > 0 {
 			c := geminiResp.Candidates[0]
+			upperReason := strings.ToUpper(c.FinishReason)
+			if (upperReason == "SAFETY" || upperReason == "RECITATION" || upperReason == "BLOCKLIST" || upperReason == "PROHIBITED_CONTENT" || upperReason == "SPII") && len(c.Content.Parts) == 0 {
+				return nil, fmt.Errorf("gemini candidate blocked by upstream policy: %s", c.FinishReason)
+			}
 			for _, p := range c.Content.Parts {
-				if p.Text != "" {
+				if p.Thought {
+					reasoningContent += p.Text
+				} else if p.Text != "" {
 					content += p.Text
 				}
 				if p.FunctionCall != nil {
@@ -325,12 +340,13 @@ func (a *Adapter) SendChat(ctx context.Context, req *provider.UnifiedChatRequest
 		}
 
 		return &provider.UnifiedChatResponse{
-			ID:           fmt.Sprintf("gemini-%x", time.Now().UnixMilli()),
-			Model:        req.Model,
-			Role:         "assistant",
-			Content:      content,
-			ToolCalls:    toolCalls,
-			FinishReason: finishReason,
+			ID:               fmt.Sprintf("gemini-%x", time.Now().UnixMilli()),
+			Model:            req.Model,
+			Role:             "assistant",
+			Content:          content,
+			ReasoningContent: reasoningContent,
+			ToolCalls:        toolCalls,
+			FinishReason:     finishReason,
 			Usage: provider.UnifiedUsage{
 				PromptTokens:     geminiResp.UsageMetadata.PromptTokenCount,
 				CompletionTokens: geminiResp.UsageMetadata.CandidatesTokenCount,
@@ -351,17 +367,35 @@ func (a *Adapter) StreamChat(ctx context.Context, req *provider.UnifiedChatReque
 		return nil, nil, err
 	}
 
-	eventChan := make(chan provider.UnifiedSSEEvent, 2)
+	bufSize := 2 + len(resp.ToolCalls)
+	if resp.ReasoningContent != "" {
+		bufSize++
+	}
+	eventChan := make(chan provider.UnifiedSSEEvent, bufSize)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(eventChan)
 		defer close(errChan)
 
-		eventChan <- provider.UnifiedSSEEvent{
-			Type:      "text_delta",
-			DeltaText: resp.Content,
-			Role:      "assistant",
+		if resp.ReasoningContent != "" {
+			eventChan <- provider.UnifiedSSEEvent{
+				Type:      "thinking_delta",
+				DeltaText: resp.ReasoningContent,
+			}
+		}
+		if resp.Content != "" {
+			eventChan <- provider.UnifiedSSEEvent{
+				Type:      "text_delta",
+				DeltaText: resp.Content,
+				Role:      "assistant",
+			}
+		}
+		for _, tc := range resp.ToolCalls {
+			eventChan <- provider.UnifiedSSEEvent{
+				Type:      "tool_call",
+				ToolCalls: []provider.UnifiedToolCall{tc},
+			}
 		}
 		eventChan <- provider.UnifiedSSEEvent{
 			Type:         "finish",

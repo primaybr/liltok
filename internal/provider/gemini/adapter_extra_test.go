@@ -492,3 +492,136 @@ func TestCleanGeminiSchema_NonMapInputs(t *testing.T) {
 		t.Errorf("got %s", got)
 	}
 }
+
+func TestStreamChat_ToolCallsEmitted(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"candidates": [{
+				"content": {
+					"parts": [{
+						"functionCall": {
+							"name": "ReadFile",
+							"args": {"path": "main.go"}
+						}
+					}],
+					"role": "model"
+				},
+				"finishReason": "STOP"
+			}],
+			"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}
+		}`))
+	}))
+	defer srv.Close()
+
+	adapter := NewAdapter(srv.URL, "test-key")
+	events, errs, err := adapter.StreamChat(context.Background(), &provider.UnifiedChatRequest{Model: "gemini-3.8-flash"})
+	if err != nil {
+		t.Fatalf("StreamChat failed: %v", err)
+	}
+
+	var got []provider.UnifiedSSEEvent
+	for ev := range events {
+		got = append(got, ev)
+	}
+	for e := range errs {
+		t.Fatalf("unexpected stream error: %v", e)
+	}
+
+	if len(got) != 2 {
+		t.Fatalf("expected 2 events (tool_call and finish), got %d: %+v", len(got), got)
+	}
+	if got[0].Type != "tool_call" || len(got[0].ToolCalls) != 1 || got[0].ToolCalls[0].Function.Name != "ReadFile" {
+		t.Errorf("expected tool_call ReadFile, got %+v", got[0])
+	}
+	if got[1].Type != "finish" || got[1].FinishReason != "tool_calls" {
+		t.Errorf("expected finish with finishReason tool_calls, got %+v", got[1])
+	}
+}
+
+func TestStreamChat_ThinkingDeltaEmitted(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"candidates": [{
+				"content": {
+					"parts": [
+						{"text": "step by step thoughts", "thought": true},
+						{"text": "final answer"}
+					],
+					"role": "model"
+				},
+				"finishReason": "STOP"
+			}],
+			"usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 8, "totalTokenCount": 18}
+		}`))
+	}))
+	defer srv.Close()
+
+	adapter := NewAdapter(srv.URL, "test-key")
+	events, errs, err := adapter.StreamChat(context.Background(), &provider.UnifiedChatRequest{Model: "gemini-3.8-flash"})
+	if err != nil {
+		t.Fatalf("StreamChat failed: %v", err)
+	}
+
+	var got []provider.UnifiedSSEEvent
+	for ev := range events {
+		got = append(got, ev)
+	}
+	for e := range errs {
+		t.Fatalf("unexpected stream error: %v", e)
+	}
+
+	if len(got) != 3 {
+		t.Fatalf("expected 3 events (thinking_delta, text_delta, finish), got %d: %+v", len(got), got)
+	}
+	if got[0].Type != "thinking_delta" || got[0].DeltaText != "step by step thoughts" {
+		t.Errorf("expected thinking_delta, got %+v", got[0])
+	}
+	if got[1].Type != "text_delta" || got[1].DeltaText != "final answer" {
+		t.Errorf("expected text_delta final answer, got %+v", got[1])
+	}
+	if got[2].Type != "finish" {
+		t.Errorf("expected finish, got %+v", got[2])
+	}
+}
+
+func TestSendChat_PromptFeedbackBlockError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"promptFeedback": {
+				"blockReason": "SAFETY"
+			}
+		}`))
+	}))
+	defer srv.Close()
+
+	adapter := NewAdapter(srv.URL, "test-key")
+	_, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{Model: "gemini-3.8-flash"})
+	if err == nil || !strings.Contains(err.Error(), "gemini blocked prompt: SAFETY") {
+		t.Fatalf("expected blocked prompt error, got: %v", err)
+	}
+}
+
+func TestSendChat_CandidateSafetyPolicyBlockError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"candidates": [{
+				"content": {
+					"parts": [],
+					"role": "model"
+				},
+				"finishReason": "SAFETY"
+			}]
+		}`))
+	}))
+	defer srv.Close()
+
+	adapter := NewAdapter(srv.URL, "test-key")
+	_, err := adapter.SendChat(context.Background(), &provider.UnifiedChatRequest{Model: "gemini-3.8-flash"})
+	if err == nil || !strings.Contains(err.Error(), "gemini candidate blocked by upstream policy: SAFETY") {
+		t.Fatalf("expected candidate blocked error, got: %v", err)
+	}
+}

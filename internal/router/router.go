@@ -1037,6 +1037,9 @@ func checkReply(req *provider.UnifiedChatRequest, target TargetSpec, resp *provi
 	// Visible text excludes <think> blocks and content that only repeats the reasoning, both of which
 	// the Anthropic translator moves out of the text block (a reply cut off at max_tokens mid-thought).
 	if visibleReplyText(resp) == "" && len(resp.ToolCalls) == 0 {
+		if resp.FinishReason != "" && resp.FinishReason != "stop" {
+			return fmt.Errorf("upstream provider %s returned empty completion with no content and no tool calls (finish_reason: %s)", target.ProviderName, resp.FinishReason)
+		}
 		return fmt.Errorf("upstream provider %s returned empty or corrupted completion with no content and no tool calls", target.ProviderName)
 	}
 
